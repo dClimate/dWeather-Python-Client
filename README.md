@@ -6,4 +6,3 @@
     bin/python3 -m pytest tests
 
 See `tests` directory for example usage.
-

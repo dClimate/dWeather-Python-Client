@@ -1,7 +1,7 @@
 # dWeather-client-python
 
-virtualenv .
-bin/pip3 install -r requirements.txt
-bin/python3 -m pytest tests
+    virtualenv .
+    bin/pip3 install -r requirements.txt
+    bin/python3 -m pytest tests
 
 See `tests` directory for example usage.

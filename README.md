@@ -1,4 +1,4 @@
-# dWeather-client-python
+# dWeather-Python-Client
 
     cd dweather_client
     virtualenv .

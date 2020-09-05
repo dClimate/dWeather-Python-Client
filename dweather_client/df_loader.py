@@ -2,7 +2,7 @@
 Basic functions for getting data from a dWeather gateway via https if you prefer to work
 in pandas dataframes rather than Python's built in types. A wrapper for http_client.
 """
-from http_client import get_rainfall_dict, get_station_csv
+from dweather_client.http_client import get_rainfall_dict, get_station_csv
 import pandas as pd
 import io
 

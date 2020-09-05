@@ -2,8 +2,8 @@
 Basic functions for getting data from a dWeather gateway via https.
 """
 import requests, datetime, io, gzip
-from ipfs_errors import *
-from utils import listify_period
+from dweather_client.ipfs_errors import *
+from dweather_client.utils import listify_period
 
 MM_TO_INCHES = 0.0393701
 RAINFALL_PRECISION = 5

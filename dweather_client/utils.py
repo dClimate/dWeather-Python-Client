@@ -139,5 +139,18 @@ def period_slice_df(df, ps, pe, yrs):
     return mydf
 
 
-
+def is_revision_final(dataset, revision_to_check, last_acceptable_revision):
+    """
+    See if a given dataset revision should be considered 'final'
+    a final dataset is any dataset at or before the last acceptable one
+    Args:
+        dataset (str): the dataset name (e.g. prism_precip)
+        revision_to_check (str): the revision tag under consideration for final status
+        last_acceptable_revision (str): the last 'final' revision tag
+    returns:
+        bool true if the revision is considered final
+    """
+    # The dataset revision lists are ordered by accuracy so we simply compare the indicies in the list
+    dataset_list = IPFSDatasets.datasets[dataset]
+    return dataset_list.index(revision_to_check) <= dataset_list.index(last_acceptable_revision)
 

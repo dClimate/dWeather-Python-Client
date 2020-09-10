@@ -1,4 +1,5 @@
 import arithmetic
+import df_arithmetic
 import datetime
 import df_loader
 import utils
@@ -35,7 +36,7 @@ def test_sum_period_df():
         TODAY - (ONE_MONTH * 7), 
         30,
     )
-    df_sum = arithmetic.sum_period_df(
+    df_sum = df_arithmetic.sum_period_df(
         rainfall_df, 
         TODAY - (ONE_MONTH * 8), 
         TODAY - (ONE_MONTH * 7),
@@ -51,7 +52,7 @@ def test_avg_period_df():
         TODAY - (ONE_MONTH * 7), 
         30,
     )
-    df_avg = arithmetic.avg_period_df(
+    df_avg = df_arithmetic.avg_period_df(
         rainfall_df, 
         TODAY - (ONE_MONTH * 8), 
         TODAY - (ONE_MONTH * 7),

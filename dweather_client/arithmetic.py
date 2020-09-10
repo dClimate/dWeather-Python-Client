@@ -4,7 +4,7 @@ Mainly related to summing and averaging over time.
 """
 import numpy as np
 import pandas as pd
-from dweather_client.http_client import get_rainfall_dict
+from dweather_client.http_client import get_rainfall_dict, get_rev_rainfall_dict
 from dweather_client.utils import listify_period
 import datetime
 

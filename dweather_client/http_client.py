@@ -4,7 +4,7 @@ Basic functions for getting data from a dWeather gateway via https.
 import requests, datetime, io, gzip
 from dweather_client.ipfs_errors import *
 from dweather_client.utils import listify_period
-import IPFSDatasets
+import dweather_client.ipfs_datasets
 
 MM_TO_INCHES = 0.0393701
 RAINFALL_PRECISION = 5
@@ -196,7 +196,7 @@ def get_rev_rainfall_dict(lat, lon, dataset, desired_end_date, latest_rev):
     is_final = True
 
     # Build the rainfall from the most accurate revision of the dataset to the least
-    for dataset_revision in IPFSDatasets.datasets[dataset]:
+    for dataset_revision in dweather_client.ipfs_datasets.datasets[dataset]:
         additional_rainfall = get_rainfall_dict(lat, lon, dataset_revision)
         all_dates = list(all_rainfall) + list(additional_rainfall)
         # This method of dict comprehension preserves the order of the dict
@@ -270,7 +270,7 @@ def get_rev_temperature_dict(lat, lon, dataset, desired_end_date, latest_rev):
     is_final = True
 
     # Build the data from the most accurate version of the dataset to the least
-    for dataset_revision in IPFSDatasets.datasets[dataset]:
+    for dataset_revision in dweather_client.ipfs_datasets.datasets[dataset]:
         additional_highs, additional_lows = get_temperature_dict(lat, lon, dataset_revision)
         all_dates = list(highs) + list(additional_highs)    
         highs = {date: highs[date] if date in highs else additional_highs[date] for date in all_dates}
@@ -302,7 +302,7 @@ def get_rev_tagged_temperature_dict(lat, lon, dataset, desired_end_date=None):
     lows = {}
 
     # Build the data from the most accurate version of the dataset to the least
-    for dataset_version in IPFSDatasets.datasets[dataset]:
+    for dataset_version in dweather_client.ipfs_datasets.datasets[dataset]:
         additional_highs, additional_lows = get_temperature_dict(lat, lon, dataset_version)
         all_dates = list(highs) + list(additional_highs)    
         highs = {date: highs[date] if date in highs else (additional_highs[date], dataset_version) for date in all_dates}

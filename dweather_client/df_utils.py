@@ -6,6 +6,10 @@ this module uses pandas
 import math
 import pandas as pd
 import datetime
+import os
+
+CPC_LOOKUP_PATH = 'dweather_client/etc/cpc-grid-ids.csv'
+ICAO_LOOKUP_PATH = 'dweather_client/etc/airport-codes.csv'
 
 def cpc_grid_to_lat_lon(grid):
     """ 

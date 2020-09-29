@@ -11,6 +11,18 @@ import os
 CPC_LOOKUP_PATH = 'dweather_client/etc/cpc-grid-ids.csv'
 ICAO_LOOKUP_PATH = 'dweather_client/etc/airport-codes.csv'
 
+
+def dataframeify(dict_or_df):
+    """
+    Convert a dict to a dataframe.
+    If "dict" is already a dataframe, just return it.
+    """
+    if isinstance(dict_or_df, pd.DataFrame):
+        return dict_or_df
+    else:
+        return pd.DataFrame.from_dict(dict_or_df, orient="index")
+
+
 def cpc_grid_to_lat_lon(grid):
     """ 
     Convert a cpc grid id to conventional lat lon via a lookup table.

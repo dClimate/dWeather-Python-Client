@@ -2,7 +2,7 @@
 Basic functions for getting data from a dWeather gateway via https if you prefer to work
 in pandas dataframes rather than Python's built in types. A wrapper for http_client.
 """
-from dweather_client.http_client import get_rainfall_dict, get_station_csv
+from dweather_client.http_client import get_rainfall_dict, get_temperature_dict, get_station_csv
 import pandas as pd
 import io
 
@@ -26,6 +26,28 @@ def get_rainfall_df(lat, lon, dataset):
     rainfall_df.DATE = pd.to_datetime(rainfall_df.DATE)
     
     return rainfall_df.set_index(['DATE'])
+
+
+def get_temperature_df(lat, lon, dataset_revision):
+    """
+    Get full temperature data from one of the temperature datasets
+    Args:
+        lat: float to 3 decimals
+        lon: float to 3 decimals
+        dataset_revision: the name of the dataset as listed on the ipfs gateway
+    Returns:
+        a pandas DataFrame with cols DATE, HIGH and LOW
+    """
+    highs, lows = get_temperature_dict(lat, lon, dataset_revision)
+    intermediate_dict = {
+        "DATE": [date for date in highs],
+        "HIGH": [highs[date] for date in highs],
+        "LOW": [lows[date] for date in lows]
+    }
+    temperature_df = pd.DataFrame.from_dict(intermediate_dict)
+    temperature_df.DATE = pd.to_datetime(temperature_df.DATE)
+
+    return  temperature_df.set_index(["DATE"])
 
 
 def get_station_df(station_id):

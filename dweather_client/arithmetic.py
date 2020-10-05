@@ -63,6 +63,7 @@ def build_historical_rainfall_dict(lat, lon, dataset, start_date, end_date, dail
         dict of int: (float, int): keys are the start date year for each term, values are
                 a tuple of total rainfall and the number of days in the term for the term period starting that year
         bool is_final: true if all data included is from the final dataset
+        If there is missing rainfall data for a period, the value for that year will be None, None
     Raises:
         DatasetError: If no matching dataset found on server
         InputOutOfRangeError: If the lat/lon is outside the dataset range in metadata
@@ -87,9 +88,11 @@ def build_historical_rainfall_dict(lat, lon, dataset, start_date, end_date, dail
         # end date is tricky because it could be in the next calendar year
         historical_end = end_date.replace(year=year + (end_date.year - start_date.year))
         year_term = listify_period(historical_start, historical_end)
-        if daily_cap:
-            yearly_rain = [min(rainfall_dict[date], daily_cap) for date in year_term]
+        yearly_rain = [rainfall_dict[date] for date in year_term]
+        if None in yearly_rain:
+            yearly_rainfall[year]= None, None
         else:
-            yearly_rain = [rainfall_dict[date] for date in year_term]
-        yearly_rainfall[year] = (sum(yearly_rain), len(yearly_rain))
+            if daily_cap:
+                yearly_rain = list(map(lambda x: min(x, daily_cap), yearly_rain))
+            yearly_rainfall[year] = (sum(yearly_rain), len(yearly_rain))
     return yearly_rainfall, is_final

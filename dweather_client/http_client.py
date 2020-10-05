@@ -168,7 +168,10 @@ def get_rainfall_dict(lat, lon, dataset_revision, return_metadata=False):
         raise DataMalformedError ("Number of days in data file does not match the provided metadata")
     rainfall_dict = {}
     for i in range(days_in_record):
-        rainfall_dict[dataset_start_date + datetime.timedelta(days=i)] = float(day_strs[i])
+        if day_strs[i] == metadata["missing value"]:
+            rainfall_dict[dataset_start_date + datetime.timedelta(days=i)] = None
+        else:
+            rainfall_dict[dataset_start_date + datetime.timedelta(days=i)] = float(day_strs[i])
     if return_metadata:
         return metadata, rainfall_dict
     else:

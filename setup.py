@@ -16,7 +16,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="dweather_client-arbol",
-    install_requires=load_requirements("requirements.txt"),
+   # install_requires=load_requirements("requirements.txt"),
     version="1.0",
     author="Ben Andre",
     author_email="info@arbolmarket.com",

@@ -1,10 +1,9 @@
-"""
-Basic functions for getting data from a dWeather gateway via https.
-"""
 import requests, datetime, io, gzip
 from dweather_client.ipfs_errors import *
 from dweather_client.utils import listify_period
 import dweather_client.ipfs_datasets
+import ipfshttpclient
+import json
 
 MM_TO_INCHES = 0.0393701
 RAINFALL_PRECISION = 5
@@ -32,7 +31,7 @@ def get_heads(url=GATEWAY_URL):
     return r.json()
 
 
-def get_metadata(hash_str, url=GATEWAY_URL):
+def cat_metadata(hash_str, client=None):
     """
     Get the metadata file for a given hash.
     Args:
@@ -60,40 +59,23 @@ def get_metadata(hash_str, url=GATEWAY_URL):
             'year delimiter': '\n'
         }
     """
-    metadata_url = url + "/ipfs/" + hash_str + "/metadata.json"
-    r = requests.get(metadata_url)
-    r.raise_for_status()
-    return r.json()
+    if (client is None):
+        with ipfshttpclient.connect() as client:
+            metadata = client.cat(hash_str + "/metadata.json")
+            return json.loads(metadata)
+    else:
+        metadata = client.cat(hash_str + "/metadata.json")
+        return json.loads(metadata)
 
 
-def get_station_csv(station_id):
-    """
-    Retrieve the contents of a station data csv file.
-    Args:
-        station_id (str): the id of the weather station
-    returns:
-        the contents of the station csv file as a string
-    """
-    all_hashes = get_heads()
-    dataset_hash = all_hashes["ghcnd"]
-    dataset_url = GATEWAY_URL + "/ipfs/" + dataset_hash + '/' + station_id + ".csv.gz"
-    print(dataset_url)
-    r = requests.get(dataset_url)
-    print(r)
-    r.raise_for_status()
-    with gzip.GzipFile(fileobj=io.BytesIO(r.content)) as zip_data:
-        print(zip_data)
-        return zip_data.read().decode("utf-8")
+def cat_hash_cell(hash_str, coord_str, client=None):
+    if (client is None):
+        with ipfshttpclient.connect() as client:
+            return client.cat(hash_str + '/' + coord_str)
+    else:
+        return client.cat(hash_str + '/' + coord_str)
 
-
-def get_hash_cell(hash_str, coord_str):
-    dataset_url = GATEWAY_URL + '/ipfs/' + hash_str + '/' + coord_str
-    r = requests.get(dataset_url)
-    r.raise_for_status()
-    return r.text
-
-
-def get_zipped_hash_cell(url, hash_str, coord_str):
+def cat_zipped_hash_cell(url, hash_str, coord_str, client=None):
     """
     Read a text file on the ipfs server compressed with gzip.
     Args:
@@ -103,14 +85,18 @@ def get_zipped_hash_cell(url, hash_str, coord_str):
     Returns:
         the contents of the file as a string
     """
-    dataset_url = url + "/ipfs/" + hash_str + '/' + coord_str + ".gz"
-    r = requests.get(dataset_url)
-    r.raise_for_status()
-    with gzip.GzipFile(fileobj=io.BytesIO(r.content)) as zip_data:
-        return zip_data.read().decode("utf-8")
+    if (client is None):
+        with ipfshttpclient.connect() as client:
+            cell = client.cat(hash_str + '/' + coord_str + ".gz")
+            with gzip.GzipFile(fileobj=io.BytesIO(cell)) as zip_data:
+                return zip_data.read().decode("utf-8")
+    else:
+        cell = client.cat(hash_str + '/' + coord_str + ".gz")
+        with gzip.GzipFile(fileobj=io.BytesIO(cell)) as zip_data:
+            return zip_data.read().decode("utf-8")
 
 
-def get_dataset_cell(lat, lon, dataset_revision):
+def cat_dataset_cell(lat, lon, dataset_revision, client=None):
     """ 
     Retrieve the text of a grid cell data file for a given lat lon and dataset.
     Args:
@@ -129,7 +115,7 @@ def get_dataset_cell(lat, lon, dataset_revision):
     else:
         raise DatasetError('{} not found on server'.format(dataset_revision))
 
-    metadata = get_metadata(dataset_hash)
+    metadata = cat_metadata(dataset_hash, client)
     min_lat, max_lat = sorted(metadata["latitude range"])
     min_lon, max_lon = sorted(metadata["longitude range"])
     if lat < min_lat or lat > max_lat:
@@ -139,15 +125,16 @@ def get_dataset_cell(lat, lon, dataset_revision):
     coord_str = "{:.3f}_{:.3f}".format(lat,lon)
     try:
         if "compression" in metadata and metadata["compression"] == "gzip":
-            text_data = get_zipped_hash_cell(GATEWAY_URL, dataset_hash, coord_str)
+            text_data = cat_zipped_hash_cell(GATEWAY_URL, dataset_hash, coord_str, client=client)
         else:
-            text_data = get_hash_cell(dataset_hash, coord_str)
+            text_data = cat_hash_cell(dataset_hash, coord_str, client=client)
         return metadata, text_data
-    except requests.exceptions.RequestException as e:
+    except requests.exceptions.HTTPError as e:
         raise CoordinateNotFoundError('Coordinate ({}, {}) not found  on ipfs in dataset revision {}'.format(lat, lon, dataset_revision))
 
 
-def get_rainfall_dict(lat, lon, dataset_revision, return_metadata=False):
+
+def cat_rainfall_dict(lat, lon, dataset_revision, return_metadata=False, client=None):
     """ 
     Build a dict of rainfall data for a given grid cell.
     Args:
@@ -161,11 +148,15 @@ def get_rainfall_dict(lat, lon, dataset_revision, return_metadata=False):
         CoordinateNotFoundError: If the lat/lon coordinate is not found on server
         DataMalformedError: If the grid cell file can't be parsed as rainfall data
     """
-    metadata, rainfall_text = get_dataset_cell(lat, lon, dataset_revision)
+    metadata, rainfall_text = cat_dataset_cell(lat, lon, dataset_revision, client=client)
     dataset_start_date = datetime.datetime.strptime(metadata['date range'][0], "%Y/%m/%d").date()
     dataset_end_date = datetime.datetime.strptime(metadata['date range'][1], "%Y/%m/%d").date()
     timedelta = dataset_end_date - dataset_start_date
     days_in_record = timedelta.days + 1 # we have both the start and end date in the dataset so its the difference + 1
+    try:
+        rainfall_text = rainfall_text.decode()
+    except:
+        pass
     day_strs = rainfall_text.replace(',', ' ').split()
     if (len(day_strs) != days_in_record):
         raise DataMalformedError ("Number of days in data file does not match the provided metadata")
@@ -179,9 +170,9 @@ def get_rainfall_dict(lat, lon, dataset_revision, return_metadata=False):
         return metadata, rainfall_dict
     else:
         return rainfall_dict
+  
 
-
-def get_rev_rainfall_dict(lat, lon, dataset, desired_end_date, latest_rev):
+def cat_rev_rainfall_dict(lat, lon, dataset, desired_end_date, latest_rev):
     """
     Build a dictionary of rainfall data. Include as much of the most accurate, final data as possible. Start by buidling from the most accurate data,
     then keep appending data from more recent/less accurate versions of the dataset until we run out or reach the end date.
@@ -200,25 +191,24 @@ def get_rev_rainfall_dict(lat, lon, dataset, desired_end_date, latest_rev):
     """
     all_rainfall = {}
     is_final = True
-
-    # Build the rainfall from the most accurate revision of the dataset to the least
-    for dataset_revision in dweather_client.ipfs_datasets.datasets[dataset]:
-        additional_rainfall = get_rainfall_dict(lat, lon, dataset_revision)
-        all_dates = list(all_rainfall) + list(additional_rainfall)
-        # This method of dict comprehension preserves the order of the dict
-        all_rainfall = {date: all_rainfall[date] if date in all_rainfall else additional_rainfall[date] for date in all_dates}
-        # stop when we have the desired end date in the dataset
-        if desired_end_date in all_rainfall:
-            return all_rainfall, is_final
-        # data is no longer final after we pass the specified version
-        if dataset_revision == latest_rev:
-            is_final = False
+    with ipfshttpclient.connect() as client:
+        # Build the rainfall from the most accurate revision of the dataset to the least
+        for dataset_revision in dweather_client.ipfs_datasets.datasets[dataset]:
+            additional_rainfall = cat_rainfall_dict(lat, lon, dataset_revision, client=client)
+            all_dates = list(all_rainfall) + list(additional_rainfall)
+            all_rainfall = {date: all_rainfall[date] if date in all_rainfall else additional_rainfall[date] for date in all_dates}
+            # stop when we have the desired end date in the dataset
+            if desired_end_date in all_rainfall:
+                return all_rainfall, is_final
+            # data is no longer final after we pass the specified version
+            if dataset_revision == latest_rev:
+                is_final = False
 
     # If we don't reach the desired dataset, return all data.
     return all_rainfall, is_final
 
 
-def get_temperature_dict(lat, lon, dataset_revision, return_metadata=False):
+def cat_temperature_dict(lat, lon, dataset_revision, return_metadata=False, client=None):
     """
     Build a dict of temperature data for a given grid cell.
     Args:
@@ -234,11 +224,15 @@ def get_temperature_dict(lat, lon, dataset_revision, return_metadata=False):
         CoordinateNotFoundError: If the lat/lon coordinate is not found on server
         DataMalformedError: If the grid cell file can't be parsed as temperature data
     """
-    metadata, temp_text = get_dataset_cell(lat, lon, dataset_revision)
+    metadata, temp_text = cat_dataset_cell(lat, lon, dataset_revision, client=client)
     dataset_start_date = datetime.datetime.strptime(metadata['date range'][0], "%Y/%m/%d").date()
     dataset_end_date = datetime.datetime.strptime(metadata['date range'][1], "%Y/%m/%d").date()
     timedelta = dataset_end_date - dataset_start_date
     days_in_record = timedelta.days + 1 # we have both the start and end date in the dataset_revision so its the difference + 1
+    try:
+        temp_text = temp_text.decode()
+    except:
+        pass
     day_strs = temp_text.replace(',', ' ').split()
     if (len(day_strs) != days_in_record):
         raise DataMalformedError ("Number of days in data file does not match the provided metadata")
@@ -255,7 +249,7 @@ def get_temperature_dict(lat, lon, dataset_revision, return_metadata=False):
         return highs, lows
 
 
-def get_rev_temperature_dict(lat, lon, dataset, desired_end_date, latest_rev):
+def cat_rev_temperature_dict(lat, lon, dataset, desired_end_date, latest_rev):
     """
     Build a dictionary of rainfall data. Include as much final data as possible. If the desired end date
     is not in the final dataset, append as much prelim as possible.
@@ -275,49 +269,43 @@ def get_rev_temperature_dict(lat, lon, dataset, desired_end_date, latest_rev):
     lows = {}
     is_final = True
 
-    # Build the data from the most accurate version of the dataset to the least
-    for dataset_revision in dweather_client.ipfs_datasets.datasets[dataset]:
-        additional_highs, additional_lows = get_temperature_dict(lat, lon, dataset_revision)
-        all_dates = list(highs) + list(additional_highs)    
-        highs = {date: highs[date] if date in highs else additional_highs[date] for date in all_dates}
-        lows = {date: lows[date] if date in lows else additional_lows[date] for date in all_dates}
-        # Stop early if we have the end date
-        if desired_end_date in highs:
-            return highs, lows, is_final
+    with ipfshttpclient.connect() as client:
+        # Build the data from the most accurate version of the dataset to the least
+        for dataset_revision in dweather_client.ipfs_datasets.datasets[dataset]:
+            additional_highs, additional_lows = cat_temperature_dict(lat, lon, dataset_revision, client=client)
+            all_dates = list(highs) + list(additional_highs)    
+            highs = {date: highs[date] if date in highs else additional_highs[date] for date in all_dates}
+            lows = {date: lows[date] if date in lows else additional_lows[date] for date in all_dates}
+            # Stop early if we have the end date
+            if desired_end_date in highs:
+                return highs, lows, is_final
 
-        # data is no longer final after we pass the specified version
-        if dataset_revision == latest_rev:
-            is_final = False
+            # data is no longer final after we pass the specified version
+            if dataset_revision == latest_rev:
+                is_final = False
 
     # If we don't reach the desired dataset, return all data.
     return highs, lows, is_final
 
 
-def get_rev_tagged_temperature_dict(lat, lon, dataset, desired_end_date=None):
-    ''' Build temps with a revision tag by each date
+def cat_station_csv(station_id, client=None):
+    """
+    Retrieve the contents of a station data csv file.
     Args:
-        lat (float): the grid cell latitude
-        lon (float): the grid cell longitude
-        dataset (str): the dataset name in ipfs
-        desired_end_date (datetime.date): stop early if we get this end date
-    returns
-        highs: dict with keys of dates, values are tuple (temperature, revision tag) for that date
-        lows: dict with keys of dates, values are tuple (temperature, revision tag) for that date
-    '''
-    highs = {}
-    lows = {}
-
-    # Build the data from the most accurate version of the dataset to the least
-    for dataset_version in dweather_client.ipfs_datasets.datasets[dataset]:
-        additional_highs, additional_lows = get_temperature_dict(lat, lon, dataset_version)
-        all_dates = list(highs) + list(additional_highs)    
-        highs = {date: highs[date] if date in highs else (additional_highs[date], dataset_version) for date in all_dates}
-        lows = {date: lows[date] if date in lows else (additional_lows[date], dataset_version) for date in all_dates}
-        # Stop early if we have the end date
-        if desired_end_date in highs:
-            return highs, lows
-
-    # If we don't reach the desired dataset, return all data.
-    return highs, lows
-
+        station_id (str): the id of the weather station
+    returns:
+        the contents of the station csv file as a string
+    """
+    all_hashes = get_heads()
+    dataset_hash = all_hashes["ghcnd"]
+    csv_hash = dataset_hash + '/' + station_id + ".csv.gz"
+    if (client is None):
+        with ipfshttpclient.connect() as client:
+            csv = client.cat(csv_hash)
+            with gzip.GzipFile(fileobj=io.BytesIO(cell)) as zip_data:
+                return zip_data.read().decode("utf-8")
+    else:
+        csv = client.cat(csv_hash)
+        with gzip.GzipFile(fileobj=io.BytesIO(cell)) as zip_data:
+            return zip_data.read().decode("utf-8")
 

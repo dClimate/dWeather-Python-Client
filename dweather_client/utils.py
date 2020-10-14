@@ -21,8 +21,8 @@ def snap_to_grid(lat, lon, metadata):
     category = metadata['climate category']
 
     if 'cpc' in metadata['source data url']:
-        start[0], start[1] = conventional_lat_lon_to_cpc(start[0], start[1])
-        end[0], end[1] = conventional_lat_lon_to_cpc(end[0], end[1])
+        min_lat, min_lon = conventional_lat_lon_to_cpc(min_lat, min_lon)
+
     # check that the lat lon is in the bounding box
 
     if category != 'rainfall':
@@ -30,7 +30,7 @@ def snap_to_grid(lat, lon, metadata):
 
     snap_lat = round(round((lat - min_lat)/resolution) * resolution + min_lat, 3)
     snap_lon = round(round((lon - min_lon)/resolution) * resolution + min_lon, 3)
-    return snap_lat, snap_lon        
+    return snap_lat, snap_lon
 
 def cpc_lat_lon_to_conventional(lat, lon):
     """

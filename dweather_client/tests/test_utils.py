@@ -14,3 +14,11 @@ def test_snap_to_grid_prism():
     lat, lon = utils.snap_to_grid(39.8398, -104.193, prism_metadata)
     assert lat == 39.833
     assert lon == -104.208
+
+def test_snap_to_grid_cpc_global_daily():
+    # tests snap_to_grid with ideosyncratic cpc lat/lon format
+    heads = http_client.get_heads()
+    prism_metadata = http_client.get_metadata(heads['cpc_global-daily'])
+    lat, lon = utils.snap_to_grid(69.754, 330.759, prism_metadata)
+    assert lat == 69.750
+    assert lon == 330.750

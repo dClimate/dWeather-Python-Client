@@ -5,14 +5,14 @@ Each entry is a sorted list of versions of the dataset, from most accurate to le
 
 datasets = {
 	"prism_precip" : [
-		"prism_precip-daily",
-		"prism_precip_30_day-daily",
-		"prism_precip_rev_1-daily"
+		"prism_rev_6_precip-daily",
+		"prism_rev_3_precip-daily",
+		#"prism_rev_1_precip-daily"
 	],
 	"prism_temp" : [
-		"prism_temp-daily",
-		"prism_temp_30_day-daily",
-		"prism_temp_rev_1-daily"
+		"prism_rev_6_temp-daily",
+		"prism_rev_3_temp-daily",
+		"prism_rev_1_temp-daily"
 	],
 	"chirps_05": [
 		"chirps_05-daily",

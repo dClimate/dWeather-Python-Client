@@ -46,7 +46,7 @@ def sum_period_rainfall(lat, lon, dataset, start_date, end_date, daily_cap=None,
         rain = [rainfall_dict[date] for date in dates]
     return (sum(rain), len(rain), is_final)
 
-def build_historical_rainfall_dict(lat, lon, dataset, start_date, end_date, daily_cap=None, start_year=HISTORICAL_START_YEAR, end_year=None, use_prelim=False, final_rev=None):
+def build_historical_rainfall_dict(lat, lon, dataset, start_date, end_date, daily_cap=None, start_year=HISTORICAL_START_YEAR, end_year=None, use_prelim=False, final_rev=None, ignore_missing=False):
     ''' Builds a dict of rainfall values over the term period for each year for a grid cell
     Args:
         lat (float): latitude of grid cell
@@ -59,6 +59,8 @@ def build_historical_rainfall_dict(lat, lon, dataset, start_date, end_date, dail
         end_year (int): the last year of data to include with the start_date year
         use_prelim (bool): if True, include prelim rainfall if there is not enough final rainfall
                 if there is not enough rainfall including prelim then truncate the period to where we have data
+        ignore_missing (bool): if true, substitute '0' for the missing rainfall value
+                if false, set the whole year as None
     returns
         dict of int: (float, int): keys are the start date year for each term, values are
                 a tuple of total rainfall and the number of days in the term for the term period starting that year
@@ -90,9 +92,15 @@ def build_historical_rainfall_dict(lat, lon, dataset, start_date, end_date, dail
         year_term = listify_period(historical_start, historical_end)
         yearly_rain = [rainfall_dict[date] for date in year_term]
         if None in yearly_rain:
-            yearly_rainfall[year]= None, None
-        else:
-            if daily_cap:
-                yearly_rain = list(map(lambda x: min(x, daily_cap), yearly_rain))
-            yearly_rainfall[year] = (sum(yearly_rain), len(yearly_rain))
+            if ignore_missing:
+                # replace None values with 0
+                yearly_rain = [x if x is not None else 0 for x in yearly_rain] 
+            else:
+                # return None for the whole year
+                yearly_rainfall[year] = None, None
+                continue
+        if daily_cap:
+            yearly_rain = list(map(lambda x: min(x, daily_cap), yearly_rain))
+        yearly_rainfall[year] = (sum(yearly_rain), len(yearly_rain))
+            
     return yearly_rainfall, is_final

@@ -1,5 +1,5 @@
-import df_loader
-import utils
+import dweather_client.df_loader
+import dweather_client.utils
 import datetime
 
 def test_rainfall_df():

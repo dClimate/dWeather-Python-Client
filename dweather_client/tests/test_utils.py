@@ -1,5 +1,5 @@
-import utils
-import http_client
+import dweather_client.utils
+import dweather_client.http_client
 
 def test_snap_to_grid_chirps():
     heads = http_client.get_heads()

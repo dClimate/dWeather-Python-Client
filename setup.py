@@ -17,7 +17,7 @@ with open("README.md", "r") as fh:
 setuptools.setup(
     name="dweather_client",
     install_requires=load_requirements("requirements.txt"),
-    version="1.1.2",
+    version="1.2.1",
     author="Arbol",
     author_email="info@arbolmarket.com",
     description="Python client for interacting with weather data on IPFS.",

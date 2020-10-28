@@ -1,5 +1,5 @@
-import http_client
-import utils
+import dweather_client.http_client
+import dweather_client.utils
 from datetime import date
 
 def test_http_client_rainfall():

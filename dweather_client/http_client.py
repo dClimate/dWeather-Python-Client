@@ -3,8 +3,9 @@ Basic functions for getting data from a dWeather gateway via https.
 """
 import requests, datetime, io, gzip
 from dweather_client.ipfs_errors import *
-from dweather_client.utils import listify_period
+from dweather_client.utils import listify_period, celcius_to_fahrenheit
 import dweather_client.ipfs_datasets
+import csv
 
 MM_TO_INCHES = 0.0393701
 RAINFALL_PRECISION = 5
@@ -84,6 +85,49 @@ def get_station_csv(station_id):
     with gzip.GzipFile(fileobj=io.BytesIO(r.content)) as zip_data:
         print(zip_data)
         return zip_data.read().decode("utf-8")
+
+
+def parse_station_temps_as_dict(csv_text, use_fahrenheit=True):
+    """
+    Parse a station CSV file and get column values
+    Will automatically index by date
+    Args:
+        csv_text (str): the GHCND station csv text
+        use_fahrenheight (bool): if true use deg F, otherwise degrees C
+    Returns:
+        tuple:
+            dict of datetime.date: float temperature highs
+            dict of datetime.date: float temperature lows
+    """
+    #csv_text = get_station_csv(station_id)
+    reader = csv.reader(csv_text.split())
+    column_names = next(reader)
+    date_col = column_names.index('DATE')
+    tmax_col = column_names.index('TMAX')
+    tmin_col = column_names.index('TMIN')
+    tmins = {}
+    tmaxs = {}
+    for row in reader:
+        # data is in tenths of a degree C
+        if row[tmin_col] == '' or row[tmax_col] == '':
+            continue
+        tmax = float(row[tmax_col])/10.0
+        tmin = float(row[tmin_col])/10.0
+        if use_fahrenheit:
+            tmax = celcius_to_fahrenheit(tmax)
+            tmin = celcius_to_fahrenheit(tmin)
+        tmaxs[datetime.datetime.strptime(row[date_col], "%Y-%m-%d").date()] = tmax
+        tmins[datetime.datetime.strptime(row[date_col], "%Y-%m-%d").date()] = tmin
+
+    return tmins, tmaxs
+
+
+
+def get_station_by_wmo_id(wmo_id):
+    pass
+
+def get_station_by_airport_code(code):
+    pass
 
 
 def get_hash_cell(hash_str, coord_str):

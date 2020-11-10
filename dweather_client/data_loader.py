@@ -1,4 +1,4 @@
-from dweather_client.http_client import get_rainfall_dict, get_temperature_dict
+from dweather_client.http_client import get_rainfall_dict, get_temperature_dict, get_station_csv, parse_station_temps_as_dict
 import dweather_client.ipfs_datasets
 
 class GridCellDataLoader:
@@ -100,8 +100,44 @@ class GridCellDataLoader:
 
         return all_data_dict
 
+class StationDataLoader:
+    _instances = {}
 
+    def __init__(self, station_id):
+        """
+        Args:
+            station_id (str): the station id
+        """
+        self.station_id = station_id
+        self.csv_text = ""
 
+    def __new__(cls, station_id):
+        """ Create new class only if one with args doesn't exist
+        Similar to singleton class, we only want one instance of DataLoader for each station
+        """
+        if station_id not in cls._instances:
+            cls._instances[station_id] = super(StationDataLoader, cls).__new__(cls)
+        return cls._instances[station_id]
 
+    def populate_csv(self):
+        """ Get the revision from ipfs and save it
+        Args:
+            revision (str): the named dataset revision on the ipfs gateway
+        """
+        if self.csv_text == '':
+            self.csv_text = get_station_csv(self.station_id)
 
+    def get_temperatures(self, use_fahrenheit=True):
+        """ Return the station data Tmins and Tmaxs 
+        Args:
+            use_fahrenheit: use degrees F if true, degrees C if false
+        returns:
+            tuple of dicts:
+                datetime.date: float the daily highs
+                datetime.date: float the daily lows
+        """
+        self.populate_csv()
+        tmaxs, tmins = parse_station_temps_as_dict(self.csv_text, use_fahrenheit)
+        return {"highs": tmaxs, "lows": tmins}
+        
 

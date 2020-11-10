@@ -73,3 +73,6 @@ def is_revision_final(dataset, revision_to_check, last_acceptable_revision):
     dataset_list = IPFSDatasets.datasets[dataset]
     return dataset_list.index(revision_to_check) <= dataset_list.index(last_acceptable_revision)
 
+def celcius_to_fahrenheit(deg_c):
+    return round((deg_c * 9/5) + 32, 5)
+

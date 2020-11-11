@@ -1,6 +1,4 @@
-import dweather_client.ipfs_client
-import dweather_client.http_client
-import dweather_client.utils
+from dweather_client import ipfs_client, http_client, utils
 from datetime import date
 
 def test_ipfs_client_rainfall():

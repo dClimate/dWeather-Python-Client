@@ -1,9 +1,5 @@
-import dweather_client.arithmetic
-import dweather_client.df_arithmetic
+from dweather_client import arithmetic, df_arithmetic, df_loader, utils, df_utils
 import datetime
-import dweather_client.df_loader
-import dweather_client.utils
-import dweather_client.df_utils
 
 TODAY = datetime.date.today()
 ONE_MONTH = datetime.timedelta(days=30)

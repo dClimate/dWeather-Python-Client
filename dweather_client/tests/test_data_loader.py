@@ -1,6 +1,5 @@
-import dweather_client.http_client
+from dweather_client import http_client, utils
 from dweather_client.data_loader import GridCellDataLoader
-import dweather_client.utils
 import datetime
 
 def test_get_revision_rainfall():

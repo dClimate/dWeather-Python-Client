@@ -1,5 +1,4 @@
-import dweather_client.http_client
-import dweather_client.utils
+from dweather_client import http_client, utils
 from datetime import date
 
 def test_station():

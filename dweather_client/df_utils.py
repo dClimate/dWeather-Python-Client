@@ -8,9 +8,9 @@ import pandas as pd
 import datetime
 import os
 
-CPC_LOOKUP_PATH = 'dweather_client/etc/cpc-grid-ids.csv'
-ICAO_LOOKUP_PATH = 'dweather_client/etc/airport-codes.csv'
-
+PARENT_DIR = os.path.dirname(os.path.abspath(__file__))
+CPC_LOOKUP_PATH = PARENT_DIR + '/etc/cpc-grid-ids.csv'
+ICAO_LOOKUP_PATH = PARENT_DIR + '/etc/airport-codes.csv'
 
 def dataframeify(dict_or_df):
     """

@@ -1,6 +1,7 @@
 import requests, datetime, io, gzip
 from dweather_client.ipfs_errors import *
 from dweather_client.utils import listify_period
+from dweather_client.df_utils import get_station_ids_with_icao
 import dweather_client.ipfs_datasets
 import ipfshttpclient
 import json
@@ -288,7 +289,19 @@ def cat_rev_temperature_dict(lat, lon, dataset, desired_end_date, latest_rev):
     return highs, lows, is_final
 
 
-def cat_station_csv(station_id, client=None):
+def pin_all_stations(client=None):
+    """ Sync all stations locally."""
+    heads = get_heads()
+    dataset_hash = heads["ghcnd"]
+    session_client = ipfshttpclient.connect() if client is None else client
+    try:
+        session_client.pin.add(dataset_hash)
+    finally:
+        if (client is None):
+            session_client.close()
+
+
+def cat_station_csv(station_id, client=None, pin=True, force_hash=None):
     """
     Retrieve the contents of a station data csv file.
     Args:
@@ -297,15 +310,33 @@ def cat_station_csv(station_id, client=None):
         the contents of the station csv file as a string
     """
     all_hashes = get_heads()
-    dataset_hash = all_hashes["ghcnd"]
+    dataset_hash = all_hashes["ghcnd"] if force_hash is None else force_hash
     csv_hash = dataset_hash + '/' + station_id + ".csv.gz"
-    if (client is None):
-        with ipfshttpclient.connect() as client:
-            csv = client.cat(csv_hash)
-            with gzip.GzipFile(fileobj=io.BytesIO(cell)) as zip_data:
-                return zip_data.read().decode("utf-8")
-    else:
-        csv = client.cat(csv_hash)
-        with gzip.GzipFile(fileobj=io.BytesIO(cell)) as zip_data:
+    session_client = ipfshttpclient.connect() if client is None else client
+    try:
+        if pin:
+            session_client.pin.add(csv_hash)
+        csv = session_client.cat(csv_hash)
+        with gzip.GzipFile(fileobj=io.BytesIO(csv)) as zip_data:
             return zip_data.read().decode("utf-8")
+    finally:
+        if (client is None):
+            session_client.close()
 
+
+def cat_icao_stations(client=None, pin=True):
+    """ Get a list of station dataframes for all stations that have an icao"""
+    dfs = []
+    session_client = ipfshttpclient.connect() if client is None else client
+    try:
+        for station_id in get_station_ids_with_icao():
+            try:
+                print(station_id)
+                dfs.append(cat_station_csv(station_id, client=client, pin=pin))
+            except Exception as e:
+                print(e)
+                continue
+    finally:
+        if (client is None):
+            session_client.close()
+    return dfs

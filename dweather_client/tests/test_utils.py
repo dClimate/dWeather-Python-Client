@@ -21,3 +21,10 @@ def test_snap_to_grid_cpc_global_daily():
     lat, lon = utils.snap_to_grid(69.754, 330.759, prism_metadata)
     assert lat == 69.750
     assert lon == 330.750
+
+def test_get_n_closest_station_ids():
+    heads = http_client.get_heads()
+    ghcnd_metadata = http_client.get_metadata(heads['ghcnd'])
+
+    # get the 20 closest station ids to a spot in Kentucky
+    ids = utils.get_n_closest_station_ids(37, -85, ghcnd_metadata, 20)

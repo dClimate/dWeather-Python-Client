@@ -4,6 +4,7 @@ This module specifically excludes pandas
 """
 import math
 import datetime
+from heapq import heappush, heappushpop
 
 def snap_to_grid(lat, lon, metadata):
     """ 
@@ -24,10 +25,25 @@ def snap_to_grid(lat, lon, metadata):
         min_lat, min_lon = conventional_lat_lon_to_cpc(min_lat, min_lon)
 
     # check that the lat lon is in the bounding box
-
     snap_lat = round(round((lat - min_lat)/resolution) * resolution + min_lat, 3)
     snap_lon = round(round((lon - min_lon)/resolution) * resolution + min_lon, 3)
     return snap_lat, snap_lon
+
+def distance_between(p1, p2):
+    return math.sqrt(((p1[0] - p2[0])**2) + ((p1[1] - p2[1])**2))
+
+def get_n_closest_station_ids(lat, lon, metadata, n):
+    pq = []
+    for feature in metadata["stations"]["features"]:
+        s_lat = float(feature["geometry"]["coordinates"][0])
+        s_lon = float(feature["geometry"]["coordinates"][1])
+        distance = distance_between([lat, lon], [s_lat, s_lon])
+        station_id = feature["properties"]["station id"]
+        if (len(pq) >= n):
+            heappushpop(pq, (distance, station_id))
+        else:
+            heappush(pq, (distance, station_id))
+    return [pair[1] for pair in pq]
 
 def cpc_lat_lon_to_conventional(lat, lon):
     """

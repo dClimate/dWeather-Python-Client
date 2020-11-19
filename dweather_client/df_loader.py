@@ -3,8 +3,11 @@ Basic functions for getting data from a dWeather gateway via https if you prefer
 in pandas dataframes rather than Python's built in types. A wrapper for http_client.
 """
 from dweather_client.http_client import get_rainfall_dict, get_temperature_dict, get_station_csv
+from dweather_client.ipfs_client import cat_station_csv
+from dweather_client.df_utils import get_station_ids_with_icao
 import pandas as pd
 import io
+import ipfshttpclient
 
 def get_rainfall_df(lat, lon, dataset):
     """
@@ -70,3 +73,4 @@ def get_station_temperature_df(station_id):
 def get_station_snow_df(station_id):
     """ Get full daily snowfall time series from GHCN Station Data in mm. """
     return get_station_df(station_id)[['SNOW', 'NAME']]
+

@@ -1,6 +1,12 @@
 from dweather_client import ipfs_client, http_client, utils
 from datetime import date
 
+#def test_cat_icao_station_dfs():
+#    ipfs_client.cat_icao_stations()
+
+#def test_ipfs_client_all_stations():
+#    ipfs_client.pin_all_stations()
+
 def test_ipfs_client_rainfall():
     dataset = 'chirps_05'
     dataset_revision = 'chirps_05-daily'

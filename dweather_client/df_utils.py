@@ -41,6 +41,16 @@ def cpc_grid_to_lat_lon(grid):
     return coords[0], coords[1]
 
 
+def get_station_ids_with_icao():
+    """
+    Get a list of station id that are associated with stations that have an icao code.
+    """
+    icao_lookup = pd.read_csv(os.path.join(ICAO_LOOKUP_PATH)).set_index('ICAO')
+    ids = []
+    for index, row in icao_lookup.iterrows():
+        ids.append(row["GHCN"])
+    return ids
+
 def icao_to_ghcn(icao):
     """ 
     Convert an icao airport code to ghcn.
@@ -51,6 +61,7 @@ def icao_to_ghcn(icao):
     """
     icao_codes = pd.read_csv(os.path.join(ICAO_LOOKUP_PATH)).set_index('ICAO') #get lookup table
     return icao_codes.loc[icao]["GHCN"]
+
 
 def period_slice_df(df, ps, pe, yrs):
     """ 

@@ -1,8 +1,14 @@
 attrs==20.3.0
+base58==2.0.1
 certifi==2020.4.5.1
 chardet==3.0.4
+coverage==5.3
+idna==2.10
 iniconfig==1.1.1
+ipfshttpclient==0.6.1
 joblib==0.15.1
+multiaddr==0.0.9
+netaddr==0.8.0
 numpy==1.18.4
 packaging==20.4
 pandas==1.0.3
@@ -18,3 +24,4 @@ scipy==1.4.1
 six==1.14.0
 toml==0.10.2
 urllib3==1.25.9
+varint==1.0.2

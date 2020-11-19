@@ -53,7 +53,7 @@ Run the tests, if you want (takes a while).
 
 ## Local data
 
-Certain dweather functions will try to save query results locally to disk for faster performance on load. This can be overridden by passing 'pin=False' in these function calls.
+Certain dweather functions will try to save query results locally to disk for faster performance on load. This can be overridden by passing `pin=False` in these function calls.
 
 Load the ipfs UI to browse what files are stored locally. Paste the following into a web browser. http://127.0.0.1:5001/webui
 

@@ -20,6 +20,8 @@ Initialize a ~/.ipfs directory. This is where your files and config will be save
 
     ipfs init
 
+### Configure
+
 Remove default peers for performance.
 
     ipfs bootstrap rm --all
@@ -27,6 +29,8 @@ Remove default peers for performance.
 Add the dWeather server as a peer.
 
     ipfs bootstrap add  "/ip4/198.211.104.50/tcp/4001/p2p/QmWsAFSDajELyneR7LkMsgfaRk2ib1y3SEU7nQuXSNPsQV"
+
+### Make sure it works
 
 Start the IPFS daemon. You will need to have the daemon running to use some functionality of the dWeather client.
 

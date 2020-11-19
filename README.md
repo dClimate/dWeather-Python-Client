@@ -63,7 +63,7 @@ Load the ipfs UI to browse what files are stored locally. Paste the following in
 
 Navigate to Files, then click "pins." Content can be unpinned via the UI.
 
-If you just want to remove everything, delete ~/.ipfs and rerun the installation from `ipfs init`.
+If you just want to remove everything, delete ~/.ipfs and rerun the installation and configuration from `ipfs init`.
 
     rm -rf ~/.ipfs
 

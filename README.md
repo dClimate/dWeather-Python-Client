@@ -51,7 +51,7 @@ Create an isolated Python installation and install the dependencies.
     python3 -m venv .
     bin/pip3 install -r requirements.txt
 
-Run the tests, if you want (takes a while).
+Run the tests, if you want. (takes a while)
 
     bin/python3 -m pytest -s --log-cli-level=20 dweather_client/tests
 

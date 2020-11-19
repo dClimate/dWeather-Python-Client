@@ -40,9 +40,9 @@ def get_n_closest_station_ids(lat, lon, metadata, n):
         distance = distance_between([lat, lon], [s_lat, s_lon])
         station_id = feature["properties"]["station id"]
         if (len(pq) >= n):
-            heappushpop(pq, (distance, station_id))
+            heappushpop(pq, (1 / distance, station_id))
         else:
-            heappush(pq, (distance, station_id))
+            heappush(pq, (1 / distance, station_id))
     return [pair[1] for pair in pq]
 
 def cpc_lat_lon_to_conventional(lat, lon):

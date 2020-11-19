@@ -5,11 +5,57 @@ This module imports pandas and numpy, the arithmetic.py module should not
 """
 import numpy as np
 import pandas as pd
-from dweather_client.http_client import get_rainfall_dict, get_rev_rainfall_dict
-from dweather_client.utils import listify_period
+from dweather_client.http_client import get_rainfall_dict, get_rev_rainfall_dict, get_heads, get_metadata
+from dweather_client.utils import listify_period, get_n_closest_station_ids
+from dweather_client.ipfs_client import cat_station_df, cat_station_csv, cat_metadata
+from dweather_client.df_utils import get_station_ids_with_icao
+import ipfshttpclient
 import datetime
+import logging
 
 HISTORICAL_START_YEAR = 1981
+
+def cat_station_df_list(station_ids, pin=True, force_hash=None):
+    batch_hash = force_hash
+    if (force_hash is None):
+        batch_hash = get_heads()['ghcnd']
+    metadata = cat_metadata(batch_hash, pin=pin)
+    station_content = []
+    with ipfshttpclient.connect() as client:
+        for station_id in station_ids:
+            logging.info("(%i of %i): Loading station %s from %s into DataFrame%s" % ( \
+                station_ids.index(station_id),
+                len(station_ids),
+                station_id, 
+                "dWeather head" if force_hash is None else "forced hash",
+                " and pinning to ipfs datastore" if pin else ""
+            ))
+            station_content.append(cat_station_df( \
+                station_id,
+                client=client,
+                pin=pin,
+                force_hash=batch_hash
+            ))
+    return station_content 
+
+def cat_icao_stations(pin=True, force_hash=None):
+    """
+    For every station that has an icao code, load it into a dataframe and
+    return them all as a list.
+    """
+    station_ids = get_station_ids_with_icao()
+    return cat_station_df_list(station_ids, pin=pin, force_hash=force_hash)
+
+def cat_n_closest_station_dfs(lat, lon, n, pin=True, force_hash=None):
+    """
+    Load the closest n stations to a given point into a list of dataframes.
+    """
+    if (force_hash is None):
+        metadata = cat_metadata(get_heads()['ghcnd'])
+    else:
+        metadata = cat_metadata(force_hash)
+    station_ids = get_n_closest_station_ids(lat, lon, metadata, n)
+    return cat_station_df_list(station_ids, pin=pin, force_hash=force_hash)
 
 def sum_period_df(df, ps, pe, yrs, peril):
     """ 

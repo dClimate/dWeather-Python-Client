@@ -48,7 +48,8 @@ def get_station_ids_with_icao():
     icao_lookup = pd.read_csv(os.path.join(ICAO_LOOKUP_PATH)).set_index('ICAO')
     ids = []
     for index, row in icao_lookup.iterrows():
-        ids.append(row["GHCN"])
+        if (row["GHCN"] not in ids):
+            ids.append(row["GHCN"])
     return ids
 
 def icao_to_ghcn(icao):

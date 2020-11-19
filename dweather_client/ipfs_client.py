@@ -1,10 +1,9 @@
-import requests, datetime, io, gzip
+import ipfshttpclient, json, requests, datetime, io, gzip
 from dweather_client.ipfs_errors import *
 from dweather_client.utils import listify_period
 from dweather_client.df_utils import get_station_ids_with_icao
 import dweather_client.ipfs_datasets
-import ipfshttpclient
-import json
+import pandas as pd
 
 MM_TO_INCHES = 0.0393701
 RAINFALL_PRECISION = 5
@@ -32,7 +31,7 @@ def get_heads(url=GATEWAY_URL):
     return r.json()
 
 
-def cat_metadata(hash_str, client=None):
+def cat_metadata(hash_str, client=None, pin=True):
     """
     Get the metadata file for a given hash.
     Args:
@@ -60,13 +59,15 @@ def cat_metadata(hash_str, client=None):
             'year delimiter': '\n'
         }
     """
-    if (client is None):
-        with ipfshttpclient.connect() as client:
-            metadata = client.cat(hash_str + "/metadata.json")
-            return json.loads(metadata)
-    else:
-        metadata = client.cat(hash_str + "/metadata.json")
-        return json.loads(metadata)
+    session_client = ipfshttpclient.connect() if client is None else client
+    try:
+        if pin:
+            session_client.pin.add(hash_str + "/metadata.json")
+        metadata = session_client.cat(hash_str + "/metadata.json")
+    finally: 
+        if (client is None):
+            session_client.close()
+    return json.loads(metadata)
 
 
 def cat_hash_cell(hash_str, coord_str, client=None):
@@ -300,6 +301,17 @@ def pin_all_stations(client=None):
         if (client is None):
             session_client.close()
 
+def cat_station_df(station_id, client=None, pin=True, force_hash=None):
+    """ Cat a given station's raw data as a pandas dataframe. """
+    df = pd.read_csv(io.StringIO(\
+        cat_station_csv(
+            station_id, 
+            client=client, 
+            pin=pin,
+            force_hash=force_hash
+        )
+    ))
+    return df.set_index(pd.DatetimeIndex(df['DATE']))
 
 def cat_station_csv(station_id, client=None, pin=True, force_hash=None):
     """
@@ -309,8 +321,11 @@ def cat_station_csv(station_id, client=None, pin=True, force_hash=None):
     returns:
         the contents of the station csv file as a string
     """
-    all_hashes = get_heads()
-    dataset_hash = all_hashes["ghcnd"] if force_hash is None else force_hash
+    if (force_hash is None):
+        all_hashes = get_heads()
+        dataset_hash = all_hashes["ghcnd"]
+    else:
+        dataset_hash = force_hash
     csv_hash = dataset_hash + '/' + station_id + ".csv.gz"
     session_client = ipfshttpclient.connect() if client is None else client
     try:

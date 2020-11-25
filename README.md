@@ -76,7 +76,7 @@ Confirm that the dWeather server is a peer.
 
     ipfs swarm peers
 
-### Install the Python dWeather Client.
+### Install the Python dWeather Client
 
 Create an isolated Python installation and install the dependencies.
 

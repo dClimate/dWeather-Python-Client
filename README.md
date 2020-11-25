@@ -2,7 +2,7 @@
 
 ## Quickstart
 
-Install dweather_client.
+Install dweather_client:
 
     pip3 install dweather_client
     

@@ -1,12 +1,44 @@
 # dWeather-Python-Client
 
-## Install Go-IPFS version 0.6.0
+## Quickstart
 
-### Download
+Install dweather_client.
+
+    pip3 install dweather_client
+    
+Get valid dataset names and associated hashes:
+
+    http_client.get_heads()
+    
+Get the metadata for a given dataset name:
+
+    http_client.get_metadata('chirps_05-daily')
+    
+Get a rainfall dict for a gridded dataset:
+
+    http_client.get_rainfall_dict(41.175, -75.125, 'chirps_05-daily')
+
+Get a rainfall dataframe:
+
+    df_loader.get_rainfall_df(41.125, -75.125, 'chirps_05-daily')
+    
+Get a station dataframe:
+
+    df_loader.get_station_rainfall_df('USW00024285')
+    df_loader.get_station_temperature_df('USW00024285')
+    df_loader.get_station_snow_df('USW00024285')
+
+See further examples in `tests`
+
+## Development
+
+Some dweather_client features require an ipfs daemon to work.
+
+### Download Go-IPFS version 0.6.0
 See Assets list at the bottom of this page: https://github.com/ipfs/go-ipfs/releases/tag/v0.6.0
 Download the build appropriate for your machine, or just download the source tar if you're not sure.
 
-### Install
+### Install go-IPFS
 
 Unzip the file that you downloaded.
 
@@ -20,7 +52,7 @@ Initialize a ~/.ipfs directory. This is where your files and config will be save
 
     ipfs init
 
-### Configure
+### Configure go-IPFS
 
 Remove default peers for performance.
 
@@ -30,7 +62,7 @@ Add the dWeather server as a peer.
 
     ipfs bootstrap add  "/ip4/198.211.104.50/tcp/4001/p2p/QmWsAFSDajELyneR7LkMsgfaRk2ib1y3SEU7nQuXSNPsQV"
 
-### Make sure it works
+### Make sure go-IPFS it works
 
 Start the IPFS daemon. You will need to have the daemon running to use some functionality of the dWeather client.
 
@@ -44,14 +76,16 @@ Confirm that the dWeather server is a peer.
 
     ipfs swarm peers
 
-## Install the Python dWeather Client.
+### Install the Python dWeather Client.
 
 Create an isolated Python installation and install the dependencies.
 
+    git clone https://github.com/Arbol-Project/dWeather-Python-Client.git
+    cd dWeather-Python-Client
     python3 -m venv .
     bin/pip3 install -r requirements.txt
 
-Run the tests, if you want. (takes a while)
+Run the tests, if you want.
 
     bin/python3 -m pytest -s --log-cli-level=20 dweather_client/tests
 

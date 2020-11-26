@@ -24,18 +24,22 @@ def cat_station_df_list(station_ids, pin=True, force_hash=None):
     with ipfshttpclient.connect() as client:
         for station_id in station_ids:
             logging.info("(%i of %i): Loading station %s from %s into DataFrame%s" % ( \
-                station_ids.index(station_id),
+                station_ids.index(station_id) + 1,
                 len(station_ids),
                 station_id, 
                 "dWeather head" if force_hash is None else "forced hash",
                 " and pinning to ipfs datastore" if pin else ""
             ))
-            station_content.append(cat_station_df( \
-                station_id,
-                client=client,
-                pin=pin,
-                force_hash=batch_hash
+            try:
+                station_content.append(cat_station_df( \
+                    station_id,
+                    client=client,
+                    pin=pin,
+                    force_hash=batch_hash
             ))
+            except ipfshttpclient.exceptions.ErrorResponse:
+                logging.warning("Station %s not found" % station_id)
+                
     return station_content 
 
 def cat_icao_stations(pin=True, force_hash=None):

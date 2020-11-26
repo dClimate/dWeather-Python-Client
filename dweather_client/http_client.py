@@ -122,7 +122,7 @@ def get_station_csv(station_id, url=GATEWAY_URL):
     """
     all_hashes = get_heads()
     dataset_hash = all_hashes["ghcnd"]
-    dataset_url = "%s/ipfs/%s/%s/.csv.gz" % (url, dataset_hash, str(station_id))
+    dataset_url = "%s/ipfs/%s/%s.csv.gz" % (url, dataset_hash, str(station_id))
     r = requests.get(dataset_url)
     r.raise_for_status()
     with gzip.GzipFile(fileobj=io.BytesIO(r.content)) as zip_data:

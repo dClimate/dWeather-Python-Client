@@ -1,11 +1,11 @@
 """
 Basic functions for getting data from a dWeather gateway via https.
 """
-import requests, datetime, io, gzip
+import requests, datetime, io, gzip, json, csv
 from dweather_client.ipfs_errors import *
 from dweather_client.utils import listify_period, celcius_to_fahrenheit
 import dweather_client.ipfs_datasets
-import csv
+from collections import deque
 
 MM_TO_INCHES = 0.0393701
 RAINFALL_PRECISION = 5
@@ -61,13 +61,58 @@ def get_metadata(hash_str, url=GATEWAY_URL):
             'year delimiter': '\n'
         }
     """
-    metadata_url = url + "/ipfs/" + hash_str + "/metadata.json"
+    metadata_url = "%s/ipfs/%s/metadata.json" % (url, hash_str)
     r = requests.get(metadata_url)
     r.raise_for_status()
     return r.json()
 
 
-def get_station_csv(station_id):
+def traverse_ll(head):
+    release_itr = head
+    release_ll = deque()
+    while True:
+        release_ll.appendleft(release_itr)
+        prev_release = get_metadata(release_itr)['previous hash']
+        if prev_release != None:
+            release_itr = prev_release
+        else:
+            return release_ll
+
+
+def get_hurricane_release_dict(release_hash, url=GATEWAY_URL):
+    url = "%s/ipfs/%s/history.json.gz" % (url, release_hash)
+    resp = requests.get(url)
+    resp.raise_for_status()
+    with gzip.GzipFile(fileobj=io.BytesIO(resp.content)) as zip_data:
+        return json.loads(zip_data.read().decode("utf-8"))
+
+
+def get_hurricane_dict(head=get_heads()['atcf_btk-seasonal']):
+    """
+    Get a hurricane dictionary for the atcf_btk-seasonal dataset. 
+
+    To get a unique value to query the dict by storm, use BASIN + CY + the year
+    part of the HOUR value. BASIN is the ocean, CY is the storm index, and
+    the year is needed as well because the storm index resets every year.
+
+    Note that there will be multiple readings with the same HOUR value,
+    as readings are taken more than once per hour and then rounded to the nearest
+    hour before posting. 
+    """
+    heads = get_heads()
+    hurr_head = heads['atcf_btk-seasonal']
+    release_ll = traverse_ll(hurr_head)
+    hurr_dict = {}
+    for release_hash in release_ll:
+        release_content = get_hurricane_release_dict(release_hash)
+        try:
+            hurr_dict['features'].append(release_content['features'])
+        except KeyError:
+            hurr_dict.update(release_content)
+    return hurr_dict
+
+
+def get_station_csv(station_id, url=GATEWAY_URL):
     """
     Retrieve the contents of a station data csv file.
     Args:
@@ -77,13 +122,10 @@ def get_station_csv(station_id):
     """
     all_hashes = get_heads()
     dataset_hash = all_hashes["ghcnd"]
-    dataset_url = GATEWAY_URL + "/ipfs/" + dataset_hash + '/' + station_id + ".csv.gz"
-    print(dataset_url)
+    dataset_url = "%s/ipfs/%s/%s/.csv.gz" % (url, dataset_hash, str(station_id))
     r = requests.get(dataset_url)
-    print(r)
     r.raise_for_status()
     with gzip.GzipFile(fileobj=io.BytesIO(r.content)) as zip_data:
-        print(zip_data)
         return zip_data.read().decode("utf-8")
 
 
@@ -122,22 +164,22 @@ def parse_station_temps_as_dict(csv_text, use_fahrenheit=True):
     return tmins, tmaxs
 
 
-
 def get_station_by_wmo_id(wmo_id):
     pass
+
 
 def get_station_by_airport_code(code):
     pass
 
 
-def get_hash_cell(hash_str, coord_str):
-    dataset_url = GATEWAY_URL + '/ipfs/' + hash_str + '/' + coord_str
+def get_hash_cell(hash_str, coord_str, url=GATEWAY_URL):
+    dataset_url = '%s/ipfs/%s/%s' % (url, hash_str, coord_str)
     r = requests.get(dataset_url)
     r.raise_for_status()
     return r.text
 
 
-def get_zipped_hash_cell(url, hash_str, coord_str):
+def get_zipped_hash_cell(hash_str, coord_str, url=GATEWAY_URL):
     """
     Read a text file on the ipfs server compressed with gzip.
     Args:
@@ -147,7 +189,7 @@ def get_zipped_hash_cell(url, hash_str, coord_str):
     Returns:
         the contents of the file as a string
     """
-    dataset_url = url + "/ipfs/" + hash_str + '/' + coord_str + ".gz"
+    dataset_url = '%s/ipfs/%s/%s.gz' % (url, hash_str, coord_str)
     r = requests.get(dataset_url)
     r.raise_for_status()
     with gzip.GzipFile(fileobj=io.BytesIO(r.content)) as zip_data:
@@ -183,7 +225,7 @@ def get_dataset_cell(lat, lon, dataset_revision):
     coord_str = "{:.3f}_{:.3f}".format(lat,lon)
     try:
         if "compression" in metadata and metadata["compression"] == "gzip":
-            text_data = get_zipped_hash_cell(GATEWAY_URL, dataset_hash, coord_str)
+            text_data = get_zipped_hash_cell(dataset_hash, coord_str)
         else:
             text_data = get_hash_cell(dataset_hash, coord_str)
         return metadata, text_data
@@ -363,5 +405,6 @@ def get_rev_tagged_temperature_dict(lat, lon, dataset, desired_end_date=None):
 
     # If we don't reach the desired dataset, return all data.
     return highs, lows
+
 
 

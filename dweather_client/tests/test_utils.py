@@ -29,3 +29,33 @@ def test_get_n_closest_station_ids():
     # get the 20 closest station ids to a spot in Kentucky
     ids = utils.get_n_closest_station_ids(37, -85, ghcnd_metadata, 20)
     print(ids)
+
+def test_cpc_lat_lon_to_conventional():
+    # case where coords are ok:
+    lat = 25.000
+    lon = 45.000
+    new_lat, new_lon = utils.cpc_lat_lon_to_conventional(lat, lon)
+    assert new_lat == lat
+    assert new_lon == lon
+    # case where lon needs to be converted
+    lat = 25.000
+    lon = 262.000
+    new_lat, new_lon = utils.cpc_lat_lon_to_conventional(lat, lon)
+    assert new_lat == lat
+    assert new_lon == -98.000
+    
+
+def test_conventional_lat_lon_to_cpc():
+    # case where coords are ok:
+    lat = 25.000
+    lon = 45.000
+    new_lat, new_lon = utils.conventional_lat_lon_to_cpc(lat, lon)
+    assert new_lat == lat
+    assert new_lon == lon
+    # case where lon needs to be converted
+    lat = 25.000
+    lon = -98.000
+    new_lat, new_lon = utils.conventional_lat_lon_to_cpc(lat, lon)
+    assert new_lat == lat
+    assert new_lon == 262.000
+    

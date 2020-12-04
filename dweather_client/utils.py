@@ -48,7 +48,10 @@ def cpc_lat_lon_to_conventional(lat, lon):
     Convert a pair of coordinates from the idiosyncratic CPC lat lon
     format to the conventional lat lon format.
     """
-    return lat, lon - 360
+    if (lon >= 180):
+        return lat, lon - 360
+    else:
+        return lat, lon
 
 
 def conventional_lat_lon_to_cpc(lat, lon):
@@ -56,7 +59,10 @@ def conventional_lat_lon_to_cpc(lat, lon):
     Convert a pair of coordinates from conventional (lat,lon)
     to the idiosyncratic CPC (lat,lon) format.
     """
-    return lat, lon + 360
+    if (lon < 0):
+        return lat, lon + 360
+    else:
+        return lat, lon
 
 
 def listify_period(start_date, end_date):

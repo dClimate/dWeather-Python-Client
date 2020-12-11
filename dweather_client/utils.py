@@ -23,6 +23,7 @@ def rtma_grid_to_lat_lon(x, y, grid_history):
         for dimension in (0, 1):
             grid_dict[timestamp][dimension] = [y.strip('][').split(', ') for y in grid_dict[timestamp][dimension].split('\n')]
 
+    # get the lat/lon associated with x and y.
     return [(grid_dict[timestamp][0][y][x], grid_dict[timestamp][1][y][x]) for timestamp in grid_dict]
 
 def snap_to_grid(lat, lon, metadata):

@@ -7,6 +7,24 @@ import datetime
 from heapq import heappush, heappushpop
 from geopy.distance import geodesic
 
+def rtma_grid_to_lat_lon(x, y, grid_history):
+    """
+    x: the x coordinate of the rtma grid
+    y: the y coordinate of the rtma grid
+    grid_history: the raw string representation of the rtma grid history to be
+        read directly from a file
+    """
+
+    # turn the string representation of the grid history into a data structure.
+    # {timestamp: (lat_list, lon_list), timestamp: (lat_list, lon_list)}
+    grid_history = grid_history.split('\n\n')
+    grid_dict = {grid_history[0]: [grid_history[1], grid_history[2]], grid_history[3]: [grid_history[4], grid_history[5]]}
+    for timestamp in grid_dict:
+        for dimension in (0, 1):
+            grid_dict[timestamp][dimension] = [y.strip('][').split(', ') for y in grid_dict[timestamp][dimension].split('\n')]
+
+    return [(grid_dict[timestamp][0][y][x], grid_dict[timestamp][1][y][x]) for timestamp in grid_dict]
+
 def snap_to_grid(lat, lon, metadata):
     """ 
     Find the nearest (lat,lon) on IPFS for a given metadata file.

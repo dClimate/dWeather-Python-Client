@@ -11,7 +11,6 @@ MM_TO_INCHES = 0.0393701
 RAINFALL_PRECISION = 5
 GATEWAY_URL = 'https://gateway.arbolmarket.com'
 
-
 def get_heads(url=GATEWAY_URL):
     """
     Get heads.json for a given IPFS gateway.
@@ -31,7 +30,6 @@ def get_heads(url=GATEWAY_URL):
     r = requests.get(hashes_url)
     r.raise_for_status()
     return r.json()
-
 
 def get_metadata(hash_str, url=GATEWAY_URL):
     """
@@ -66,7 +64,6 @@ def get_metadata(hash_str, url=GATEWAY_URL):
     r.raise_for_status()
     return r.json()
 
-
 def traverse_ll(head):
     release_itr = head
     release_ll = deque()
@@ -85,7 +82,6 @@ def get_hurricane_release_dict(release_hash, url=GATEWAY_URL):
     resp.raise_for_status()
     with gzip.GzipFile(fileobj=io.BytesIO(resp.content)) as zip_data:
         return json.loads(zip_data.read().decode("utf-8"))
-
 
 def get_hurricane_dict(head=get_heads()['atcf_btk-seasonal']):
     """
@@ -128,7 +124,6 @@ def get_station_csv(station_id, url=GATEWAY_URL):
     with gzip.GzipFile(fileobj=io.BytesIO(r.content)) as zip_data:
         return zip_data.read().decode("utf-8")
 
-
 def parse_station_temps_as_dict(csv_text, use_fahrenheit=True):
     """
     Parse a station CSV file and get column values
@@ -163,21 +158,17 @@ def parse_station_temps_as_dict(csv_text, use_fahrenheit=True):
 
     return tmins, tmaxs
 
-
 def get_station_by_wmo_id(wmo_id):
     pass
 
-
 def get_station_by_airport_code(code):
     pass
-
 
 def get_hash_cell(hash_str, coord_str, url=GATEWAY_URL):
     dataset_url = '%s/ipfs/%s/%s' % (url, hash_str, coord_str)
     r = requests.get(dataset_url)
     r.raise_for_status()
     return r.text
-
 
 def get_zipped_hash_cell(hash_str, coord_str, url=GATEWAY_URL):
     """
@@ -194,7 +185,6 @@ def get_zipped_hash_cell(hash_str, coord_str, url=GATEWAY_URL):
     r.raise_for_status()
     with gzip.GzipFile(fileobj=io.BytesIO(r.content)) as zip_data:
         return zip_data.read().decode("utf-8")
-
 
 def get_dataset_cell(lat, lon, dataset_revision):
     """ 
@@ -232,7 +222,6 @@ def get_dataset_cell(lat, lon, dataset_revision):
     except requests.exceptions.RequestException as e:
         raise CoordinateNotFoundError('Coordinate ({}, {}) not found  on ipfs in dataset revision {}'.format(lat, lon, dataset_revision))
 
-
 def get_rainfall_dict(lat, lon, dataset_revision, return_metadata=False):
     """ 
     Build a dict of rainfall data for a given grid cell.
@@ -265,7 +254,6 @@ def get_rainfall_dict(lat, lon, dataset_revision, return_metadata=False):
         return metadata, rainfall_dict
     else:
         return rainfall_dict
-
 
 def get_rev_rainfall_dict(lat, lon, dataset, desired_end_date, latest_rev):
     """
@@ -303,7 +291,6 @@ def get_rev_rainfall_dict(lat, lon, dataset, desired_end_date, latest_rev):
     # If we don't reach the desired dataset, return all data.
     return all_rainfall, is_final
 
-
 def get_temperature_dict(lat, lon, dataset_revision, return_metadata=False):
     """
     Build a dict of temperature data for a given grid cell.
@@ -339,7 +326,6 @@ def get_temperature_dict(lat, lon, dataset_revision, return_metadata=False):
         return metadata, highs, lows
     else:
         return highs, lows
-
 
 def get_rev_temperature_dict(lat, lon, dataset, desired_end_date, latest_rev):
     """
@@ -378,7 +364,6 @@ def get_rev_temperature_dict(lat, lon, dataset, desired_end_date, latest_rev):
     # If we don't reach the desired dataset, return all data.
     return highs, lows, is_final
 
-
 def get_rev_tagged_temperature_dict(lat, lon, dataset, desired_end_date=None):
     ''' Build temps with a revision tag by each date
     Args:
@@ -405,6 +390,3 @@ def get_rev_tagged_temperature_dict(lat, lon, dataset, desired_end_date=None):
 
     # If we don't reach the desired dataset, return all data.
     return highs, lows
-
-
-

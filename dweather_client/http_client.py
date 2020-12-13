@@ -280,7 +280,10 @@ def get_rainfall_dict(lat, lon, dataset_revision, return_metadata=False):
             rainfall_dict[dataset_start_date + datetime.timedelta(days=i)] = None
         else:
             rainfall_dict[dataset_start_date + datetime.timedelta(days=i)] = float(day_strs[i])
-    return metadata, rainfall_dict if return_metadata else rainfall_dict
+    if return_metadata:
+        return metadata, rainfall_dict
+    else:
+        return rainfall_dict
 
 def get_rev_rainfall_dict(lat, lon, dataset, desired_end_date, latest_rev):
     """

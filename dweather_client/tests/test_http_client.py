@@ -1,6 +1,9 @@
 from dweather_client import http_client, utils
 from datetime import date
 
+def test_get_rtma_cell():
+    http_client.get_rtma_cell('40.752907470419586', '247.66162774628384')
+
 def test_http_client_rainfall():
     dataset = 'chirps_05'
     dataset_revision = 'chirps_05-daily'

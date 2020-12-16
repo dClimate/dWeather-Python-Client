@@ -1,9 +1,9 @@
 """
 Basic functions for getting data from a dWeather gateway via https.
 """
-import math, requests, datetime, io, gzip, json, csv
+import os, pickle, math, requests, datetime, io, gzip, json, csv
 from dweather_client.ipfs_errors import *
-from dweather_client.utils import listify_period, lat_lon_to_rtma_grid, celcius_to_fahrenheit
+from dweather_client.utils import listify_period, lat_lon_to_rtma_grid, find_closest_lat_lon, build_rtma_reverse_lookup, build_rtma_lookup, conventional_lat_lon_to_cpc, celcius_to_fahrenheit
 import dweather_client.ipfs_datasets
 from collections import deque
 
@@ -186,35 +186,58 @@ def get_zipped_hash_cell(hash_str, coord_str, url=GATEWAY_URL):
     with gzip.GzipFile(fileobj=io.BytesIO(r.content)) as zip_data:
         return zip_data.read().decode("utf-8")
 
-def get_rtma_cell(lat, lon):
+def get_best_rtma_dict(lat, lon):
+    lat, lon = float(lat), float(lon)
+    if ((lat < 20) or (53 < lat)):
+        raise InputOutOfRangeError('RTMA only covers latitudes 20 thru 53')
+    if ((lon < 228) or (300 < lon)):
+        raise InputOutOfRangeError('RTMA only covers longitudes -132 thru -60')
+    lat, lon = conventional_lat_lon_to_cpc(lat, lon)
+    lat, lon = str(lat), str(lon)
     rtma_head = get_heads()['rtma_pcp-hourly']
     metadata = get_metadata(rtma_head)
     r = requests.get('%s/ipfs/%s/grid_history.txt.gz' % (GATEWAY_URL, rtma_head))
     r.raise_for_status()
     with gzip.GzipFile(fileobj=io.BytesIO(r.content)) as grid_history_file:
         grid_history = grid_history_file.read().decode('utf-8')
-    xy = lat_lon_to_rtma_grid(lat, lon, grid_history)
-    timecells = {}
-    for timestamp in xy:
-        if (xy[timestamp][0] != xy[timestamp][1]):
-            raise DataMalformedError("lat and lon lookup values do not match, that shouldn't happen.")
-        try:
-            x, y = xy[timestamp][0]
-        except TypeError: # if there's a grid cell for one timestamp, but not the other
-            continue
-        r = requests.get('%s/ipfs/%s/%s_%s.gz' % (GATEWAY_URL, rtma_head, str(x).zfill(4), str(y).zfill(4)))
+    r_lookup = build_rtma_reverse_lookup(grid_history)
+    new_grid = list(r_lookup.keys())[-1]
+    valid_lat_lons = pickle.load(open(os.path.join(os.path.dirname(__file__), 'etc/rtma_lat_lons.p'), 'rb'))
+    closest_lat_lon = find_closest_lat_lon(valid_lat_lons, (lat, lon))
+    lat_xy = r_lookup[new_grid]['lat'][closest_lat_lon[0]]
+    lon_xy = r_lookup[new_grid]['lon'][closest_lat_lon[1]]
+    assert lat_xy == lon_xy
+    return get_rtma_dict(lat_xy[0], lat_xy[1], grid_history)
+    """
+    print("original: " + lat + " " + lon)
+    print("closest valid lat lon: " + str(closest_lat_lon))
+    print("xy from lat lookup: " + str(lat_xy))
+    print("xy from lon lookup: " + str(lon_xy))
+    print("lat from reverse lookup of xy: " + str(lookup[new_grid][0][lat_xy[1]][lat_xy[0]]))
+    print("lon from reverse lookup of xy: "+ str(lookup[new_grid][1][lon_xy[1]][lon_xy[0]]))
+"""
+def get_rtma_dict(x, y, grid_history=None):
+    rtma_head = get_heads()['rtma_pcp-hourly']
+    metadata = get_metadata(rtma_head)
+    if grid_history is None:
+        r = requests.get('%s/ipfs/%s/grid_history.txt.gz' % (GATEWAY_URL, rtma_head))
         r.raise_for_status()
-        with gzip.GzipFile(fileobj=io.BytesIO(r.content)) as cell_text_file:
-            cell_text = cell_text_file.read().decode('utf-8') 
-        rtma_start_date = datetime.datetime.strptime(metadata['date range'][0], "%Y-%m-%dT%H:%M:%S")
-        rtma_end_date = datetime.datetime.strptime(metadata['date range'][1], "%Y-%m-%dT%H:%M:%S")
-        timecells[timestamp] = {}
-        hour_itr = rtma_start_date
-        for year_data in cell_text.split('\n'):
-            for hour_data in year_data.split(','):
-                timecells[timestamp][hour_itr] = hour_data
-                hour_itr = hour_itr + datetime.timedelta(hours=1)
-        assert hour_itr == rtma_end_date
+        with gzip.GzipFile(fileobj=io.BytesIO(r.content)) as grid_history_file:
+            grid_history = grid_history_file.read().decode('utf-8')
+    r = requests.get('%s/ipfs/%s/%s_%s.gz' % (GATEWAY_URL, rtma_head, str(x).zfill(4), str(y).zfill(4)))
+    r.raise_for_status()
+    with gzip.GzipFile(fileobj=io.BytesIO(r.content)) as cell_text_file:
+        cell_text = cell_text_file.read().decode('utf-8') 
+    rtma_start_date = datetime.datetime.strptime(metadata['date range'][0], "%Y-%m-%dT%H:%M:%S")
+    rtma_end_date = datetime.datetime.strptime(metadata['date range'][1], "%Y-%m-%dT%H:%M:%S")
+    hour_itr = rtma_start_date
+    rtma_dict = {}
+    for year_data in cell_text.split('\n'):
+        for hour_data in year_data.split(','):
+            rtma_dict[hour_itr] = hour_data
+            hour_itr = hour_itr + datetime.timedelta(hours=1)
+    assert hour_itr == rtma_end_date
+    return rtma_dict
 
 def get_dataset_cell(lat, lon, dataset_revision):
     """ 

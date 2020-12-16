@@ -99,6 +99,10 @@ def snap_to_grid(lat, lon, metadata):
     return snap_lat, snap_lon
 
 def get_n_closest_station_ids(lat, lon, metadata, n):
+    """
+    Get the station ids for the <n> closest stations to a given lat lon. 
+    Requires metadata of ghcnd to get station coordinates.
+    """
     pq = []
     for feature in metadata["stations"]["features"]:
         s_lat = float(feature["geometry"]["coordinates"][0])

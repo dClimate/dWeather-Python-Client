@@ -2,7 +2,8 @@ from dweather_client import df_loader, utils
 import datetime
 
 def test_rtma_df():
-    rtma_df = df_loader.get_best_rtma_df('42.01', '243.01')
+    client = df_loader.RTMADFClient()
+    rtma_df = client.get_best_rtma_df('42.01', '-117.01')
 
 def test_rainfall_df():
     rainfall_df = df_loader.get_rainfall_df(41.125, -75.125, 'chirps_05-daily')

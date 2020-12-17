@@ -2,28 +2,28 @@
 Basic functions for getting data from a dWeather gateway via https if you prefer to work
 in pandas dataframes rather than Python's built in types. A wrapper for http_client.
 """
-from dweather_client.http_client import get_rainfall_dict, get_temperature_dict, get_best_rtma_dict, get_station_csv
+from dweather_client.http_client import get_rainfall_dict, get_temperature_dict, RTMAClient, get_station_csv
 from dweather_client.ipfs_client import cat_station_csv
 from dweather_client.df_utils import get_station_ids_with_icao
 import pandas as pd
 import io
 import ipfshttpclient
 
-def get_best_rtma_df(lat, lon):
-    """
-    RTMA precipitation.
+class RTMADFClient(RTMAClient):
+    def get_best_rtma_df(self, lat, lon):
+        """
+        RTMA precipitation.
 
-    Get a dataframe of for the closest valid rtma grid pair for a 
-    given lat lon.
+        Get a dataframe of for the closest valid rtma grid pair for a
+        given lat lon.
 
-    Returns a dataframe indexed on hourly datetime objects. 
-    """
-    rtma_dict = get_best_rtma_dict(lat, lon)
-    rtma_dict = {"DATE": [k for k in rtma_dict.keys()], "PRCP": [k for k in rtma_dict.values()]}
-    rtma_df = pd.DataFrame.from_dict(rtma_dict)
-    rtma_df.DATE = pd.to_datetime(rtma_df.DATE)
-
-    return rtma_df.set_index(['DATE'])
+        Returns a dataframe indexed on hourly datetime objects.
+        """
+        rtma_dict = self.get_best_rtma_dict(lat, lon)
+        rtma_dict = {"DATE": [k for k in rtma_dict.keys()], "PRCP": [k for k in rtma_dict.values()]}
+        rtma_df = pd.DataFrame.from_dict(rtma_dict)
+        rtma_df.DATE = pd.to_datetime(rtma_df.DATE)
+        return rtma_df.set_index(['DATE'])
 
 def get_rainfall_df(lat, lon, dataset):
     """

@@ -3,7 +3,9 @@ import datetime
 
 def test_rtma_df():
     client = df_loader.RTMADFClient()
-    rtma_df = client.get_best_rtma_df('42.01', '-117.01')
+    lat_lon, rtma_df = client.get_best_rtma_df('42.01', '-117.01')
+    print(lat_lon)
+    print(rtma_df)
 
 def test_rainfall_df():
     rainfall_df = df_loader.get_rainfall_df(41.125, -75.125, 'chirps_05-daily')

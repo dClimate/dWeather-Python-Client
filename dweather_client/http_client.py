@@ -3,7 +3,7 @@ Basic functions for getting data from a dWeather gateway via https.
 """
 import os, pickle, math, requests, datetime, io, gzip, json, logging, csv
 from dweather_client.ipfs_errors import *
-from dweather_client.utils import listify_period, lat_lon_to_rtma_grid, find_closest_lat_lon, build_rtma_reverse_lookup, build_rtma_lookup, conventional_lat_lon_to_cpc, celcius_to_fahrenheit
+from dweather_client.utils import listify_period, lat_lon_to_rtma_grid, find_closest_lat_lon, build_rtma_reverse_lookup, build_rtma_lookup, conventional_lat_lon_to_cpc, cpc_lat_lon_to_conventional, celcius_to_fahrenheit
 import dweather_client.ipfs_datasets
 from collections import deque
 
@@ -216,7 +216,7 @@ class RTMAClient:
         lat_xy = self.r_lookup[self.new_grid]['lat'][closest_lat_lon[0]]
         lon_xy = self.r_lookup[self.new_grid]['lon'][closest_lat_lon[1]]
         assert lat_xy == lon_xy
-        return self.get_rtma_dict(lat_xy[0], lat_xy[1])
+        return cpc_lat_lon_to_conventional(closest_lat_lon[0], closest_lat_lon[1]), self.get_rtma_dict(lat_xy[0], lat_xy[1])
 
     def get_rtma_dict(self, x, y):
         r = requests.get('%s/ipfs/%s/%s_%s.gz' % (GATEWAY_URL, self.rtma_head, str(x).zfill(4), str(y).zfill(4)))

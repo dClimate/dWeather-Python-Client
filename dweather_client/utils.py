@@ -120,6 +120,7 @@ def cpc_lat_lon_to_conventional(lat, lon):
     Convert a pair of coordinates from the idiosyncratic CPC lat lon
     format to the conventional lat lon format.
     """
+    lat, lon = float(lat), float(lon)
     if (lon >= 180):
         return lat, lon - 360
     else:
@@ -131,6 +132,7 @@ def conventional_lat_lon_to_cpc(lat, lon):
     Convert a pair of coordinates from conventional (lat,lon)
     to the idiosyncratic CPC (lat,lon) format.
     """
+    lat, lon = float(lat), float(lon)
     if (lon < 0):
         return lat, lon + 360
     else:

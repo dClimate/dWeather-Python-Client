@@ -1,7 +1,6 @@
 dist
 *.egg-info
 *.whl
-*.gz
 bin
 lib
 __pycache__

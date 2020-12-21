@@ -189,7 +189,8 @@ def get_zipped_hash_cell(hash_str, coord_str, url=GATEWAY_URL):
 class RTMAClient:
     def __init__(self):
         logging.info("Loading rtma valid lat lons")
-        self.valid_lat_lons = pickle.load(open(os.path.join(os.path.dirname(__file__), 'etc/rtma_lat_lons.p'), 'rb'))
+        with gzip.GzipFile(os.path.join(os.path.dirname(__file__), 'etc/rtma_lat_lons.p.gz')) as lat_lons:
+            self.valid_lat_lons = pickle.load(lat_lons)
         self.rtma_head = get_heads()['rtma_pcp-hourly']
         self.metadata = get_metadata(self.rtma_head)
         self.rtma_start_date = datetime.datetime.strptime(self.metadata['date range'][0], "%Y-%m-%dT%H:%M:%S")
@@ -212,7 +213,10 @@ class RTMAClient:
         if ((lon < 228) or (300 < lon)):
             raise InputOutOfRangeError('RTMA only covers longitudes -132 thru -60')
         lat, lon = str(lat), str(lon)
-        closest_lat_lon = find_closest_lat_lon(self.valid_lat_lons, (lat, lon))
+        logging.info('Finding closest lat lon')
+        logging.info('Number of buckets in lookup: %i' % len(self.valid_lat_lons))
+        closest_lat_lon = find_closest_lat_lon(self.valid_lat_lons[(lat[:2], lon[:2])], (lat, lon))
+        logging.info('Finding rtma xy associated with closest lat lon')
         lat_xy = self.r_lookup[self.new_grid]['lat'][closest_lat_lon[0]]
         lon_xy = self.r_lookup[self.new_grid]['lon'][closest_lat_lon[1]]
         assert lat_xy == lon_xy

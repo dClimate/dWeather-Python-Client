@@ -5,7 +5,7 @@ import requests, datetime, io, gzip, json, csv
 from dweather_client.ipfs_errors import *
 from dweather_client.utils import listify_period, celcius_to_fahrenheit
 import dweather_client.ipfs_datasets
-from collections import deque
+from collections import Counter, deque
 
 MM_TO_INCHES = 0.0393701
 RAINFALL_PRECISION = 5
@@ -233,7 +233,7 @@ def get_dataset_cell(lat, lon, dataset_revision):
         raise CoordinateNotFoundError('Coordinate ({}, {}) not found  on ipfs in dataset revision {}'.format(lat, lon, dataset_revision))
 
 
-def get_rainfall_dict(lat, lon, dataset_revision, return_metadata=False):
+def get_rainfall_dict(lat, lon, dataset_revision, return_metadata=False, get_counter=False):
     """ 
     Build a dict of rainfall data for a given grid cell.
     Args:
@@ -255,7 +255,7 @@ def get_rainfall_dict(lat, lon, dataset_revision, return_metadata=False):
     day_strs = rainfall_text.replace(',', ' ').split()
     if (len(day_strs) != days_in_record):
         raise DataMalformedError ("Number of days in data file does not match the provided metadata")
-    rainfall_dict = {}
+    rainfall_dict = Counter({}) if get_counter else {}
     for i in range(days_in_record):
         if day_strs[i] == metadata["missing value"]:
             rainfall_dict[dataset_start_date + datetime.timedelta(days=i)] = None

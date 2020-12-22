@@ -1,3 +1,4 @@
+share
 dist
 *.egg-info
 *.whl

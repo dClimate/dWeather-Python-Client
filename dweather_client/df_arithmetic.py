@@ -29,7 +29,7 @@ def get_polygon_df(shapefile_path, dataset, polygon_names, bounding_box, encodin
     polygons = gpd.read_file(shapefile_path)[['NAME_0', 'NAME_1', 'geometry']]
     polygons.columns = ["country", "state", "geometry"]
 
-    metadata = cat_metadata(get_heads()[dataset])
+    metadata = get_metadata(get_heads()[dataset])
 
     start = datetime.datetime.strptime(metadata['date range'][0], '%Y/%d/%m')
     end = datetime.datetime.today()
@@ -40,31 +40,29 @@ def get_polygon_df(shapefile_path, dataset, polygon_names, bounding_box, encodin
     df.drop(['Date'], axis=1, inplace=True)
     df.index.name = None
 
-    with ipfshttpclient.connect() as client:
-        for index, row in polygons.iterrows():
-            bbox_size = int((bounding_box[1].y - bounding_box[0].y) * (bounding_box[1].x - bounding_box[0].x) / metadata['resolution'] / metadata['resolution'])
-            logging.info("Building %s (%i of %i polygons)" % (row['state'], index + 1, len(polygons.index)))
-            logging.info("Matching points within a bounding box of %i points." % bbox_size)
-            exec_counter = 0
-            poly_counter = Counter({})
-            for latitr in np.arange(bounding_box[0].y, bounding_box[1].y, metadata['resolution']):
-                if ((exec_counter % 1000) == 0):
-                    logging.info("Scanning point %i of %i" % (exec_counter, bbox_size))
-                for lonitr in np.arange(bounding_box[0].x, bounding_box[1].x, metadata['resolution']):
-                    if Point(lonitr, latitr).within(row['geometry']):
-                        slat, slon = snap_to_grid(latitr, lonitr, metadata)
-                        logging.info("Executing IPFS cat.")
-                        rain_counter = get_rainfall_dict(slat, slon, dataset, get_counter=True) #, client=client)
-                        logging.info("Found match at (%s, %s), point %i of %i" % ( \
-                            "{:.3f}".format(slat), 
-                            "{:.3f}".format(slon),
-                            exec_counter,
-                            bbox_size
-                        ))
-                        poly_counter = poly_counter + rain_counter
-                    exec_counter = exec_counter + 1
-            for day in poly_counter:
-                df.at[day.strftime('%Y-%m-%d'), row['state']] += poly_counter[day]
+    for index, row in polygons.iterrows():
+        bbox_size = int((bounding_box[1].y - bounding_box[0].y) * (bounding_box[1].x - bounding_box[0].x) / metadata['resolution'] / metadata['resolution'])
+        logging.info("Building %s (%i of %i polygons)" % (row['state'], index + 1, len(polygons.index)))
+        logging.info("Matching points within a bounding box of %i points." % bbox_size)
+        exec_counter = 0
+        poly_counter = Counter({})
+        for latitr in np.arange(bounding_box[0].y, bounding_box[1].y, metadata['resolution']):
+            if ((exec_counter % 1000) == 0):
+                logging.info("Scanning point %i of %i" % (exec_counter, bbox_size))
+            for lonitr in np.arange(bounding_box[0].x, bounding_box[1].x, metadata['resolution']):
+                if Point(lonitr, latitr).within(row['geometry']):
+                    slat, slon = snap_to_grid(latitr, lonitr, metadata)
+                    rain_counter = get_rainfall_dict(slat, slon, dataset, get_counter=True) #, client=client)
+                    logging.info("Found match at (%s, %s), point %i of %i" % ( \
+                        "{:.3f}".format(slat), 
+                        "{:.3f}".format(slon),
+                        exec_counter,
+                        bbox_size
+                    ))
+                    poly_counter = poly_counter + rain_counter
+                exec_counter = exec_counter + 1
+        for day in poly_counter:
+            df.at[day.strftime('%Y-%m-%d'), row['state']] += poly_counter[day]
     return df
  
 

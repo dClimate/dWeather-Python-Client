@@ -1,16 +1,15 @@
 """
 Basic functions for getting data from a dWeather gateway via https.
 """
-import requests, datetime, io, gzip, json, csv
+import os, pickle, math, requests, datetime, io, gzip, json, logging, csv
 from dweather_client.ipfs_errors import *
-from dweather_client.utils import listify_period, celcius_to_fahrenheit
+from dweather_client.utils import listify_period, lat_lon_to_rtma_grid, find_closest_lat_lon, build_rtma_reverse_lookup, build_rtma_lookup, conventional_lat_lon_to_cpc, cpc_lat_lon_to_conventional, celcius_to_fahrenheit
 import dweather_client.ipfs_datasets
 from collections import Counter, deque
 
 MM_TO_INCHES = 0.0393701
 RAINFALL_PRECISION = 5
 GATEWAY_URL = 'https://gateway.arbolmarket.com'
-
 
 def get_heads(url=GATEWAY_URL):
     """
@@ -31,7 +30,6 @@ def get_heads(url=GATEWAY_URL):
     r = requests.get(hashes_url)
     r.raise_for_status()
     return r.json()
-
 
 def get_metadata(hash_str, url=GATEWAY_URL):
     """
@@ -66,7 +64,6 @@ def get_metadata(hash_str, url=GATEWAY_URL):
     r.raise_for_status()
     return r.json()
 
-
 def traverse_ll(head):
     release_itr = head
     release_ll = deque()
@@ -85,7 +82,6 @@ def get_hurricane_release_dict(release_hash, url=GATEWAY_URL):
     resp.raise_for_status()
     with gzip.GzipFile(fileobj=io.BytesIO(resp.content)) as zip_data:
         return json.loads(zip_data.read().decode("utf-8"))
-
 
 def get_hurricane_dict(head=get_heads()['atcf_btk-seasonal']):
     """
@@ -128,7 +124,6 @@ def get_station_csv(station_id, url=GATEWAY_URL):
     with gzip.GzipFile(fileobj=io.BytesIO(r.content)) as zip_data:
         return zip_data.read().decode("utf-8")
 
-
 def parse_station_temps_as_dict(csv_text, use_fahrenheit=True):
     """
     Parse a station CSV file and get column values
@@ -163,21 +158,17 @@ def parse_station_temps_as_dict(csv_text, use_fahrenheit=True):
 
     return tmins, tmaxs
 
-
 def get_station_by_wmo_id(wmo_id):
     pass
 
-
 def get_station_by_airport_code(code):
     pass
-
 
 def get_hash_cell(hash_str, coord_str, url=GATEWAY_URL):
     dataset_url = '%s/ipfs/%s/%s' % (url, hash_str, coord_str)
     r = requests.get(dataset_url)
     r.raise_for_status()
     return r.text
-
 
 def get_zipped_hash_cell(hash_str, coord_str, url=GATEWAY_URL):
     """
@@ -195,6 +186,55 @@ def get_zipped_hash_cell(hash_str, coord_str, url=GATEWAY_URL):
     with gzip.GzipFile(fileobj=io.BytesIO(r.content)) as zip_data:
         return zip_data.read().decode("utf-8")
 
+class RTMAClient:
+    def __init__(self):
+        logging.info("Loading rtma valid lat lons")
+        with gzip.GzipFile(os.path.join(os.path.dirname(__file__), 'etc/rtma_lat_lons.p.gz')) as lat_lons:
+            self.valid_lat_lons = pickle.load(lat_lons)
+        self.rtma_head = get_heads()['rtma_pcp-hourly']
+        self.metadata = get_metadata(self.rtma_head)
+        self.rtma_start_date = datetime.datetime.strptime(self.metadata['date range'][0], "%Y-%m-%dT%H:%M:%S")
+        self.rtma_end_date = datetime.datetime.strptime(self.metadata['date range'][1], "%Y-%m-%dT%H:%M:%S")
+        logging.info("Downloading rtma grid lookup")
+        r = requests.get('%s/ipfs/%s/grid_history.txt.gz' % (GATEWAY_URL, self.rtma_head))
+        r.raise_for_status()
+        logging.info("Unzipping rtma grid lookup")
+        with gzip.GzipFile(fileobj=io.BytesIO(r.content)) as grid_history_file:
+            grid_history = grid_history_file.read().decode('utf-8')
+        logging.info("Loading rtma grid lookup")
+        self.r_lookup = build_rtma_reverse_lookup(grid_history)
+        self.new_grid = list(self.r_lookup.keys())[-1]
+
+    def get_best_rtma_dict(self, lat, lon):
+        lat, lon = float(lat), float(lon)
+        lat, lon = conventional_lat_lon_to_cpc(lat, lon)
+        if ((lat < 20) or (53 < lat)):
+            raise InputOutOfRangeError('RTMA only covers latitudes 20 thru 53')
+        if ((lon < 228) or (300 < lon)):
+            raise InputOutOfRangeError('RTMA only covers longitudes -132 thru -60')
+        lat, lon = str(lat), str(lon)
+        logging.info('Finding closest lat lon')
+        logging.info('Number of buckets in lookup: %i' % len(self.valid_lat_lons))
+        closest_lat_lon = find_closest_lat_lon(self.valid_lat_lons[(lat[:2], lon[:2])], (lat, lon))
+        logging.info('Finding rtma xy associated with closest lat lon')
+        lat_xy = self.r_lookup[self.new_grid]['lat'][closest_lat_lon[0]]
+        lon_xy = self.r_lookup[self.new_grid]['lon'][closest_lat_lon[1]]
+        assert lat_xy == lon_xy
+        return cpc_lat_lon_to_conventional(closest_lat_lon[0], closest_lat_lon[1]), self.get_rtma_dict(lat_xy[0], lat_xy[1])
+
+    def get_rtma_dict(self, x, y):
+        r = requests.get('%s/ipfs/%s/%s_%s.gz' % (GATEWAY_URL, self.rtma_head, str(x).zfill(4), str(y).zfill(4)))
+        r.raise_for_status()
+        with gzip.GzipFile(fileobj=io.BytesIO(r.content)) as cell_text_file:
+            cell_text = cell_text_file.read().decode('utf-8')
+        hour_itr = self.rtma_start_date
+        rtma_dict = {}
+        for year_data in cell_text.split('\n'):
+            for hour_data in year_data.split(','):
+                rtma_dict[hour_itr] = hour_data
+                hour_itr = hour_itr + datetime.timedelta(hours=1)
+        assert hour_itr == self.rtma_end_date
+        return rtma_dict
 
 def get_dataset_cell(lat, lon, dataset_revision):
     """ 
@@ -232,7 +272,6 @@ def get_dataset_cell(lat, lon, dataset_revision):
     except requests.exceptions.RequestException as e:
         raise CoordinateNotFoundError('Coordinate ({}, {}) not found  on ipfs in dataset revision {}'.format(lat, lon, dataset_revision))
 
-
 def get_rainfall_dict(lat, lon, dataset_revision, return_metadata=False, get_counter=False):
     """ 
     Build a dict of rainfall data for a given grid cell.
@@ -265,7 +304,6 @@ def get_rainfall_dict(lat, lon, dataset_revision, return_metadata=False, get_cou
         return metadata, rainfall_dict
     else:
         return rainfall_dict
-
 
 def get_rev_rainfall_dict(lat, lon, dataset, desired_end_date, latest_rev):
     """
@@ -303,7 +341,6 @@ def get_rev_rainfall_dict(lat, lon, dataset, desired_end_date, latest_rev):
     # If we don't reach the desired dataset, return all data.
     return all_rainfall, is_final
 
-
 def get_temperature_dict(lat, lon, dataset_revision, return_metadata=False):
     """
     Build a dict of temperature data for a given grid cell.
@@ -339,7 +376,6 @@ def get_temperature_dict(lat, lon, dataset_revision, return_metadata=False):
         return metadata, highs, lows
     else:
         return highs, lows
-
 
 def get_rev_temperature_dict(lat, lon, dataset, desired_end_date, latest_rev):
     """
@@ -378,7 +414,6 @@ def get_rev_temperature_dict(lat, lon, dataset, desired_end_date, latest_rev):
     # If we don't reach the desired dataset, return all data.
     return highs, lows, is_final
 
-
 def get_rev_tagged_temperature_dict(lat, lon, dataset, desired_end_date=None):
     ''' Build temps with a revision tag by each date
     Args:
@@ -405,6 +440,3 @@ def get_rev_tagged_temperature_dict(lat, lon, dataset, desired_end_date=None):
 
     # If we don't reach the desired dataset, return all data.
     return highs, lows
-
-
-

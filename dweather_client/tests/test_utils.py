@@ -70,7 +70,6 @@ def test_get_n_closest_station_ids():
 
     # get the 20 closest station ids to a spot in Kentucky
     ids = utils.get_n_closest_station_ids(37, -85, ghcnd_metadata, 20)
-    print(ids)
 
 def test_cpc_lat_lon_to_conventional():
     # case where coords are ok:

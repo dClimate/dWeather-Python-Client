@@ -52,14 +52,18 @@ def get_polygon_df(shapefile_path, dataset, polygon_names, bounding_box, encodin
             for lonitr in np.arange(bounding_box[0].x, bounding_box[1].x, metadata['resolution']):
                 if Point(lonitr, latitr).within(row['geometry']):
                     slat, slon = snap_to_grid(latitr, lonitr, metadata)
-                    rain_counter = get_rainfall_dict(slat, slon, dataset, get_counter=True) #, client=client)
                     logging.info("Found match at (%s, %s), point %i of %i" % ( \
-                        "{:.3f}".format(slat), 
+                        "{:.3f}".format(slat),
                         "{:.3f}".format(slon),
                         exec_counter,
                         bbox_size
                     ))
-                    poly_counter = poly_counter + rain_counter
+                    try:
+                        rain_counter = get_rainfall_dict(slat, slon, dataset, get_counter=True)
+                        poly_counter = poly_counter + rain_counter
+                    except:
+                        logging.warning("Could not retrieve data for (%s, %s)" % ("{:.3f}".format(slat), "{:.3f}".format(slon)))
+                        continue
                 exec_counter = exec_counter + 1
         for day in poly_counter:
             df.at[day.strftime('%Y-%m-%d'), row['state']] += poly_counter[day]

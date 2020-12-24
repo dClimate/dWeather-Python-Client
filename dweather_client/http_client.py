@@ -297,7 +297,7 @@ def get_rainfall_dict(lat, lon, dataset_revision, return_metadata=False, get_cou
     rainfall_dict = Counter({}) if get_counter else {}
     for i in range(days_in_record):
         if day_strs[i] == metadata["missing value"]:
-            rainfall_dict[dataset_start_date + datetime.timedelta(days=i)] = None
+            rainfall_dict[dataset_start_date + datetime.timedelta(days=i)] = 0 if get_counter else None
         else:
             rainfall_dict[dataset_start_date + datetime.timedelta(days=i)] = float(day_strs[i])
     if return_metadata:

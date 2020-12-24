@@ -12,11 +12,9 @@ def test_get_polygon_df():
          'Paraíba', 'Pará', 'Pernambuco', 'Piauí', 'Rio Grande do Norte',
          'Rio Grande do Sul', 'Rio de Janeiro', 'Rondônia', 'Roraima',
          'Santa Catarina', 'Sergipe', 'São Paulo', 'Tocantins']
-    dataset = 'chirps_final_05-daily'
+    dataset = 'chirps_prelim_05-daily'
     metadata = get_metadata(get_heads()[dataset])
-#    p1 = snap_to_grid(-35, -83, metadata)
     p1 = snap_to_grid(-9, -71.5, metadata)
-#    p2 = snap_to_grid(11, -30, metadata)
     p2 = snap_to_grid(-8.75, -71.25, metadata)
     bounding_box = (Point(p1[1], p1[0]), Point(p2[1], p2[0]))
 

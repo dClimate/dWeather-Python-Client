@@ -69,24 +69,24 @@ def get_temperature_df(lat, lon, dataset_revision):
     return  temperature_df.set_index(["DATE"])
 
 
-def get_station_df(station_id):
+def get_station_df(station_id, station_dataset="ghcnd-imputed-daily"):
     """ Get a given station's raw data as a pandas dataframe. """
-    df = pd.read_csv(io.StringIO(get_station_csv(station_id)))
+    df = pd.read_csv(io.StringIO(get_station_csv(station_id, station_dataset=station_dataset)))
     return df.set_index(pd.DatetimeIndex(df['DATE']))
 
 
-def get_station_rainfall_df(station_id):
+def get_station_rainfall_df(station_id, station_dataset="ghcnd"):
     """ Get full daily rainfall time series from GHCN Station Data. """
-    return get_station_df(station_id)[['PRCP', 'NAME']]
+    # GHCND imputed does not have rainfall, only temperatures, so change the default
+    return get_station_df(station_id, station_dataset=station_dataset)[['PRCP', 'NAME']]
     
     
-def get_station_temperature_df(station_id):
+def get_station_temperature_df(station_id, station_dataset="ghcnd-imputed-daily"):
     """ Get full daily min, max temp time series from GHCN Station Data. """
-    
-    return get_station_df(station_id)[['TMIN', 'TMAX', 'NAME']]
+    return get_station_df(station_id, station_dataset=station_dataset)[['TMIN', 'TMAX']]#, 'NAME']]
 
 
-def get_station_snow_df(station_id):
+def get_station_snow_df(station_id, station_dataset="ghcnd"):
     """ Get full daily snowfall time series from GHCN Station Data in mm. """
-    return get_station_df(station_id)[['SNOW', 'NAME']]
+    return get_station_df(station_id, station_dataset=station_dataset)[['SNOW', 'NAME']]
 

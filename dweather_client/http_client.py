@@ -108,16 +108,17 @@ def get_hurricane_dict(head=get_heads()['atcf_btk-seasonal']):
     return hurr_dict
 
 
-def get_station_csv(station_id, url=GATEWAY_URL):
+def get_station_csv(station_id, station_dataset="ghcnd-imputed-daily", url=GATEWAY_URL):
     """
     Retrieve the contents of a station data csv file.
     Args:
         station_id (str): the id of the weather station
+        station_dataset (str): which dataset to use, on of ["ghcnd", "ghcnd-imputed-daily"]
     returns:
         the contents of the station csv file as a string
     """
     all_hashes = get_heads()
-    dataset_hash = all_hashes["ghcnd"]
+    dataset_hash = all_hashes[station_dataset]
     dataset_url = "%s/ipfs/%s/%s.csv.gz" % (url, dataset_hash, str(station_id))
     r = requests.get(dataset_url)
     r.raise_for_status()

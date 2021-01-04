@@ -103,21 +103,22 @@ class GridCellDataLoader:
 class StationDataLoader:
     _instances = {}
 
-    def __init__(self, station_id):
+    def __init__(self, station_id, station_dataset="ghcnd-imputed-daily"):
         """
         Args:
             station_id (str): the station id
         """
         self.station_id = station_id
+        self.station_dataset = station_dataset
         self.csv_text = ""
 
-    def __new__(cls, station_id):
+    def __new__(cls, station_id, station_dataset="ghcnd-imputed-daily"):
         """ Create new class only if one with args doesn't exist
         Similar to singleton class, we only want one instance of DataLoader for each station
         """
-        if station_id not in cls._instances:
-            cls._instances[station_id] = super(StationDataLoader, cls).__new__(cls)
-        return cls._instances[station_id]
+        if (station_id, station_dataset) not in cls._instances:
+            cls._instances[(station_id, station_dataset)] = super(StationDataLoader, cls).__new__(cls)
+        return cls._instances[(station_id, station_dataset)]
 
     def populate_csv(self):
         """ Get the revision from ipfs and save it
@@ -125,7 +126,7 @@ class StationDataLoader:
             revision (str): the named dataset revision on the ipfs gateway
         """
         if self.csv_text == '':
-            self.csv_text = get_station_csv(self.station_id)
+            self.csv_text = get_station_csv(self.station_id, station_dataset=self.station_dataset)
 
     def get_temperatures(self, use_fahrenheit=True):
         """ Return the station data Tmins and Tmaxs 

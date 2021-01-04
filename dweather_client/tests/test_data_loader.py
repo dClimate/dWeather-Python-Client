@@ -1,5 +1,5 @@
 from dweather_client import http_client, utils
-from dweather_client.data_loader import GridCellDataLoader
+from dweather_client.data_loader import GridCellDataLoader, StationDataLoader
 import datetime
 
 def test_get_revision_rainfall():
@@ -50,12 +50,21 @@ def test_multi_revision_dict_temperature():
         assert loader_temps["highs"][date][0] == http_highs[date][0]
         assert loader_temps["lows"][date][0] == http_lows[date][0]
 
-def test_single_instance_enforcement():
+def test_single_instance_enforcement_gridcell():
     chirps_args = "chirps_05", 41.625, -93.125, "rainfall"
     loader_a = GridCellDataLoader(*chirps_args)
     loader_b = GridCellDataLoader(*chirps_args)
     assert loader_a is loader_b
     prism_args = "prism_precip", 41.25, -77.75, "rainfall"
     loader_c = GridCellDataLoader(*prism_args)
+    assert loader_a is not loader_c
+
+def test_single_instance_enforcement_station():
+    station_one_args = 'USW00024285'
+    loader_a = StationDataLoader(station_one_args)
+    loader_b = StationDataLoader(station_one_args)
+    assert loader_a is loader_b
+    station_two_args = 'USW00024285', "ghcnd"
+    loader_c = StationDataLoader(*station_two_args)
     assert loader_a is not loader_c
 

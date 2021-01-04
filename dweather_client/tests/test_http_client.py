@@ -23,3 +23,14 @@ def test_http_client_temperature():
     temperature_rev_dict = http_client.get_rev_temperature_dict(lat, lon, dataset, date.today(), dataset_revision)
     tagged_temperature_rev_dict = http_client.get_rev_tagged_temperature_dict(lat, lon, dataset)
 
+def test_get_station_csv():
+    test_station = "ZI000067969"
+    csv_str = http_client.get_station_csv(test_station)
+    assert (len(csv_str.split()) > 100)
+
+def test_parse_station_temps_as_dict():
+    test_station = "ZI000067969"
+    csv_str = http_client.get_station_csv(test_station)
+    tmins, tmaxs = http_client.parse_station_temps_as_dict(csv_str)
+    assert len(tmaxs) > 100
+    assert len(tmins) > 100 

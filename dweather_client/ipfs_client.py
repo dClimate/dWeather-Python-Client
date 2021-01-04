@@ -290,10 +290,10 @@ def cat_rev_temperature_dict(lat, lon, dataset, desired_end_date, latest_rev):
     return highs, lows, is_final
 
 
-def pin_all_stations(client=None):
+def pin_all_stations(client=None, station_dataset="ghcnd-imputed-daily"):
     """ Sync all stations locally."""
     heads = get_heads()
-    dataset_hash = heads["ghcnd"]
+    dataset_hash = heads[station_dataset]
     session_client = ipfshttpclient.connect() if client is None else client
     try:
         session_client.pin.add(dataset_hash)
@@ -301,11 +301,12 @@ def pin_all_stations(client=None):
         if (client is None):
             session_client.close()
 
-def cat_station_df(station_id, client=None, pin=True, force_hash=None):
+def cat_station_df(station_id, station_dataset="ghcnd-imputed-daily", client=None, pin=True, force_hash=None):
     """ Cat a given station's raw data as a pandas dataframe. """
     df = pd.read_csv(io.StringIO(\
         cat_station_csv(
-            station_id, 
+            station_id,
+            station_dataset=station_dataset,
             client=client, 
             pin=pin,
             force_hash=force_hash
@@ -313,17 +314,18 @@ def cat_station_df(station_id, client=None, pin=True, force_hash=None):
     ))
     return df.set_index(pd.DatetimeIndex(df['DATE']))
 
-def cat_station_csv(station_id, client=None, pin=True, force_hash=None):
+def cat_station_csv(station_id, station_dataset="ghcnd-imputed-daily", client=None, pin=True, force_hash=None):
     """
     Retrieve the contents of a station data csv file.
     Args:
         station_id (str): the id of the weather station
+        station_dataset(str): on of ["ghcnd", "ghcnd-imputed-daily"]
     returns:
         the contents of the station csv file as a string
     """
     if (force_hash is None):
         all_hashes = get_heads()
-        dataset_hash = all_hashes["ghcnd"]
+        dataset_hash = all_hashes[station_dataset]
     else:
         dataset_hash = force_hash
     csv_hash = dataset_hash + '/' + station_id + ".csv.gz"

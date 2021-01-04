@@ -15,10 +15,10 @@ import logging
 
 HISTORICAL_START_YEAR = 1981
 
-def cat_station_df_list(station_ids, pin=True, force_hash=None):
+def cat_station_df_list(station_ids, station_dataset="ghcnd-imputed-daily", pin=True, force_hash=None):
     batch_hash = force_hash
     if (force_hash is None):
-        batch_hash = get_heads()['ghcnd']
+        batch_hash = get_heads()[station_dataset]
     metadata = cat_metadata(batch_hash, pin=pin)
     station_content = []
     with ipfshttpclient.connect() as client:
@@ -33,6 +33,7 @@ def cat_station_df_list(station_ids, pin=True, force_hash=None):
             try:
                 station_content.append(cat_station_df( \
                     station_id,
+                    station_dataset=station_dataset,
                     client=client,
                     pin=pin,
                     force_hash=batch_hash
@@ -42,24 +43,24 @@ def cat_station_df_list(station_ids, pin=True, force_hash=None):
                 
     return station_content 
 
-def cat_icao_stations(pin=True, force_hash=None):
+def cat_icao_stations(station_dataset="ghcnd-imputed-daily", pin=True, force_hash=None):
     """
     For every station that has an icao code, load it into a dataframe and
     return them all as a list.
     """
     station_ids = get_station_ids_with_icao()
-    return cat_station_df_list(station_ids, pin=pin, force_hash=force_hash)
+    return cat_station_df_list(station_ids, station_dataset=station_dataset, pin=pin, force_hash=force_hash)
 
-def cat_n_closest_station_dfs(lat, lon, n, pin=True, force_hash=None):
+def cat_n_closest_station_dfs(lat, lon, n, station_dataset="ghcnd-imputed-daily", pin=True, force_hash=None):
     """
     Load the closest n stations to a given point into a list of dataframes.
     """
     if (force_hash is None):
-        metadata = cat_metadata(get_heads()['ghcnd'])
+        metadata = cat_metadata(get_heads()[station_dataset])
     else:
         metadata = cat_metadata(force_hash)
     station_ids = get_n_closest_station_ids(lat, lon, metadata, n)
-    return cat_station_df_list(station_ids, pin=pin, force_hash=force_hash)
+    return cat_station_df_list(station_ids, station_dataset=station_dataset, pin=pin, force_hash=force_hash)
 
 def sum_period_df(df, ps, pe, yrs, peril):
     """ 

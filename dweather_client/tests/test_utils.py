@@ -24,7 +24,7 @@ def test_snap_to_grid_cpc_global_daily():
 
 def test_get_n_closest_station_ids():
     heads = http_client.get_heads()
-    ghcnd_metadata = http_client.get_metadata(heads['ghcnd'])
+    ghcnd_metadata = http_client.get_metadata(heads["ghcnd-imputed-daily"])
 
     # get the 20 closest station ids to a spot in Kentucky
     ids = utils.get_n_closest_station_ids(37, -85, ghcnd_metadata, 20)

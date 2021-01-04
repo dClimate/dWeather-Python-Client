@@ -1,6 +1,10 @@
 from dweather_client import http_client, utils
 from datetime import date
 
+def test_get_best_rtma_dict():
+    client = http_client.RTMAClient()
+    client.get_best_rtma_dict('49.01', '-125.01')
+
 def test_http_client_rainfall():
     dataset = 'chirps_05'
     dataset_revision = 'chirps_05-daily'

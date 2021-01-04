@@ -7,6 +7,74 @@ import datetime
 from heapq import heappush, heappushpop
 from geopy.distance import geodesic
 
+def find_closest_lat_lon(lst, K):
+    """
+    Find the closest (lat, lon) tuple in a list to a given 
+    (lat, lon) tuple K. Use euclidian distance for performance reasons.
+    """
+    return lst[min(range(len(lst)), key = lambda i: math.sqrt((float(lst[i][0]) - float(K[0]))**2 + (float(lst[i][1]) - float(K[1]))**2 ))] 
+
+def build_rtma_lookup(grid_history):
+    """
+    turn the string representation of the grid history into a data structure.
+    {timestamp: (lat_list, lon_list), timestamp: (lat_list, lon_list)}
+    """
+    grid_history = grid_history.split('\n\n')
+    grid_dict = {grid_history[0]: [grid_history[1], grid_history[2]], grid_history[3]: [grid_history[4], grid_history[5]]}
+    for timestamp in grid_dict:
+        for dimension in (0, 1):
+            grid_dict[timestamp][dimension] = [y.strip('][').split(', ') for y in grid_dict[timestamp][dimension].split('\n')]
+    return grid_dict
+
+def build_rtma_reverse_lookup(grid_history):
+    """
+    Reverse index the rtma lookup data structure to enable querying by lat lon.
+    {timestamp: {'lat': {latitude: (x, y)}}, {'lon': {longitude: (x, y)}}}
+    Example query: 
+        rev_grid_dict['2011-01-01T00:00:00']['lat']['20.191999000000006']
+        rev_grid_dict['2011-01-01T00:00:00']['lon']['238.445999']
+    """
+    grid_dict = build_rtma_lookup(grid_history)
+    rev_grid_dict = {}
+    for timestamp in grid_dict:
+        rev_grid_dict[timestamp] = {'lat': {}, 'lon': {}}
+        # reindex lat
+        for y in range(0, len(grid_dict[timestamp][0])):
+            for x in range(0, len(grid_dict[timestamp][0][y])):
+                if grid_dict[timestamp][0][y][x] in rev_grid_dict[timestamp]['lat']:
+                    logging.error("Conflict in parsing rtma grid history.")
+                rev_grid_dict[timestamp]['lat'][grid_dict[timestamp][0][y][x]] = (x, y)
+        # reindex lon
+        for y in range(0, len(grid_dict[timestamp][1])):
+            for x in range(0, len(grid_dict[timestamp][1][y])):
+                if grid_dict[timestamp][1][y][x] in rev_grid_dict[timestamp]['lon']:
+                    logging.error('Conflict in Parsing rtma grid history.')
+                rev_grid_dict[timestamp]['lon'][grid_dict[timestamp][1][y][x]] = (x, y)
+    return rev_grid_dict
+
+def lat_lon_to_rtma_grid(lat, lon, grid_history):
+    grid_dict = build_rtma_reverse_lookup(grid_history)
+    response = {}
+    for timestamp in grid_dict:
+        try:
+            response[timestamp] = (grid_dict[timestamp]['lat'][lat], grid_dict[timestamp]['lon'][lon])
+        except KeyError:
+            response[timestamp] = (None, None)
+            continue
+    return response
+
+def rtma_grid_to_lat_lon(x, y, grid_history):
+    """
+    x: the x coordinate of the rtma grid
+    y: the y coordinate of the rtma grid
+    grid_history: the raw string representation of the rtma grid history to be
+        read directly from a file
+    """
+    grid_dict = build_rtma_lookup(grid_history)
+
+    # get the lat/lon associated with x and y.
+    return [(grid_dict[timestamp][0][y][x], grid_dict[timestamp][1][y][x]) for timestamp in grid_dict]
+
 def snap_to_grid(lat, lon, metadata):
     """ 
     Find the nearest (lat,lon) on IPFS for a given metadata file.
@@ -31,6 +99,10 @@ def snap_to_grid(lat, lon, metadata):
     return snap_lat, snap_lon
 
 def get_n_closest_station_ids(lat, lon, metadata, n):
+    """
+    Get the station ids for the <n> closest stations to a given lat lon. 
+    Requires metadata of ghcnd to get station coordinates.
+    """
     pq = []
     for feature in metadata["stations"]["features"]:
         s_lat = float(feature["geometry"]["coordinates"][0])
@@ -48,6 +120,7 @@ def cpc_lat_lon_to_conventional(lat, lon):
     Convert a pair of coordinates from the idiosyncratic CPC lat lon
     format to the conventional lat lon format.
     """
+    lat, lon = float(lat), float(lon)
     if (lon >= 180):
         return lat, lon - 360
     else:
@@ -59,6 +132,7 @@ def conventional_lat_lon_to_cpc(lat, lon):
     Convert a pair of coordinates from conventional (lat,lon)
     to the idiosyncratic CPC (lat,lon) format.
     """
+    lat, lon = float(lat), float(lon)
     if (lon < 0):
         return lat, lon + 360
     else:

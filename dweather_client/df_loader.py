@@ -2,9 +2,9 @@
 Basic functions for getting data from a dWeather gateway via https if you prefer to work
 in pandas dataframes rather than Python's built in types. A wrapper for http_client.
 """
-from dweather_client.http_client import get_rainfall_dict, get_temperature_dict, RTMAClient, get_station_csv
+from dweather_client.http_client import get_rainfall_dict, get_temperature_dict, RTMAClient, get_station_csv, get_simulated_hurricane_files, get_hurricane_dict
 from dweather_client.ipfs_client import cat_station_csv
-from dweather_client.df_utils import get_station_ids_with_icao
+from dweather_client.df_utils import get_station_ids_with_icao, nearby_storms
 import pandas as pd
 import io
 import ipfshttpclient
@@ -46,6 +46,49 @@ def get_rainfall_df(lat, lon, dataset):
     
     return rainfall_df.set_index(['DATE'])
 
+def get_simulated_hurricane_df(basin, **kwargs):
+    """
+    return:
+        pd.DataFrame containing simulated hurricane data. If given kwargs radius, lat, lon,
+        will subset df to only include points within radius in km of the point (lat, lon)
+    args:
+        basin (str), one of: EP, NA, NI, SI, SP or WP
+    """
+    files = get_simulated_hurricane_files(basin)
+    dfs = [pd.read_csv(f, header = None)[range(10)] for f in files]
+    df = pd.concat(dfs).reset_index(drop=True)
+    columns = ['year', 'month', 'tc_num', 'time_step', 'basin', 'lat', 'lon', 'min_press', 'max_wind', 'rmw']
+    df.columns = columns
+    if {'radius', 'lat', 'lon'}.issubset(kwargs.keys()):
+        df = nearby_storms(df, kwargs['lat'], kwargs['lon'], kwargs['radius'])
+    return df
+
+def get_historical_hurricane_df(basin, **kwargs):
+    """
+    return:
+        pd.DataFrame containing historical hurricane data. If given kwargs radius, lat, lon,
+        will subset df to only include points within radius in km of the point (lat, lon)
+    args:
+        basin (str), one of: AL, CP, EP, SL
+    """
+    if basin not in {'AL', 'CP', 'EP', 'SL'}:
+        raise ValueError("Invalid basin ID")
+    hist_dict = get_hurricane_dict()
+    features = hist_dict['features']
+    df_list = []
+    for feature in features:
+        hurr_dict = feature['properties']
+        hurr_dict['lat'] = feature['geometry']['coordinates'][0]
+        hurr_dict['lon'] = feature['geometry']['coordinates'][1]
+        df_list.append(hurr_dict)
+    df = pd.DataFrame(df_list)
+    df = df[df["BASIN"] == basin]
+    df['HOUR'] = pd.to_datetime(df["HOUR"])
+    if {'radius', 'lat', 'lon'}.issubset(kwargs.keys()):
+        df = nearby_storms(df, kwargs['lat'], kwargs['lon'], kwargs['radius'])
+    for col in df:
+        df[col] = pd.to_numeric(df[col], errors='ignore')
+    return df
 
 def get_temperature_df(lat, lon, dataset_revision):
     """

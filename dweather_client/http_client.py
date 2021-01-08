@@ -75,7 +75,6 @@ def traverse_ll(head):
         else:
             return release_ll
 
-
 def get_hurricane_release_dict(release_hash, url=GATEWAY_URL):
     url = "%s/ipfs/%s/history.json.gz" % (url, release_hash)
     resp = requests.get(url)
@@ -102,10 +101,24 @@ def get_hurricane_dict(head=get_heads()['atcf_btk-seasonal']):
     for release_hash in release_ll:
         release_content = get_hurricane_release_dict(release_hash)
         try:
-            hurr_dict['features'].append(release_content['features'])
+            hurr_dict['features'] += release_content['features']
         except KeyError:
             hurr_dict.update(release_content)
     return hurr_dict
+
+def get_simulated_hurricane_files(basin):
+    """
+    Gets the names of files containing STORM simulated TC data. Takes a basin ID, one of:
+    EP, NA, NI, SI, SP or WP
+    """
+    if basin not in {'EP', 'NA', 'NI', 'SI', 'SP', 'WP'}:
+        raise ValueError("Invalid basin ID")
+    heads = get_heads()
+    hurr_hash = heads['storm-simulated-hurricane']
+    metadata  = get_metadata(hurr_hash)
+    base_url = f"{GATEWAY_URL}/ipfs/{hurr_hash}/"
+    files = [base_url + f for f in metadata['files'] if basin in f]
+    return files
 
 
 def get_station_csv(station_id, station_dataset="ghcnd-imputed-daily", url=GATEWAY_URL):

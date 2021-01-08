@@ -55,7 +55,7 @@ def get_simulated_hurricane_df(basin, **kwargs):
         basin (str), one of: EP, NA, NI, SI, SP or WP
     """
     files = get_simulated_hurricane_files(basin)
-    dfs = [pd.read_csv(f, header = None)[range(10)] for f in files]
+    dfs = [pd.read_csv(f, header=None)[range(10)] for f in files]
     df = pd.concat(dfs).reset_index(drop=True)
     columns = ['year', 'month', 'tc_num', 'time_step', 'basin', 'lat', 'lon', 'min_press', 'max_wind', 'rmw']
     df.columns = columns
@@ -87,7 +87,8 @@ def get_historical_hurricane_df(basin, **kwargs):
     if {'radius', 'lat', 'lon'}.issubset(kwargs.keys()):
         df = nearby_storms(df, kwargs['lat'], kwargs['lon'], kwargs['radius'])
     for col in df:
-        df[col] = pd.to_numeric(df[col], errors='ignore')
+        if col != "HOUR":
+            df[col] = pd.to_numeric(df[col], errors='ignore')
     return df
 
 def get_temperature_df(lat, lon, dataset_revision):

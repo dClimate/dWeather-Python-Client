@@ -19,3 +19,17 @@ def test_station_dfs():
     station_df = df_loader.get_station_rainfall_df('USW00024285')
     station_df2 = df_loader.get_station_temperature_df('USW00024285')
     station_df3 = df_loader.get_station_snow_df('USW00024285')
+
+def test_get_simulated_hurricane_df():
+    df_all_ni = df_loader.get_simulated_hurricane_df('NI')
+    df_subset_ni = df_loader.get_simulated_hurricane_df('NI', radius=500, lat= 21, lon=65)
+
+    assert len(df_all_ni.columns) == len(df_subset_ni.columns) == 10
+    assert len(df_subset_ni) < len(df_all_ni)
+
+def test_get_historical_hurricane_df():
+    df_all_al = df_loader.get_historical_hurricane_df('AL')
+    df_subset_al = df_loader.get_historical_hurricane_df('AL', radius=500, lat= 27, lon=-93)
+
+    assert len(df_all_al.columns) == len(df_subset_al.columns) == 37
+    assert len(df_subset_al) < len(df_all_al)

@@ -152,7 +152,7 @@ def parse_station_snowfall_as_dict(csv_text, use_inches=True):
         if use_inches:
             row_snow = mms_to_inches(row_snow)
         snowfall[datetime.datetime.strptime(row[date_col], "%Y-%m-%d").date()] = row_snow
-
+    return snowfall
 
 def parse_station_temps_as_dict(csv_text, use_fahrenheit=True):
     """

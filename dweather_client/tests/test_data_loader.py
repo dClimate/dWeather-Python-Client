@@ -73,4 +73,3 @@ def test_station_temp_and_snow():
     loader.get_temperatures()
     loader.get_temperatures(use_fahrenheit=False)
     loader = StationDataLoader('USW00014820', station_dataset='ghcnd')
-    loader.get_snowfall()

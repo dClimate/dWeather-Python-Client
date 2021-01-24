@@ -1,4 +1,4 @@
-from dweather_client.http_client import get_rainfall_dict, get_temperature_dict, get_station_csv, parse_station_temps_as_dict
+from dweather_client.http_client import get_rainfall_dict, get_temperature_dict, get_station_csv, parse_station_snowfall_as_dict, parse_station_temps_as_dict
 import dweather_client.ipfs_datasets
 
 class GridCellDataLoader:
@@ -141,4 +141,6 @@ class StationDataLoader:
         tmaxs, tmins = parse_station_temps_as_dict(self.csv_text, use_fahrenheit)
         return {"highs": tmaxs, "lows": tmins}
         
-
+    def get_snowfall(self, use_inches=True):
+        self.populate_csv()     
+        return parse_station_snowfall_as_dict(self.csv_text, use_inches)

@@ -3,7 +3,7 @@ Basic functions for getting data from a dWeather gateway via https.
 """
 import os, pickle, math, requests, datetime, io, gzip, json, logging, csv
 from dweather_client.ipfs_errors import *
-from dweather_client.utils import listify_period, lat_lon_to_rtma_grid, find_closest_lat_lon, build_rtma_reverse_lookup, build_rtma_lookup, conventional_lat_lon_to_cpc, cpc_lat_lon_to_conventional, celcius_to_fahrenheit
+from dweather_client.utils import listify_period, lat_lon_to_rtma_grid, find_closest_lat_lon, build_rtma_reverse_lookup, build_rtma_lookup, conventional_lat_lon_to_cpc, cpc_lat_lon_to_conventional, mms_to_inches, celcius_to_fahrenheit
 import dweather_client.ipfs_datasets
 from collections import Counter, deque
 
@@ -138,6 +138,22 @@ def get_station_csv(station_id, station_dataset="ghcnd-imputed-daily", url=GATEW
     with gzip.GzipFile(fileobj=io.BytesIO(r.content)) as zip_data:
         return zip_data.read().decode("utf-8")
 
+
+def parse_station_snowfall_as_dict(csv_text, use_inches=True):
+    reader = csv.reader(csv_text.split())
+    column_names = next(reader)
+    date_col = column_names.index('DATE')
+    snow_col = column_names.index('SNOW')
+    snowfall = {}
+    for row in reader:
+        if row[snow_col] == '':
+            continue
+        row_snow = float(row[snow_col])/10.0
+        if use_inches:
+            row_snow = mms_to_inches(row_snow)
+        snowfall[datetime.datetime.strptime(row[date_col], "%Y-%m-%d").date()] = row_snow
+
+
 def parse_station_temps_as_dict(csv_text, use_fahrenheit=True):
     """
     Parse a station CSV file and get column values
@@ -150,7 +166,6 @@ def parse_station_temps_as_dict(csv_text, use_fahrenheit=True):
             dict of datetime.date: float temperature highs
             dict of datetime.date: float temperature lows
     """
-    #csv_text = get_station_csv(station_id)
     reader = csv.reader(csv_text.split())
     column_names = next(reader)
     date_col = column_names.index('DATE')

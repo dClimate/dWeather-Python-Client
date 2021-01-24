@@ -170,3 +170,5 @@ def is_revision_final(dataset, revision_to_check, last_acceptable_revision):
 def celcius_to_fahrenheit(deg_c):
     return round((deg_c * 9/5) + 32, 5)
 
+def mms_to_inches(mms):
+    return round((mms / 25.4), 5)

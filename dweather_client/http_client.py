@@ -265,6 +265,19 @@ class RTMAClient:
         assert hour_itr == self.rtma_end_date
         return rtma_dict
 
+def get_full_rtma_history(lat, lon):
+    if ((lat < 20) or (53 < lat)):
+        raise InputOutOfRangeError('RTMA only covers latitudes 20 thru 53')
+    if ((lon < -132) or (-60 < lon)):
+        raise InputOutOfRangeError('RTMA only covers longitudes -132 thru -60')
+    base_url = "https://parser.arbolmarket.com/linked-list/rtma"
+    r = requests.get(f"{base_url}/{lat}_{lon}")
+    resp = r.json()
+    data_dict = {}
+    for k, v in resp["data"].items():
+        data_dict[datetime.datetime.fromisoformat(k)] = v
+    return ((resp["lat"], resp["lon"]), data_dict)
+
 def get_dataset_cell(lat, lon, dataset_revision):
     """ 
     Retrieve the text of a grid cell data file for a given lat lon and dataset.

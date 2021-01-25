@@ -34,3 +34,13 @@ def test_parse_station_temps_as_dict():
     tmins, tmaxs = http_client.parse_station_temps_as_dict(csv_str)
     assert len(tmaxs) > 100
     assert len(tmins) > 100 
+
+def test_get_full_rtma_history():
+    lat, lon = 27.5343, -75.2341
+    res = http_client.get_full_rtma_history(27.5343, -75.2341)
+    assert abs(lat - res[0][0]) < 1
+    assert abs(lon - res[0][1]) < 1
+    first_date, last_date = sorted(res[1])[0], sorted(res[1])[-1]
+    time_diff = last_date - first_date
+    time_diff_hours = time_diff.days * 24 + time_diff.seconds // 3600
+    assert time_diff_hours == len(res[1])

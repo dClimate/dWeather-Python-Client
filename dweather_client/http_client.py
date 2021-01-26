@@ -266,6 +266,18 @@ class RTMAClient:
         return rtma_dict
 
 def get_full_rtma_history(lat, lon):
+    """
+    Calls endpoint that iterates through all updates to the RTMA dataset and returns a dictionary
+    containing the full time series of data.
+    Args:
+        lat (float): latitude coordinate of RTMA data
+        lon (float): longitude coordinate of RTMA data
+    Returns:
+        tuple containing (<ret_lat>, <ret_lon>, <data>)
+        where ret_lat and ret_lon are floats representing the coordinates of the data after the
+        argument coordinates are snapped to the RTMA grid, and <data> is a time series dict with 
+        datetime keys
+    """
     if ((lat < 20) or (53 < lat)):
         raise InputOutOfRangeError('RTMA only covers latitudes 20 thru 53')
     if ((lon < -132) or (-60 < lon)):

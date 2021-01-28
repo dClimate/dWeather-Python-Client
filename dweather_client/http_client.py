@@ -1,7 +1,7 @@
 """
 Basic functions for getting data from a dWeather gateway via https.
 """
-import os, pickle, math, requests, datetime, io, gzip, json, logging, csv
+import os, pickle, math, requests, datetime, io, gzip, json, logging, csv, tarfile
 from dweather_client.ipfs_errors import *
 from dweather_client.utils import listify_period, lat_lon_to_rtma_grid, find_closest_lat_lon, build_rtma_reverse_lookup, build_rtma_lookup, conventional_lat_lon_to_cpc, cpc_lat_lon_to_conventional, mms_to_inches, celcius_to_fahrenheit
 import dweather_client.ipfs_datasets
@@ -333,6 +333,40 @@ def get_rainfall_dict(lat, lon, dataset_revision, return_metadata=False, get_cou
         return metadata, rainfall_dict
     else:
         return rainfall_dict
+
+
+def get_prismc_dict(lat, lon, dataset):
+    """
+    Builds a dict of latest PRISM data by using datasets combining all PRISM revisions
+    Args:
+        lat (float): the latitude of the grid cell, to 3 decimals
+        lon (float): the longitude of the grid cell, to 3 decimals
+        dataset (str): one of 'precip', 'tmax' or 'tmin'
+    Returns:
+        a dict ({datetime.date: float}) of datetime dates and the corresponding weather values.
+        Units are mm for precip or degrees F for tmax and tmin
+    """
+    if dataset not in {"precip", "tmax", "tmin"}:
+        raise ValueError("Dataset must be 'precip', 'tmax' or 'tmin'")
+    str_lat, str_lon = "{:.3f}".format(lat), "{:.3f}".format(lon)
+    prismc_head = get_heads()[f"prismc-{dataset}-daily"]
+    date_dict = {}
+    hashes = traverse_ll(prismc_head)
+    for h in list(hashes)[::-1]:
+        tar_url = f"{GATEWAY_URL}/ipfs/{h}/{str_lat}.tar"
+        resp = requests.get(tar_url)
+        resp.raise_for_status()
+        with tarfile.open(fileobj=io.BytesIO(resp.content)) as tar:
+            with tar.extractfile(f"{str_lat}_{str_lon}.gz") as f:
+                with gzip.open(f) as gz:
+                    for i, line in enumerate(gz):
+                        day_of_year = datetime.date(1981 + i, 1, 1)
+                        data_list = line.decode('utf-8').strip().split(',')
+                        for point in data_list:
+                            if (day_of_year not in date_dict) and point:
+                                date_dict[day_of_year] = float(point)
+                                day_of_year += datetime.timedelta(days=1)
+    return date_dict
 
 def get_rev_rainfall_dict(lat, lon, dataset, desired_end_date, latest_rev):
     """

@@ -28,6 +28,11 @@ def test_rtma_grid_to_lat_lon():
         assert utils.rtma_grid_to_lat_lon(130, 42, grid_history) == [('21.677552644312303', '241.3744282380296'), ('21.67755927656665', '241.37444172371673')]
         assert utils.rtma_grid_to_lat_lon(491, 841, grid_history) == [('40.752907470419586', '247.66162774628384'), ('40.75299702642884', '247.66167780662005')]
 '''
+
+def test_snotel_to_ghcnd():
+    assert utils.snotel_to_ghcnd(602, 'CO') == 'USS0005K05S'
+    assert utils.snotel_to_ghcnd(838, 'CO') == 'USS0005J08S'
+
 def test_rtma_lookup():
     heads = http_client.get_heads()
     rtma_hash = heads['rtma_pcp-hourly']
@@ -99,4 +104,3 @@ def test_conventional_lat_lon_to_cpc():
     new_lat, new_lon = utils.conventional_lat_lon_to_cpc(lat, lon)
     assert new_lat == lat
     assert new_lon == 262.000
-    

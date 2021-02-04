@@ -244,7 +244,7 @@ class RTMAClient:
         lat, lon = str(lat), str(lon)
         logging.info('Finding closest lat lon')
         logging.info('Number of buckets in lookup: %i' % len(self.valid_lat_lons))
-        closest_lat_lon = find_closest_lat_lon(self.valid_lat_lons[(lat[:2], lon[:2])], (lat, lon))
+        closest_lat_lon = find_closest_lat_lon(self.valid_lat_lons[(lat[:2], lon[:3])], (lat, lon))
         logging.info('Finding rtma xy associated with closest lat lon')
         lat_xy = self.r_lookup[self.new_grid]['lat'][closest_lat_lon[0]]
         lon_xy = self.r_lookup[self.new_grid]['lon'][closest_lat_lon[1]]

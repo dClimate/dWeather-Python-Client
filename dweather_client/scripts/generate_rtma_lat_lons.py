@@ -8,26 +8,46 @@ def add_to_bucket(buckets, bucket, lat, lon):
     except KeyError:
         buckets[bucket] = [(lat, lon)]
 
-def add_to_buckets(buckets, bucket_size, lat, lon):
+def add_to_buckets(buckets, offset, lat, lon):
     """
     We are taking an argument "buckets" and adding a new element to it.
 
     The element is (lat, lon).
     
     The point is to take a giant dict and break it down into sub-dicts.
-    The subdicts are the "bucket" idea, so we set a "bucket_size" 
-    The smaller the bucket size is, the large the buckets structure will be, 
-    but the faster it will be to query it.
+    The key to each sub-dict is the integer components of the lat/lon coordinates
+    Points that are in nearby grid squares are duplicated in other dicts
     """
-    add_to_bucket(buckets, (lat[:bucket_size], lon[:bucket_size]), lat, lon)
-    if ((float(lat) - .15) < (int(lat[:bucket_size]) * (10**(2 - bucket_size)))): # if lat is close to a bucket border
-        add_to_bucket(buckets, (str(int(lat[:bucket_size]) - 1), lon[:bucket_size]), lat, lon) # add to the neighboring bucket as well
-    elif ((float(lat) + .15) > (int(lat[:bucket_size]) * (10**(2 - bucket_size)))):
-        add_to_bucket(buckets, (str(int(lat[:bucket_size]) + 1), lon[:bucket_size]), lat, lon)
-    if ((float(lon) - .15) < (int(lon[:bucket_size]) * (10**(2 - bucket_size)))):
-        add_to_bucket(buckets, (lat[:bucket_size], str(int(lon[:bucket_size]) - 1)), lat, lon)
-    elif ((float(lon) + .15) > (int(lon[:bucket_size]) * (10**(2 - bucket_size)))):
-        add_to_bucket(buckets, (lat[:bucket_size], str(int(lon[:bucket_size]) + 1)), lat, lon)
+    float_lat = float(lat)
+    float_lon = float(lon)
+    int_part_of_lat = int(float_lat)
+    int_part_of_lon = int(float_lon)
+    
+    # Always add to main bucket
+    add_to_bucket(buckets, (str(int_part_of_lat), str(int_part_of_lon)), lat, lon)
+
+    # Determine whether the coord is close enough to the boundary to add to other buckets
+    close_to_higher_lat = float_lat > 1 + int_part_of_lat - offset
+    close_to_lower_lat = float_lat < int_part_of_lat + offset
+    close_to_higher_lon = float_lon > 1 + int_part_of_lon - offset
+    close_to_lower_lon = float_lon < int_part_of_lon + offset
+
+    if close_to_higher_lat:
+        add_to_bucket(buckets, (str(int_part_of_lat + 1), str(int_part_of_lon)), lat, lon)
+    if close_to_higher_lon:
+        add_to_bucket(buckets, (str(int_part_of_lat), str(int_part_of_lon + 1)), lat, lon)
+    if close_to_lower_lat:
+        add_to_bucket(buckets, (str(int_part_of_lat - 1), str(int_part_of_lon)), lat, lon)
+    if close_to_lower_lon:
+        add_to_bucket(buckets, (str(int_part_of_lat), str(int_part_of_lon - 1)), lat, lon)
+    if close_to_higher_lat and close_to_higher_lon:
+        add_to_bucket(buckets, (str(int_part_of_lat + 1), str(int_part_of_lon + 1)), lat, lon)
+    if close_to_higher_lon and close_to_lower_lat:
+        add_to_bucket(buckets, (str(int_part_of_lat - 1), str(int_part_of_lon + 1)), lat, lon)
+    if close_to_lower_lat and close_to_lower_lon:
+        add_to_bucket(buckets, (str(int_part_of_lat - 1), str(int_part_of_lon - 1)), lat, lon)
+    if close_to_lower_lat and close_to_higher_lon:
+        add_to_bucket(buckets, (str(int_part_of_lat - 1), str(int_part_of_lon + 1)), lat, lon)
 
 def main():
     heads = http_client.get_heads()
@@ -43,9 +63,6 @@ def main():
 
     # lookup is converting grid_history into a dict {(x, y): (lat, lon)}
     lookup = build_rtma_lookup(grid_history)
-    
-    # reverse indexing lookup {(lat, lon): (x, y)}
-    r_loookup = build_rtma_reverse_lookup(grid_history)
 
     print('getting valid_coordinates')
     r = requests.get('https://gateway.arbolmarket.com/ipfs/%s/valid_coordinates.txt.gz' % rtma_hash)
@@ -68,7 +85,7 @@ def main():
                 lon = lookup['2016-01-06T14:00:00'][1][int(xy[1])][int(xy[0])]
                 
                 # Once we have a valid (lat, lon) we want to save it.
-                add_to_buckets(lat_lons, 2, lat, lon)
+                add_to_buckets(lat_lons, 0.15, lat, lon)
             except IndexError:
                 print("missing %s" % str(xy))
                 continue

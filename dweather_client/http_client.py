@@ -139,11 +139,26 @@ def get_station_csv(station_id, station_dataset="ghcnd-imputed-daily", url=GATEW
         return zip_data.read().decode("utf-8")
 
 
+def parse_station_snow_depth_as_dict(csv_text, use_inches=True):
+    return parse_station_snow_as_dict( \
+        csv_text, 
+        snow_representation="SNOW",
+        use_inches=True
+    )
+
 def parse_station_snowfall_as_dict(csv_text, use_inches=True):
+    return parse_station_snow_as_dict( \
+        csv_text,
+        snow_representation="SNWD",
+        use_inches=True
+    )
+
+
+def parse_station_snow_as_dict(csv_text, snow_representation='SNWD', use_inches=True):
     reader = csv.reader(csv_text.split())
     column_names = next(reader)
     date_col = column_names.index('DATE')
-    snow_col = column_names.index('SNOW')
+    snow_col = column_names.index(snow_representation)
     snowfall = {}
     for row in reader:
         if row[snow_col] == '':

@@ -142,14 +142,14 @@ def get_station_csv(station_id, station_dataset="ghcnd-imputed-daily", url=GATEW
 def parse_station_snow_depth_as_dict(csv_text, use_inches=True):
     return parse_station_snow_as_dict( \
         csv_text, 
-        snow_representation="SNOW",
+        snow_representation="SNWD",
         use_inches=True
     )
 
 def parse_station_snowfall_as_dict(csv_text, use_inches=True):
     return parse_station_snow_as_dict( \
         csv_text,
-        snow_representation="SNWD",
+        snow_representation="SNOW",
         use_inches=True
     )
 

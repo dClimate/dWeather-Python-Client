@@ -154,7 +154,7 @@ def parse_station_snowfall_as_dict(csv_text, use_inches=True):
     )
 
 
-def parse_station_snow_as_dict(csv_text, snow_representation='SNWD', use_inches=True):
+def parse_station_snow_as_dict(csv_text, snow_representation, use_inches=True):
     reader = csv.reader(csv_text.split())
     column_names = next(reader)
     date_col = column_names.index('DATE')

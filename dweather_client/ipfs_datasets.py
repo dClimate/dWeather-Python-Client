@@ -15,11 +15,11 @@ datasets = {
 		"prism_rev_1_temp-daily"
 	],
 	"chirps_05": [
-		"chirps_05-daily",
+		"chirps_final_05-daily",
 		"chirps_prelim_05-daily"
 	],
 	"chirps_25": [
-		"chirps_25-daily"
+		"chirps_final_25-daily"
 	],
 	"cpc_global": [
 		"cpc_global-daily"

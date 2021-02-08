@@ -120,6 +120,12 @@ def get_simulated_hurricane_files(basin):
     files = [base_url + f for f in metadata['files'] if basin in f]
     return files
 
+def get_ibracs_hurricane_file():
+    heads = get_heads()
+    hurr_hash = heads['ibtracs-tropical-storm']
+    metadata = get_metadata(hurr_hash)
+    base_url = f"{GATEWAY_URL}/ipfs/{hurr_hash}/"
+    return base_url + metadata["files"][0]
 
 def get_station_csv(station_id, station_dataset="ghcnd-imputed-daily", url=GATEWAY_URL):
     """

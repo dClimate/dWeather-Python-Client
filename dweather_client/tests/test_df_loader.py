@@ -33,3 +33,9 @@ def test_get_historical_hurricane_df():
 
     assert len(df_all_al.columns) == len(df_subset_al.columns) == 37
     assert len(df_subset_al) < len(df_all_al)
+
+def test_get_era5_df():
+    lat, lon = 35.70284883765463, -81.29880863239713
+    df = df_loader.get_era5_df(lat, lon, 'era5_land_wind_u-hourly')[1]
+    first_time, last_time = df.index[0], df.index[-1]
+    assert (last_time - first_time).days * 24 == len(df) - 1

@@ -2,7 +2,8 @@
 Basic functions for getting data from a dWeather gateway via https if you prefer to work
 in pandas dataframes rather than Python's built in types. A wrapper for http_client.
 """
-from dweather_client.http_client import get_rainfall_dict, get_temperature_dict, RTMAClient, get_station_csv, get_simulated_hurricane_files, get_hurricane_dict
+from dweather_client.http_client import get_rainfall_dict, get_temperature_dict,\
+    RTMAClient, get_station_csv, get_simulated_hurricane_files, get_hurricane_dict, get_era5_dict
 from dweather_client.ipfs_client import cat_station_csv
 from dweather_client.df_utils import get_station_ids_with_icao, nearby_storms
 import pandas as pd
@@ -45,6 +46,24 @@ def get_rainfall_df(lat, lon, dataset):
     rainfall_df.DATE = pd.to_datetime(rainfall_df.DATE)
     
     return rainfall_df.set_index(['DATE'])
+
+def get_era5_df(lat, lon, dataset):
+    """
+    Get era5 time series df
+
+    return:
+        pd.DataFrame with pd.datetime index in hours
+    
+    args:
+        lat: float latitude that is over land (throws exception if invalid for era5)
+        lon: float longitude that is over land (throws exception if invalid for era5)
+        dataset: str currently only 'era5_land_wind_u-hourly'. More to come
+    """
+    snapped_lat_lon, era5_dict = get_era5_dict(lat, lon, dataset)
+    era5_dict = {"DATE": [k for k in era5_dict.keys()], "VALUE": [v for v in era5_dict.values()]}
+    era5_df = pd.DataFrame.from_dict(era5_dict)
+    era5_df.DATE = pd.to_datetime(era5_df.DATE)
+    return snapped_lat_lon, era5_df.set_index(['DATE'])
 
 def get_simulated_hurricane_df(basin, **kwargs):
     """

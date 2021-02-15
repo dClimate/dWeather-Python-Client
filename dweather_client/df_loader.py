@@ -7,6 +7,7 @@ from dweather_client.http_client import get_rainfall_dict, get_temperature_dict,
 from dweather_client.ipfs_client import cat_station_csv
 from dweather_client.df_utils import get_station_ids_with_icao, nearby_storms
 import pandas as pd
+import numpy as np
 import io
 import ipfshttpclient
 
@@ -46,6 +47,33 @@ def get_rainfall_df(lat, lon, dataset):
     rainfall_df.DATE = pd.to_datetime(rainfall_df.DATE)
     
     return rainfall_df.set_index(['DATE'])
+
+def get_era5_wind_speed_df(lat, lon):
+    """
+    Get era5 time series df containing wind-u, wind-v, and total windspeed calculated
+    with the pythagorean theorem. 
+
+    return:
+        pd.DataFrame with pd.datetime index in hours
+    
+    args:
+        lat: float latitude that is over land (throws exception if invalid for era5)
+        lon: float longitude that is over land (throws exception if invalid for era5)
+    """
+    snapped_lat_lon, df_u = get_era5_df(lat, lon, 'era5_land_wind_u-hourly')
+    df_v = get_era5_df(lat, lon, 'era5_land_wind_v-hourly')[1]
+
+    res = pd.DataFrame()
+    res['wind_u'] = df_u.VALUE
+    res['wind_v'] = df_v.VALUE
+
+    # index the data to the smaller of the two datasets in the event one has updated and the other has not
+    res_index = df_v.index if len(df_v) < len(df_u) else df_u.index
+    res.set_index(res_index)
+
+    res['wind_speed'] = np.hypot(res.wind_u, res.wind_v)
+
+    return snapped_lat_lon, res
 
 def get_era5_df(lat, lon, dataset):
     """

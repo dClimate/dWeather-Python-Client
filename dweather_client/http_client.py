@@ -522,8 +522,6 @@ def get_era5_dict(lat, lon, dataset):
         a dict ({datetime.datetime: float}) of datetimes and the corresponding weather values.
         Units are m/s for the wind datasets
     """
-    if dataset not in {"era5_land_wind_u-hourly"}:
-        raise ValueError("Dataset not found")
     heads = get_heads()
     era5_hash = heads[dataset]
 

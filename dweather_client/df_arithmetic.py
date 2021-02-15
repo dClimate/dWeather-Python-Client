@@ -51,7 +51,7 @@ def get_polygon_df(shapefile_path, dataset, polygon_names, bounding_box, encodin
         lon_bounds = [lon for lon in sorted((bounding_box[0].x, bounding_box[1].x))]
         for latitr in np.arange(lat_bounds[0], lat_bounds[1], metadata['resolution']):
             for lonitr in np.arange(lon_bounds[0], lon_bounds[1], metadata['resolution']):
-                if ((exec_counter % 1) == 0):
+                if ((exec_counter % 10000) == 0):
                     logging.info("Scanning point %i of %i" % (exec_counter, bbox_size))
                 if Point(lonitr, latitr).within(row['geometry']):
                     slat, slon = snap_to_grid(latitr, lonitr, metadata)

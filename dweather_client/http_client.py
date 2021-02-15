@@ -509,3 +509,39 @@ def get_rev_tagged_temperature_dict(lat, lon, dataset, desired_end_date=None):
 
     # If we don't reach the desired dataset, return all data.
     return highs, lows
+
+def get_era5_dict(lat, lon, dataset):
+    """
+    Builds a dict of era5 data
+    Args:
+        lat (float): the latitude of the grid cell. Will be rounded to one decimal
+        lon (float): the longitude of the grid cell. Will be rounded to one decimal
+        dataset (str): valid era5 dataset. Currently only 'era5_land_wind_u-hourly', but
+        more will be added to ipfs soon
+    Returns:
+        a dict ({datetime.datetime: float}) of datetimes and the corresponding weather values.
+        Units are m/s for the wind datasets
+    """
+    heads = get_heads()
+    era5_hash = heads[dataset]
+
+    snapped_lat, snapped_lon = round(lat, 1), round(lon, 1)
+    cpc_lat, cpc_lon = conventional_lat_lon_to_cpc(snapped_lat, snapped_lon)
+    formatted_lat, formatted_lon = f"{cpc_lat:08.3f}", f"{cpc_lon:08.3f}"
+    url = f"{GATEWAY_URL}/ipfs/{era5_hash}/{formatted_lat}_{formatted_lon}.gz"
+    resp = requests.get(url)
+    resp.raise_for_status()
+    datetime_dict = {}
+    with gzip.GzipFile(fileobj=io.BytesIO(resp.content)) as gz:
+        for i, line in enumerate(gz):
+            time_of_year = datetime.datetime(1990 + i, 1, 1)
+            data_list = line.decode('utf-8').strip().split(',')
+            for point in data_list:
+                datetime_dict[time_of_year] = float(point)
+                time_of_year += datetime.timedelta(hours=1)
+    return (snapped_lat, snapped_lon), datetime_dict
+
+
+
+
+

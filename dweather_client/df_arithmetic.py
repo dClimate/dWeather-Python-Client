@@ -42,7 +42,12 @@ def get_polygon_df(shapefile_path, dataset, polygon_names, bounding_box, encodin
     df.index.name = None
 
     for index, row in polygons.iterrows():
-        bbox_size = int(abs(bounding_box[1].y - bounding_box[0].y) * abs(bounding_box[1].x - bounding_box[0].x) / metadata['resolution'] / metadata['resolution'])
+        bbox_size = int( \
+            abs(bounding_box[1].y - bounding_box[0].y) *
+            abs(bounding_box[1].x - bounding_box[0].x) /
+            metadata['resolution'] /
+            metadata['resolution']
+        )
         logging.info("Building %s (%i of %i polygons)" % (row['state'], index + 1, len(polygons.index)))
         logging.info("Matching points within a bounding box of %i points." % bbox_size)
         exec_counter = 0
@@ -62,6 +67,8 @@ def get_polygon_df(shapefile_path, dataset, polygon_names, bounding_box, encodin
                         bbox_size
                     ))
                     try:
+                        if 'cpc' in dataset:
+                            slat, slon = conventional_lat_lon_to_cpc(slat, slon)
                         rain_counter = get_rainfall_dict(slat, slon, dataset, get_counter=True)
                         poly_counter = poly_counter + rain_counter
                     except:
@@ -71,8 +78,7 @@ def get_polygon_df(shapefile_path, dataset, polygon_names, bounding_box, encodin
                 exec_counter = exec_counter + 1
         for day in poly_counter:
             df.at[day.strftime('%Y-%m-%d'), row['state']] += poly_counter[day]
-    return df
- 
+    return df 
 
 def cat_station_df_list(station_ids, station_dataset="ghcnd-imputed-daily", pin=True, force_hash=None):
     batch_hash = force_hash

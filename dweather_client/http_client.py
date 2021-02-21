@@ -139,11 +139,26 @@ def get_station_csv(station_id, station_dataset="ghcnd-imputed-daily", url=GATEW
         return zip_data.read().decode("utf-8")
 
 
+def parse_station_snow_depth_as_dict(csv_text, use_inches=True):
+    return parse_station_snow_as_dict( \
+        csv_text, 
+        snow_representation="SNWD",
+        use_inches=True
+    )
+
 def parse_station_snowfall_as_dict(csv_text, use_inches=True):
+    return parse_station_snow_as_dict( \
+        csv_text,
+        snow_representation="SNOW",
+        use_inches=True
+    )
+
+
+def parse_station_snow_as_dict(csv_text, snow_representation, use_inches=True):
     reader = csv.reader(csv_text.split())
     column_names = next(reader)
     date_col = column_names.index('DATE')
-    snow_col = column_names.index('SNOW')
+    snow_col = column_names.index(snow_representation)
     snowfall = {}
     for row in reader:
         if row[snow_col] == '':
@@ -244,7 +259,7 @@ class RTMAClient:
         lat, lon = str(lat), str(lon)
         logging.info('Finding closest lat lon')
         logging.info('Number of buckets in lookup: %i' % len(self.valid_lat_lons))
-        closest_lat_lon = find_closest_lat_lon(self.valid_lat_lons[(lat[:2], lon[:2])], (lat, lon))
+        closest_lat_lon = find_closest_lat_lon(self.valid_lat_lons[(lat[:2], lon[:3])], (lat, lon))
         logging.info('Finding rtma xy associated with closest lat lon')
         lat_xy = self.r_lookup[self.new_grid]['lat'][closest_lat_lon[0]]
         lon_xy = self.r_lookup[self.new_grid]['lon'][closest_lat_lon[1]]
@@ -264,6 +279,31 @@ class RTMAClient:
                 hour_itr = hour_itr + datetime.timedelta(hours=1)
         assert hour_itr == self.rtma_end_date
         return rtma_dict
+
+def get_full_rtma_history(lat, lon):
+    """
+    Calls endpoint that iterates through all updates to the RTMA dataset and returns a dictionary
+    containing the full time series of data.
+    Args:
+        lat (float): latitude coordinate of RTMA data
+        lon (float): longitude coordinate of RTMA data
+    Returns:
+        tuple containing (<ret_lat>, <ret_lon>, <data>)
+        where ret_lat and ret_lon are floats representing the coordinates of the data after the
+        argument coordinates are snapped to the RTMA grid, and <data> is a time series dict with 
+        datetime keys
+    """
+    if ((lat < 20) or (53 < lat)):
+        raise InputOutOfRangeError('RTMA only covers latitudes 20 thru 53')
+    if ((lon < -132) or (-60 < lon)):
+        raise InputOutOfRangeError('RTMA only covers longitudes -132 thru -60')
+    base_url = "https://parser.arbolmarket.com/linked-list/rtma"
+    r = requests.get(f"{base_url}/{lat}_{lon}")
+    resp = r.json()
+    data_dict = {}
+    for k, v in resp["data"].items():
+        data_dict[datetime.datetime.fromisoformat(k)] = v
+    return ((resp["lat"], resp["lon"]), data_dict)
 
 def get_dataset_cell(lat, lon, dataset_revision):
     """ 
@@ -503,3 +543,39 @@ def get_rev_tagged_temperature_dict(lat, lon, dataset, desired_end_date=None):
 
     # If we don't reach the desired dataset, return all data.
     return highs, lows
+
+def get_era5_dict(lat, lon, dataset):
+    """
+    Builds a dict of era5 data
+    Args:
+        lat (float): the latitude of the grid cell. Will be rounded to one decimal
+        lon (float): the longitude of the grid cell. Will be rounded to one decimal
+        dataset (str): valid era5 dataset. Currently only 'era5_land_wind_u-hourly', but
+        more will be added to ipfs soon
+    Returns:
+        a dict ({datetime.datetime: float}) of datetimes and the corresponding weather values.
+        Units are m/s for the wind datasets
+    """
+    heads = get_heads()
+    era5_hash = heads[dataset]
+
+    snapped_lat, snapped_lon = round(lat, 1), round(lon, 1)
+    cpc_lat, cpc_lon = conventional_lat_lon_to_cpc(snapped_lat, snapped_lon)
+    formatted_lat, formatted_lon = f"{cpc_lat:08.3f}", f"{cpc_lon:08.3f}"
+    url = f"{GATEWAY_URL}/ipfs/{era5_hash}/{formatted_lat}_{formatted_lon}.gz"
+    resp = requests.get(url)
+    resp.raise_for_status()
+    datetime_dict = {}
+    with gzip.GzipFile(fileobj=io.BytesIO(resp.content)) as gz:
+        for i, line in enumerate(gz):
+            time_of_year = datetime.datetime(1990 + i, 1, 1)
+            data_list = line.decode('utf-8').strip().split(',')
+            for point in data_list:
+                datetime_dict[time_of_year] = float(point)
+                time_of_year += datetime.timedelta(hours=1)
+    return (snapped_lat, snapped_lon), datetime_dict
+
+
+
+
+

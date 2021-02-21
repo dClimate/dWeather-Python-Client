@@ -2,8 +2,7 @@
 Helpful auxilliary functions that don't directly interact with IPFS.
 This module specifically excludes pandas
 """
-import math
-import datetime
+import math, datetime, zeep
 from heapq import heappush, heappushpop
 from geopy.distance import geodesic
 
@@ -166,6 +165,18 @@ def is_revision_final(dataset, revision_to_check, last_acceptable_revision):
     # The dataset revision lists are ordered by accuracy so we simply compare the indicies in the list
     dataset_list = IPFSDatasets.datasets[dataset]
     return dataset_list.index(revision_to_check) <= dataset_list.index(last_acceptable_revision)
+
+def snotel_to_ghcnd(snotel_id, state_fips):
+    """
+    Convert a SnoTEL ID to a station id that can be passed into GHCND or
+    GHCNDi. snotel ids are a 3 or 4 digit integer, and the state_fips is 
+    a two character abbrevation for the state -- for example CO.
+    """
+    client = zeep.Client('https://wcc.sc.egov.usda.gov/awdbWebService/services?WSDL')
+    result = client.service.getStationMetadata( \
+        '%s:%s:SNTL' % (str(snotel_id), str(state_fips)))
+    ghcnd_id = 'USS00%s' % result['actonId']
+    return ghcnd_id
 
 def celcius_to_fahrenheit(deg_c):
     return round((deg_c * 9/5) + 32, 5)

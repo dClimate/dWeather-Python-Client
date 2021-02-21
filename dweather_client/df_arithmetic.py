@@ -42,15 +42,22 @@ def get_polygon_df(shapefile_path, dataset, polygon_names, bounding_box, encodin
     df.index.name = None
 
     for index, row in polygons.iterrows():
-        bbox_size = int((bounding_box[1].y - bounding_box[0].y) * (bounding_box[1].x - bounding_box[0].x) / metadata['resolution'] / metadata['resolution'])
+        bbox_size = int( \
+            abs(bounding_box[1].y - bounding_box[0].y) *
+            abs(bounding_box[1].x - bounding_box[0].x) /
+            metadata['resolution'] /
+            metadata['resolution']
+        )
         logging.info("Building %s (%i of %i polygons)" % (row['state'], index + 1, len(polygons.index)))
         logging.info("Matching points within a bounding box of %i points." % bbox_size)
         exec_counter = 0
         poly_counter = Counter({})
-        for latitr in np.arange(bounding_box[0].y, bounding_box[1].y, metadata['resolution']):
-            if ((exec_counter % 1000) == 0):
-                logging.info("Scanning point %i of %i" % (exec_counter, bbox_size))
-            for lonitr in np.arange(bounding_box[0].x, bounding_box[1].x, metadata['resolution']):
+        lat_bounds = [lat for lat in sorted((bounding_box[0].y, bounding_box[1].y))] # gotta sort for np.arange
+        lon_bounds = [lon for lon in sorted((bounding_box[0].x, bounding_box[1].x))]
+        for latitr in np.arange(lat_bounds[0], lat_bounds[1], metadata['resolution']):
+            for lonitr in np.arange(lon_bounds[0], lon_bounds[1], metadata['resolution']):
+                if ((exec_counter % 10000) == 0):
+                    logging.info("Scanning point %i of %i" % (exec_counter, bbox_size))
                 if Point(lonitr, latitr).within(row['geometry']):
                     slat, slon = snap_to_grid(latitr, lonitr, metadata)
                     logging.info("Found match at (%s, %s), point %i of %i" % ( \
@@ -60,16 +67,18 @@ def get_polygon_df(shapefile_path, dataset, polygon_names, bounding_box, encodin
                         bbox_size
                     ))
                     try:
+                        if 'cpc' in dataset:
+                            slat, slon = conventional_lat_lon_to_cpc(slat, slon)
                         rain_counter = get_rainfall_dict(slat, slon, dataset, get_counter=True)
                         poly_counter = poly_counter + rain_counter
                     except:
                         logging.warning("Could not retrieve data for (%s, %s)" % ("{:.3f}".format(slat), "{:.3f}".format(slon)))
+                        exec_counter = exec_counter + 1
                         continue
                 exec_counter = exec_counter + 1
         for day in poly_counter:
             df.at[day.strftime('%Y-%m-%d'), row['state']] += poly_counter[day]
-    return df
- 
+    return df 
 
 def cat_station_df_list(station_ids, station_dataset="ghcnd-imputed-daily", pin=True, force_hash=None):
     batch_hash = force_hash

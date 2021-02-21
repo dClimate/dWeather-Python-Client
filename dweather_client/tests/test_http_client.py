@@ -35,6 +35,14 @@ def test_parse_station_temps_as_dict():
     assert len(tmaxs) > 100
     assert len(tmins) > 100 
 
+
+def test_get_full_prismc_history():
+    lat, lon = 25.000, -80.750
+    res = http_client.get_prismc_dict(lat, lon, "precip")
+    first_date, last_date = sorted(res)[0], sorted(res)[-1]
+    diff = last_date - first_date
+    assert diff.days == len(res) - 1
+    
 def test_get_full_rtma_history():
     lat, lon = 27.5343, -75.2341
     res = http_client.get_full_rtma_history(27.5343, -75.2341)
@@ -52,3 +60,4 @@ def test_get_era5_dict():
     time_diff = last_time - first_time
     time_diff_hours = time_diff.days * 24 + time_diff.seconds // 3600
     assert time_diff_hours + 1 == len(res[1])
+

@@ -1,13 +1,3 @@
-"""
-Some functions for organizing dWeather query results into formats relevant to Arbol's use cases.
-Mainly related to summing and averaging over time.
-This module should not import pandas or numpy
-"""
-from dweather_client.http_client import get_rainfall_dict, get_rev_rainfall_dict
-from dweather_client.utils import listify_period
-import datetime
-
-HISTORICAL_START_YEAR = 1981
 
 def sum_period_rainfall(lat, lon, dataset, start_date, end_date, daily_cap=None, use_prelim=False, final_rev=None):
     ''' Download the rainfall data from ipfs and compute the rainfall for the given term
@@ -104,3 +94,126 @@ def build_historical_rainfall_dict(lat, lon, dataset, start_date, end_date, dail
         yearly_rainfall[year] = (sum(yearly_rain), len(yearly_rain))
             
     return yearly_rainfall, is_final
+
+
+def sum_period_df(df, ps, pe, yrs, peril):
+    """ 
+    Get the sums of a peril by a defined period.
+    
+    return:
+        pd.DataFrame indexed by year
+        
+    args:
+        df = weather data with a daily index
+        ps = contract start period, datetime.date object
+        pe = contract end period, datetime.date object
+        yrs = years lookback
+        peril = the name of column you wish to sum
+        
+    """
+    newdf = df
+    years = np.array([])
+    sums = np.array([])
+
+    for year in range(ps.year-yrs, ps.year):
+        if ps.year < pe.year: # if period crosses jan 1 into a new year
+            left = str(year)+'-'+str(ps.month)+'-'+str(ps.day)
+            right = str(year+1)+'-'+str(pe.month)+'-'+str(pe.day)
+        else:
+            left = str(year)+'-'+str(ps.month)+'-'+str(ps.day)
+            right = str(year)+'-'+str(pe.month)+'-'+str(pe.day)
+
+        sumChunk = newdf[left:right]
+        years = np.append(years, int(year))
+        sums = np.append(sums, sumChunk[peril].sum())
+    return pd.DataFrame({'year': years, 'value': sums}).set_index("year")
+
+
+def avg_period_df(df, ps, pe, yrs, peril):
+    """ 
+    Gets the avg of a peril by a defined period
+    
+    return:
+        pd.DataFrame indexed by year
+        
+    args:
+        df = weather data with a daily index
+        ps = contract start period, datetime.date object
+        pe = contract end period, datetime.date object
+        yrs = years lookback
+        peril = the name of column you wish to avg
+        
+    """
+
+    newdf = df
+    years = np.array([])
+    avgs = np.array([])
+
+    for year in range(ps.year-yrs, ps.year):
+        if ps.year < pe.year: # if period crosses jan 1 into a new year
+            left = str(year)+'-'+str(ps.month)+'-'+str(ps.day)
+            right = str(year+1)+'-'+str(pe.month)+'-'+str(pe.day)
+        else:
+            left = str(year)+'-'+str(ps.month)+'-'+str(ps.day)
+            right = str(year)+'-'+str(pe.month)+'-'+str(pe.day)
+
+        sumChunk = newdf[left:right]
+        years = np.append(years,int(year))
+        avgs = np.append(avgs, sumChunk[peril].mean())
+    return pd.DataFrame({'year': years, 'value': avgs}).set_index('year')
+
+
+def listify_period(start_date, end_date):
+    """
+    Make a list of all dates from start_date to end_date, inclusive.
+    Args:
+        start_date (datetime.date): first date to include
+        end_date (datetime.date): last date to include
+    Returns:
+        list of datetime.date objects
+    """
+    days_in_range = (end_date - start_date).days
+    return [start_date + datetime.timedelta(n) for n in range(days_in_range + 1)]
+
+def period_slice_df(df, ps, pe, yrs):
+    """ 
+    Slice a dataframe by period where n is based on years lookback 
+    
+    return:
+        pd.DataFrame()
+    
+    args:
+        df = any pd.DataFrame() with a datetime.date() index
+        ps = datetime.date object (contract period start)
+        ps = datetime.date object (contract period end)
+        yrs = 30 (years lookback)
+        
+    limitations:
+        max period is 364 days
+        
+    """
+
+    mydf = pd.DataFrame()
+    
+    leftDay = ~((df.index.day < ps.day) & (df.index.month == ps.month))
+    rightDay = ~((df.index.day > pe.day) & (df.index.month == pe.month))
+    #first year just get end
+    if ps.year < pe.year:
+        firstYear = ps.year - yrs
+        yr = df.index.year == firstYear
+        mon = df.index.month >= ps.month
+        #a boolean mask to cut the left and right half month days if need be
+        mydf = mydf.append(df[(yr)&(mon)&(leftDay)])
+        #everything in betweeng
+        for yrss in range(ps.year - (yrs - 1), pe.year - 1):
+            ##boolean mask for now, better method needed##
+            yearChunk = (df.index.year == yrss)&((df.index.month<=pe.month)|(df.index.month>=ps.month))
+            yearChunk = (yearChunk)&leftDay&rightDay
+            mydf = mydf.append(df[yearChunk])
+        #build last year
+        mydf = mydf.append(df[rightDay&(df.index.month<=pe.month)&(df.index.year==pe.year-1)])
+    else:
+        mydf = df[leftDay&rightDay&(df.index.month>=ps.month)&(df.index.month<=pe.month)&(df.index.year>=ps.year-yrs)]
+            
+    return mydf
+

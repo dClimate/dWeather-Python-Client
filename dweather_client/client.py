@@ -115,6 +115,8 @@ def get_station_dict( \
     column_names = next(reader)
     date_col = column_names.index('DATE')
     for variable in variables:
+        unit_reg = pint.UnitRegistry()
+        unit_reg.default_format = SUL[variable]['precision']
         data_col = column_names.index(variable)
         data = {}
         for row in reader:
@@ -123,8 +125,10 @@ def get_station_dict( \
                     continue
             except IndexError:
                 continue
-            # data comes in a 10th of a mm or deg C.
-            datapoint = (float(row[data_col]) / 10.0 ) * SUL[variable]['metric']
+            datapoint = unit_reg.Quantity( \
+            	(float(row[data_col]) / 10.0 ), # data comes in a 10th of a mm or deg C.
+                SUL[variable]['metric']
+            )
             if use_imperial_units:
                 datapoint = datapoint.to(SUL[variable]['imperial'])
             data[datetime.datetime.strptime(row[date_col], "%Y-%m-%d").date()] = datapoint

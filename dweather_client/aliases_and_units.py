@@ -7,7 +7,7 @@ In general, all the idiosyncratic reality-based things that one has to
 deal with.
 """
 from dweather_client.ipfs_errors import AliasNotFound
-import zeep, pint, os
+import zeep, os
 import pandas as pd
 
 STATION_COLUMN_LOOKUP = { \
@@ -52,15 +52,13 @@ STATION_COLUMN_LOOKUP = { \
                     'rainfall'): ('PRCP',)
 }
 
-station_units = pint.UnitRegistry()
-station_units.default_format = '.3f' # 3 units of precision
 STATION_UNITS_LOOKUP = { \
-    'PRCP': {'imperial': station_units.inch, 'metric': station_units.mm},
-    'SNWD': {'imperial': station_units.inch, 'metric': station_units.mm},
-    'SNOW': {'imperial': station_units.inch, 'metric': station_units.mm},
-    'WESD': {'imperial': station_units.inch, 'metric': station_units.mm},
-    'TMAX': {'imperial': station_units.degF, 'metric': station_units.degC},
-    'TMIN': {'imperial': station_units.degF, 'metric': station_units.degC},
+    'PRCP': {'imperial': "inches", 'metric': "millimeters", 'precision': '.3f'},
+    'SNWD': {'imperial': "inches", 'metric': "millimeters", 'precision': '.3f'},
+    'SNOW': {'imperial': "inches", 'metric': "millimeters", 'precision': '.3f'},
+    'WESD': {'imperial': "inches", 'metric': "millimeters", 'precision': '.3f'},
+    'TMAX': {'imperial': "degF", 'metric': "degC", 'precision': '.3f'},
+    'TMIN': {'imperial': "degF", 'metric': "degC", 'precision': '.3f'},
 }
 
 parent_dir = os.path.dirname(os.path.abspath(__file__))

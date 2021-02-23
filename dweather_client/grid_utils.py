@@ -1,6 +1,14 @@
 """
 Various utilities associated with the coordinate grid system.
 """
+from dweather_client.http_queries import get_heads, get_metadata
+import geopandas as gpd
+from geopy.distance import geodesic
+from heapq import heappush, heappushpop
+import pandas as pd
+import numpy as np
+import datetime, math
+
 
 def get_polygon_df(shapefile_path, dataset, polygon_names, bounding_box, encoding='UTF-8'):
     """
@@ -92,7 +100,7 @@ def nearby_storms(df, c_lat, c_lon, radius):
     dist = haversine_vectorize(df['lon'], df['lat'], c_lon, c_lat)
     return df[dist < radius]
 
-def get_n_closest_station_ids(lat, lon, metadata, n):
+def get_n_closest_station_ids(lat, lon, n, metadata=get_metadata(get_heads()['ghcnd'])):
     """
     Get the station ids for the <n> closest stations to a given lat lon. 
     Requires metadata of ghcnd to get station coordinates.

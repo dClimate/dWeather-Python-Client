@@ -1,12 +1,10 @@
 """
-Basic functions for getting data from a dWeather gateway via https.
+Queries associated with the https protocol option.
 """
-import os, pickle, math, requests, datetime, io, gzip, json, logging, csv, tarfile, pint
+
+import os, pickle, math, requests, datetime, io, gzip, json, logging, csv, tarfile
 from collections import Counter, deque
 from dweather_client.ipfs_errors import *
-from dweather_client.utils import *
-import dweather_client.ipfs_datasets
-from depreciated import *
 
 GATEWAY_URL = 'https://gateway.arbolmarket.com'
 
@@ -148,115 +146,8 @@ def get_station_csv(station_id, station_dataset="ghcnd-imputed-daily", url=GATEW
     with gzip.GzipFile(fileobj=io.BytesIO(r.content)) as zip_data:
         return zip_data.read().decode("utf-8")
 
-def get_station_col_as_dict(station_id, columns, dataset='ghcnd', use_imperial=True):
-    """
-    Takes in a station id and a column name or iterable of of column names. 
 
-    Gets the csv body associated with the station_id, defaulting to the
-    ghcnd dataset. Pass in dataset='ghcnd-imputed-daily' for imputed,
-    though note that this is temperature only as of this writing.
-
-    Passing in use_imperial=False will return results in metric. Imperial
-    is the default as Arbol is based in the USA and the bulk of our deals
-    are done in imperial.
-
-        'SNWD' or alias 'snow depth' -- the depth of snow at the time of the
-        observation
-        'SNOW' or alias 'snowfall -- the total snowfall observed since the
-        last observation
-        '' or alias 'snow water equivalent' -- the water level in inches
-        equivalent to the amount of snow currently on the ground at the
-        time of the observation.
-
-    Pass in a tuple of column names to get a list of dicts.
-
-    The GHCN column names are fairly esoteric so a column_lookup
-    dictionary will try to find a valid GHCN column name for common 
-    aliases.
-
-    """
-    column_lookup = { \
-        ('SNWD', 
-            'snow depth', 
-                'snowdepth'): ('SNWD',),
-        ('SNOW', 
-            'snow fall', 
-                'snowfall', 
-                    'snow'): ('SNOW',),
-        ('WESD', 
-            'snow water equivalent',
-                'water equivalent snow depth'): ('WESD',),
-        ('TMAX', 
-            'highs', 
-                'max temperature', 
-                    'temperature max', 
-                        'maximum temperature', 
-                            'temperature maximum',
-                                'max temp', 
-                                    'temp max', 
-                                        'maximum temp', 
-                                            'temp maximum'): ('TMAX',),
-        ('TMIN', 
-            'lows', 
-                'min temperature', 
-                    'temperature min' 
-                        'minimum temperature', 
-                            'temperature minimum',
-                                'min temp', 
-                                    'temp min', 
-                                        'minimum temp', 
-                                            'temp minimum'): ('TMIN',),
-        ('temperature', 
-            'temperatures', 
-                'temp', 
-                    'temps'): ('TMAX', 'TMIN'),
-        ('PRCP', 
-            'precipitation', 
-                'precip', 
-                    'rain', 
-                        'rainfall': ('PRCP',))
-    }
-
-    units = pint.UnitRegistry()
-    units.default_format = '.3f' # 3 units of precision
-    units_lookup = { \
-        'PRCP': {'imperial': units.inch, 'metric': units.mm},
-        'SNWD': {'imperial': units.inch, 'metric': units.mm},
-        'SNOW': {'imperial': units.inch, 'metric': units.mm},
-        'WESD': {'imperial': units.inch, 'metric': units.mm},
-        'TMAX': {'imperial': units.degF, 'metric': units.degC},
-        'TMIN': {'imperial': units.degF, 'metric': units.degC},
-    }
-
-    csv_text = get_station_csv(station_id, station_dataset=dataset)
-    variables = []
-    for aliases in column_lookup:
-        if columns in aliases:
-            variables.append(column_lookup[aliases]) # assume "columns" is a single string
-    if (len(variables) != 1):
-        for aliases in column_lookup:
-            for column in columns:
-                if column in aliases:
-                    variables.append(column_lookup[column]) # otherwise assume it's an iterable
-    results = []
-    reader = csv.reader(csv_text.split())
-    column_names = next(reader)
-    date_col = column_names.index('DATE')
-    for variable in variables:
-        data_col = column_names.index(column)
-        data = {}
-        for row in reader:
-            if row[data_col] == '':
-                continue
-            # data comes in a 10th of a mm or deg C.
-            datapoint = (float(row[data_col]) / 10.0 ) * units_lookup[variable]['metric']
-            if use_imperial:
-                datapoint = datapoint.to(units_lookup[variable]['imperial'])
-            data[datetime.datetime.strptime(row[date_col], "%Y-%m-%d").date()] = datapoint
-         results.append(data)
-    return results if len(results) != 1 else results[0]
-
-def get_rainfall_dict(lat, lon, dataset_revision, return_metadata=False, get_counter=False):
+def get_gridded_rainfall_dict(lat, lon, dataset_revision, return_metadata=False, get_counter=False, snap=False):
     """ 
     Build a dict of rainfall data for a given grid cell.
     Args:
@@ -457,5 +348,14 @@ def get_era5_dict(lat, lon, dataset):
 
 
 
-
+def traverse_ll(head):
+    release_itr = head
+    release_ll = deque()
+    while True:
+        release_ll.appendleft(release_itr)
+        prev_release = get_metadata(release_itr)['previous hash']
+        if prev_release != None:
+            release_itr = prev_release
+        else:
+            return release_ll
 

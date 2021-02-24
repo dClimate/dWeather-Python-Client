@@ -32,6 +32,11 @@ See further examples in `tests`
 
 ## Development
 
+    cd dweather-python-client
+    python3 -m venv .
+    bin/pip3 install -r requirements.txt
+    bin/python3 -m pytest dweather_clieht/tests
+
 Some dweather_client features require an ipfs daemon to work.
 
 ### Download Go-IPFS version 0.6.0

@@ -107,6 +107,9 @@ def period_slice_df(df, ps, pe, yrs):
             
     return mydf
 
+def boxed_storms(df, min_lat, min_lon, max_lat, max_lon):
+    return df[(df['lat'] >= min_lat) & (df['lon'] >= min_lon) & (df['lat'] <= max_lat) & (df['lon'] <= max_lon)]
+
 def nearby_storms(df, c_lat, c_lon, radius): 
     """
     return:

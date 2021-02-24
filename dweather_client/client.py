@@ -5,13 +5,13 @@ from dweather_client.http_queries import get_station_csv
 from dweather_client.aliases_and_units import STATION_COLUMN_LOOKUP as SCL, STATION_UNITS_LOOKUP as SUL
 import csv, pint, datetime
 
-def get_gridcell_dict(
+def get_gridcell_history(
     lat, 
     lon, 
     dataset,
     snap_lat_lon_to_closest_valid_point=True,
     protocol='https', 
-    return_result_as_counter=False,
+    return_result_as_dataframe=False,
     also_return_metadata=False, 
     use_imperial_units=True):
     """
@@ -42,37 +42,17 @@ def get_gridcell_dict(
     """
     pass
 
-def get_gridcell_df(
-    lat, 
-    lon, 
-    dataset,
-    snap_lat_lon_to_closest_valid_point=True,
-    protocol='https', 
-    also_return_metadata=False, 
-    use_imperial_units=False):
+
+def get_storm_history():
     pass
 
-def get_storm_dict():
-    pass
-
-def get_storm_df():
-    pass
-
-def get_station_df( \
+def get_station_history( \
     station_id, 
     columns,
     dataset='ghcnd', 
     protocol='https',
-    return_metadata=False,
-    use_imperial_units=True):
-    pass
-
-def get_station_dict( \
-    station_id, 
-    columns,
-    dataset='ghcnd', 
-    protocol='https',
-    also_return_metadata=False,
+    return_result_as_dataframe=False,
+#    also_return_metadata=False,  TODO
     use_imperial_units=True):
     """
     Takes in a station id and a column name or iterable of column names. 
@@ -100,7 +80,10 @@ def get_station_dict( \
     aliases.
 
     """
-    csv_text = get_station_csv(station_id, station_dataset=dataset)
+    if return_result_as_dataframe == True:
+        df = pd.read_csv(io.StringIO(get_station_csv(station_id, station_dataset=station_dataset)))
+    else:
+        csv_text = get_station_csv(station_id, station_dataset=dataset)
     variables = ()
     for aliases in SCL:
         if columns in aliases:
@@ -110,14 +93,14 @@ def get_station_dict( \
             for column in columns:
                 if column in aliases:
                     variables = variables + SCL[aliases] # otherwise assume it's an iterable of strings
-    results = []
-    reader = csv.reader(csv_text.split('\n'))
-    column_names = next(reader)
-    date_col = column_names.index('DATE')
+    dict_results = []
+    unit_reg = pint.UnitRegistry()
     for variable in variables:
-        unit_reg = pint.UnitRegistry()
         unit_reg.default_format = SUL[variable]['precision']
         data_col = column_names.index(variable)
+        reader = csv.reader(csv_text.split('\n'))
+        column_names = next(reader)
+        date_col = column_names.index('DATE')
         data = {}
         for row in reader:
             try:
@@ -132,8 +115,11 @@ def get_station_dict( \
             if use_imperial_units:
                 datapoint = datapoint.to(SUL[variable]['imperial'])
             data[datetime.datetime.strptime(row[date_col], "%Y-%m-%d").date()] = datapoint
-        results.append(data)
-    return results if len(results) != 1 else results[0]
+        if return_result_as_dataframe == False:
+            results.append(data)
+        else:
+            
 
+    return results if len(results) != 1 else results[0]    
 
 

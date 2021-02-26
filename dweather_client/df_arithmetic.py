@@ -5,7 +5,6 @@ This module imports pandas and numpy, the arithmetic.py module should not
 """
 import numpy as np
 import pandas as pd
-import geopandas as gpd
 from dweather_client.http_client import get_rainfall_dict, get_rev_rainfall_dict, get_heads, get_metadata
 from dweather_client.utils import listify_period, get_n_closest_station_ids
 from dweather_client.ipfs_client import cat_rainfall_dict, cat_station_df, cat_station_csv, cat_metadata
@@ -27,6 +26,7 @@ def get_polygon_df(shapefile_path, dataset, polygon_names, bounding_box, encodin
     """
     Get a dataframe of climate data for a given set of polygons.
     """
+    import geopandas as gpd
     polygons = gpd.read_file(shapefile_path)[['NAME_0', 'NAME_1', 'geometry']]
     polygons.columns = ["country", "state", "geometry"]
 

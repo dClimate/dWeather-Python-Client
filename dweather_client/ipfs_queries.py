@@ -1,35 +1,14 @@
+"""
+Queries associated with the ipfs protocol option.
+"""
+
 import ipfshttpclient, json, requests, datetime, io, gzip
 from dweather_client.ipfs_errors import *
 from dweather_client.utils import listify_period
 from dweather_client.df_utils import get_station_ids_with_icao
 import dweather_client.ipfs_datasets
 import pandas as pd
-
-MM_TO_INCHES = 0.0393701
-RAINFALL_PRECISION = 5
-GATEWAY_URL = 'https://gateway.arbolmarket.com'
-
-
-def get_heads(url=GATEWAY_URL):
-    """
-    Get heads.json for a given IPFS gateway.
-    Args:
-        url (str): base url of the IPFS gateway url
-    Returns (example heads.json):
-        {
-            'chirps_05-daily': 'Qm...',
-            'chirps_05-monthly': 'Qm...',
-            'chirps_25-daily': 'Qm...',
-            'chirps_25-monthly': 'Qm...',
-            'cpc_us-daily': 'Qm...',
-            'cpc_us-monthly': 'Qm...'
-        }
-    """
-    hashes_url = url + "/climate/hashes/heads.json"
-    r = requests.get(hashes_url)
-    r.raise_for_status()
-    return r.json()
-
+from dweather_client.http_queries import get_heads
 
 def cat_metadata(hash_str, client=None, pin=True):
     """

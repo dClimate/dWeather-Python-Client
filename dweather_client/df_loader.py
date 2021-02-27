@@ -11,22 +11,6 @@ import numpy as np
 import io
 import ipfshttpclient
 
-class RTMADFClient(RTMAClient):
-    def get_best_rtma_df(self, lat, lon):
-        """
-        RTMA precipitation.
-
-        Get a dataframe of for the closest valid rtma grid pair for a
-        given lat lon.
-
-        Returns a dataframe indexed on hourly datetime objects.
-        """
-        snapped_lat_lon, rtma_dict = self.get_best_rtma_dict(lat, lon)
-        rtma_dict = {"DATE": [k for k in rtma_dict.keys()], "PRCP": [k for k in rtma_dict.values()]}
-        rtma_df = pd.DataFrame.from_dict(rtma_dict)
-        rtma_df.DATE = pd.to_datetime(rtma_df.DATE)
-        return snapped_lat_lon, rtma_df.set_index(['DATE'])
-
 def get_rainfall_df(lat, lon, dataset):
     """
     Get full daily rainfall time series from cpc, prism, or chirps in mm.

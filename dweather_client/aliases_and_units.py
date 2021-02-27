@@ -10,6 +10,24 @@ from dweather_client.ipfs_errors import AliasNotFound
 import zeep, os
 import pandas as pd
 
+METRIC_TO_IMPERIAL = { \
+    "mm": "inches",
+    "millimeters": "inches",
+    "millimeter": "inches",
+    "degC": "degF",
+    "degree_Celsius": "degF",
+    "degrees Celsius": "degF"
+}
+
+IMPERIAL_TO_METRIC = { \
+    "inches": "mm",
+    "inch": "mm",
+    "in": "mm",
+    "degF": "degC",
+    "degree_Fahrenheit": "degC",
+    "degrees Fahrenheit": "degC"
+}
+
 STATION_COLUMN_LOOKUP = { \
     ('SNWD', 
         'snow depth', 
@@ -118,28 +136,6 @@ def cpc_grid_to_lat_lon(grid_id):
     coords = [coord+360 if coord < 0 else coord for coord in coords] #converts negative coordinates to positive values
 
     return coords[0], coords[1]
-
-def cpc_lat_lon_to_conventional(lat, lon):
-    """
-    Convert a pair of coordinates from the idiosyncratic CPC lat lon
-    format to the conventional lat lon format.
-    """
-    lat, lon = float(lat), float(lon)
-    if (lon >= 180):
-        return lat, lon - 360
-    else:
-        return lat, lon
-
-def conventional_lat_lon_to_cpc(lat, lon):
-    """
-    Convert a pair of coordinates from conventional (lat,lon)
-    to the idiosyncratic CPC (lat,lon) format.
-    """
-    lat, lon = float(lat), float(lon)
-    if (lon < 0):
-        return lat, lon + 360
-    else:
-        return lat, lon
 
 def lat_lon_to_rtma_grid(lat, lon, grid_history):
     grid_dict = build_rtma_reverse_lookup(grid_history)

@@ -162,6 +162,36 @@ def build_rtma_reverse_lookup(grid_history):
                 rev_grid_dict[timestamp]['lon'][grid_dict[timestamp][1][y][x]] = (x, y)
     return rev_grid_dict
 
+def zero_three_sixty_to_negative_one_eighty_one_eighty(lat, lon):
+    return cpc_lat_lon_to_conventional(lat, lon)
+
+def negative_one_eighty_one_eighty_to_zero_three_sixty(lat, lon):
+    return conventional_lat_lon_to_cpc(lat, lon)
+
+def cpc_lat_lon_to_conventional(lat, lon):
+    """
+    Convert a pair of coordinates from the idiosyncratic CPC lat lon
+    format to the conventional lat lon format.
+    """
+    lat, lon = float(lat), float(lon)
+    if (lon >= 180):
+        return lat, lon - 360
+    else:
+        return lat, lon
+
+
+def conventional_lat_lon_to_cpc(lat, lon):
+    """
+    Convert a pair of coordinates from conventional (lat,lon)
+    to the idiosyncratic CPC (lat,lon) format.
+    """
+    lat, lon = float(lat), float(lon)
+    if (lon < 0):
+        return lat, lon + 360
+    else:
+        return lat, lon
+
+
 def snap_to_grid(lat, lon, metadata):
     """ 
     Find the nearest valid (lat,lon) for a given metadata file and arbitrary
@@ -178,14 +208,14 @@ def snap_to_grid(lat, lon, metadata):
 
     """
     resolution = metadata['resolution']
-    min_lat = metadata['latitude range'][0] #start [lat, lon]
-    min_lon = metadata['longitude range'][0] #end [lat, lon]
-    category = metadata['climate category']
+    min_lat = metadata['latitude range'][0]
+    min_lon = metadata['longitude range'][0]
+    precision = metadata['filename decimal precision']
 
     if 'cpc' in metadata['source data url']:
-        min_lat, min_lon = conventional_lat_lon_to_cpc(min_lat, min_lon)
+        min_lat, min_lon = cpc_lat_lon_to_conventional(min_lat, min_lon)
 
-    # check that the lat lon is in the bounding box
-    snap_lat = round(round((lat - min_lat)/resolution) * resolution + min_lat, 3)
-    snap_lon = round(round((lon - min_lon)/resolution) * resolution + min_lon, 3)
-    return snap_lat, snap_lon    
+    snap_lat = round(round((lat - min_lat)/resolution) * resolution + min_lat, precision)
+    snap_lon = round(round((lon - min_lon)/resolution) * resolution + min_lon, precision)
+
+    return snap_lat, snap_lon

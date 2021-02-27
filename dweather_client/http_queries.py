@@ -93,7 +93,7 @@ def get_zipped_hash_cell(hash_str, coord_str, url=GATEWAY_URL):
     with gzip.GzipFile(fileobj=io.BytesIO(r.content)) as zip_data:
         return zip_data.read().decode("utf-8")
 
-def get_dataset_cell(lat, lon, dataset_revision):
+def get_dataset_cell(lat, lon, dataset_revision, metadata=None):
     """ 
     Retrieve the text of a grid cell data file for a given lat lon and dataset.
     Args:
@@ -111,8 +111,8 @@ def get_dataset_cell(lat, lon, dataset_revision):
         dataset_hash = all_hashes[dataset_revision]
     else:
         raise DatasetError('{} not found on server'.format(dataset_revision))
-
-    metadata = get_metadata(dataset_hash)
+    if metadata is None:
+        metadata = get_metadata(dataset_hash)
     min_lat, max_lat = sorted(metadata["latitude range"])
     min_lon, max_lon = sorted(metadata["longitude range"])
     if lat < min_lat or lat > max_lat:
@@ -125,7 +125,7 @@ def get_dataset_cell(lat, lon, dataset_revision):
             text_data = get_zipped_hash_cell(dataset_hash, coord_str)
         else:
             text_data = get_hash_cell(dataset_hash, coord_str)
-        return metadata, text_data
+        return text_data
     except requests.exceptions.RequestException as e:
         raise CoordinateNotFoundError('Coordinate ({}, {}) not found  on ipfs in dataset revision {}'.format(lat, lon, dataset_revision))
 
@@ -146,39 +146,6 @@ def get_station_csv(station_id, station_dataset="ghcnd-imputed-daily", url=GATEW
     with gzip.GzipFile(fileobj=io.BytesIO(r.content)) as zip_data:
         return zip_data.read().decode("utf-8")
 
-
-def get_gridded_rainfall_dict(lat, lon, dataset_revision, return_metadata=False, get_counter=False, snap=False):
-    """ 
-    Build a dict of rainfall data for a given grid cell.
-    Args:
-        lat (float): the latitude of the grid cell, to 3 decimals
-        lon (float): the longitude of the grid cell, to 3 decimals
-    Returns:
-        a dict ({datetime.date: float}) of datetime dates and the corresponding rainfall in mm for that date
-    Raises:
-        DatasetError: If no matching dataset found on server
-        InputOutOfRangeError: If the lat/lon is outside the dataset range in metadata
-        CoordinateNotFoundError: If the lat/lon coordinate is not found on server
-        DataMalformedError: If the grid cell file can't be parsed as rainfall data
-    """
-    metadata, rainfall_text = get_dataset_cell(lat, lon, dataset_revision)
-    dataset_start_date = datetime.datetime.strptime(metadata['date range'][0], "%Y/%m/%d").date()
-    dataset_end_date = datetime.datetime.strptime(metadata['date range'][1], "%Y/%m/%d").date()
-    timedelta = dataset_end_date - dataset_start_date
-    days_in_record = timedelta.days + 1 # we have both the start and end date in the dataset so its the difference + 1
-    day_strs = rainfall_text.replace(',', ' ').split()
-    if (len(day_strs) != days_in_record):
-        raise DataMalformedError ("Number of days in data file does not match the provided metadata")
-    rainfall_dict = Counter({}) if get_counter else {}
-    for i in range(days_in_record):
-        if day_strs[i] == metadata["missing value"]:
-            rainfall_dict[dataset_start_date + datetime.timedelta(days=i)] = 0 if get_counter else None
-        else:
-            rainfall_dict[dataset_start_date + datetime.timedelta(days=i)] = float(day_strs[i])
-    if return_metadata:
-        return metadata, rainfall_dict
-    else:
-        return rainfall_dict
 
 def get_hurricane_dict(head=get_heads()['atcf_btk-seasonal']):
     """
@@ -279,42 +246,6 @@ def get_prismc_dict(lat, lon, dataset):
                                 day_of_year += datetime.timedelta(days=1)
     return date_dict
 
-def get_temperature_dict(lat, lon, dataset_revision, return_metadata=False):
-    """
-    Build a dict of temperature data for a given grid cell.
-    Args:
-        lat (float): the latitude of the grid cell, to 3 decimals
-        lon (float): the longitude of the grid cell, to 3 decimals
-    Returns:
-        tuple (highs, lows) of dicts
-        highs: dict ({datetime.date: float}) of datetime dates and the corresponding high temperature in degress F
-        lows: dict ({datetime.date: float}) of datetime dates and the corresponding low temperature in degress F
-    Raises:
-        DatasetError: If no matching dataset_revision found on server
-        InputOutOfRangeError: If the lat/lon is outside the dataset_revision range in metadata
-        CoordinateNotFoundError: If the lat/lon coordinate is not found on server
-        DataMalformedError: If the grid cell file can't be parsed as temperature data
-    """
-    metadata, temp_text = get_dataset_cell(lat, lon, dataset_revision)
-    dataset_start_date = datetime.datetime.strptime(metadata['date range'][0], "%Y/%m/%d").date()
-    dataset_end_date = datetime.datetime.strptime(metadata['date range'][1], "%Y/%m/%d").date()
-    timedelta = dataset_end_date - dataset_start_date
-    days_in_record = timedelta.days + 1 # we have both the start and end date in the dataset_revision so its the difference + 1
-    day_strs = temp_text.replace(',', ' ').split()
-    if (len(day_strs) != days_in_record):
-        raise DataMalformedError ("Number of days in data file does not match the provided metadata")
-    highs = {}
-    lows = {}
-    for i in range(days_in_record):
-        low, high = map(float, day_strs[i].split('/'))
-        date_iter = dataset_start_date + datetime.timedelta(days=i)
-        highs[date_iter] = high
-        lows[date_iter] = low
-    if return_metadata:
-        return metadata, highs, lows
-    else:
-        return highs, lows
-
 def get_era5_dict(lat, lon, dataset):
     """
     Builds a dict of era5 data
@@ -345,8 +276,6 @@ def get_era5_dict(lat, lon, dataset):
                 datetime_dict[time_of_year] = float(point)
                 time_of_year += datetime.timedelta(hours=1)
     return (snapped_lat, snapped_lon), datetime_dict
-
-
 
 def traverse_ll(head):
     release_itr = head

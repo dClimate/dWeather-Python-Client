@@ -1,20 +1,26 @@
 """
 Use these functions to get historical climate data.
 """
-from dweather_client.http_queries import get_station_csv
-from dweather_client.aliases_and_units import STATION_COLUMN_LOOKUP as SCL, STATION_UNITS_LOOKUP as SUL
+from dweather_client.http_queries import get_station_csv, get_dataset_cell, get_metadata, get_heads
+from dweather_client.aliases_and_units import \
+    STATION_COLUMN_LOOKUP as SCL, STATION_UNITS_LOOKUP as SUL, METRIC_TO_IMPERIAL as MTI, IMPERIAL_TO_METRIC as ITM
+from dweather_client.ipfs_errors import *
+from dweather_client.grid_utils import snap_to_grid, conventional_lat_lon_to_cpc, cpc_lat_lon_to_conventional
 import csv, pint, datetime
 import pandas as pd
+
 
 def get_gridcell_history(
     lat, 
     lon, 
     dataset,
     snap_lat_lon_to_closest_valid_point=True,
+    also_return_snapped_coordinates=False,
     protocol='https', 
     return_result_as_dataframe=False,
     also_return_metadata=False, 
-    use_imperial_units=True):
+    use_imperial_units=True,
+    return_result_as_counter=False):
     """
     Get the historical timeseries data for a gridded dataset in a dictionary,
     or, if return_result_as_counter is set to True, as a collections.Counter
@@ -41,7 +47,78 @@ def get_gridcell_history(
     use_imperial_units is set to True by default, but if set to False,
     will get the appropriate metric unit from aliases_and_units
     """
-    pass
+    metadata = get_metadata(get_heads()[dataset])
+
+    unit_reg = pint.UnitRegistry()
+    unit_reg.default_format = ".%if" % int(metadata['filename decimal precision'])
+    if use_imperial_units:
+        try:
+            unit_name = MTI[metadata['unit of measurement']]
+        except KeyError:
+            unit_name = metadata['unit of measurement']
+    else:
+        try:
+            unit_name = ITM[metadata['unit of measurement']]
+        except KeyError:
+            unit_name = metadata['unit of measurement']
+
+    if snap_lat_lon_to_closest_valid_point:
+        lat, lon = snap_to_grid(lat, lon, metadata)
+
+    if 'cpc' in metadata['source data url']:
+        lat, lon = conventional_lat_lon_to_cpc(lat, lon)
+
+    history_text = get_dataset_cell(lat, lon, dataset, metadata=metadata)
+    day_strs = history_text.replace(',', ' ').split()
+
+    dataset_start_date = datetime.datetime.strptime(metadata['date range'][0], "%Y/%m/%d").date()
+    dataset_end_date = datetime.datetime.strptime(metadata['date range'][1], "%Y/%m/%d").date()
+    timedelta = dataset_end_date - dataset_start_date
+    days_in_record = timedelta.days + 1 # we have both the start and end date in the dataset so its the difference + 1
+
+    if (len(day_strs) != days_in_record):
+        raise DataMalformedError("Number of days in data file does not match the provided metadata")
+
+    if 'temperature delimiter' in metadata:
+        if return_result_as_counter:
+            raise ValueError("Can't return temperature delimited record as counter")
+        highs = {}
+        lows = {}
+        for i in range(days_in_record):
+            date_iter = dataset_start_date + datetime.timedelta(days=i)
+            if day_strs[i] == metadata["missing value"]:
+                highs[date_iter], lows[date_iter] = 0, 0
+            else:
+                low, high = map(float, day_strs[i].split(metadata['temperature delimiter']))
+                lows[date_iter] = unit_reg.Quantity(low, unit_name)
+                highs[date_iter] = unit_reg.Quantity(high, unit_name)
+                    
+        history_dict = highs, lows
+
+    else:
+        history_dict = Counter({}) if return_result_as_counter else {}
+        for i in range(days_in_record):
+            date_iter = dataset_start_date + datetime.timedelta(days=i)
+            if day_strs[i] == metadata["missing value"]:
+                history_dict[date_iter] = 0 if return_result_as_counter else None
+            else:
+                history_dict[date_iter] = unit_reg.Quantity(float(day_strs[i]), unit_name)
+
+    if 'cpc' in metadata['source data url']:
+        lat, lon = cpc_lat_lon_to_conventional(lat, lon)
+
+    result = history_dict
+    if also_return_metadata:
+        try:
+            result = result + ({"metadata": metadata},)
+        except TypeError:
+            result = (result,) + ({"metadata": metadata},)
+    if also_return_snapped_coordinates:
+        try:
+            result = result + ({"snapped to": (lat, lon)},)
+        except TypeError:
+            result = (result,) + ({"snapped to": (lat, lon)},)
+    return result
 
 
 def get_storm_history():

@@ -384,6 +384,16 @@ def get_rainfall_dict(lat, lon, dataset_revision, return_metadata=False, get_cou
 def get_prismc_dict(lat, lon, dataset):
     """
     Builds a dict of latest PRISM data by using datasets combining all PRISM revisions
+    Notes:
+        Preferentially uses newer data. For example, if PRISM releases provisional data 
+        for the date 2020-04-05 on 2020-05-01, when the ingestion script is run later that day, 
+        that data will be placed in the last node in the linked list, and when `get_prismc_dict` is run,
+        that data will appear in the return value.
+
+        Then, when stable data for 2020-04-05 is released on 2020-10-01, when the ingestion script is run again,
+        that data will be placed in the last node. Finally, because that data is later in the chain, when `get_prismc_dict` is run,
+        the 2020-04-05 key will point to the data released on 2020-10-01, and the outdated data released on 2020-05-01, though still in
+        the chain, will be ignored.
     Args:
         lat (float): the latitude of the grid cell, to 3 decimals
         lon (float): the longitude of the grid cell, to 3 decimals

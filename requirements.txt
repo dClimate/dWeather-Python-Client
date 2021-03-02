@@ -6,3 +6,4 @@ geopandas>=0.8.1
 geopy
 zeep
 pint
+astropy

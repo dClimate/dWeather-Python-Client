@@ -3,12 +3,15 @@ Use these functions to get historical climate data.
 """
 from dweather_client.http_queries import get_station_csv, get_dataset_cell, get_metadata, get_heads
 from dweather_client.aliases_and_units import \
-    STATION_COLUMN_LOOKUP as SCL, STATION_UNITS_LOOKUP as SUL, METRIC_TO_IMPERIAL as MTI, IMPERIAL_TO_METRIC as ITM
+    STATION_COLUMN_LOOKUP as SCL, STATION_UNITS_LOOKUP as SUL, METRIC_TO_IMPERIAL as MTI, IMPERIAL_TO_METRIC as ITM, FLASK_DATASETS, PRISMC_DATASETS
 from dweather_client.ipfs_errors import *
-from dweather_client.grid_utils import snap_to_grid, conventional_lat_lon_to_cpc, cpc_lat_lon_to_conventional
+from dweather_client.grid_utils import snap_to_grid, conventional_lat_lon_to_cpc, cpc_lat_lon_to_conventional, snap_to_grid_no_metadata
+from dweather_client.http_queries import flask_query, get_prismc_dict
 import csv, pint, datetime
+from astropy import units as u
+from astropy.units import imperial
 import pandas as pd
-
+import numpy as np
 
 def get_gridcell_history(
     lat, 
@@ -47,6 +50,64 @@ def get_gridcell_history(
     use_imperial_units is set to True by default, but if set to False,
     will get the appropriate metric unit from aliases_and_units
     """
+
+    if dataset in FLASK_DATASETS:
+        dataset_units = FLASK_DATASETS[dataset]["units"]
+        if use_imperial_units:
+            output_units = MTI[dataset_units] if dataset_units in MTI else dataset_units
+        else:
+            output_units = ITM[dataset_units] if dataset_units in ITM else dataset_units
+
+        missing_value = FLASK_DATASETS[dataset]["missing value"]
+        coords, res = flask_query(dataset, lat, lon)
+        for k in res:
+            val = np.nan if res[k] == missing_value else float(res[k])
+            datapoint = val * dataset_units
+            datapoint = datapoint.to(output_units)
+            res[k] = datapoint
+        if also_return_snapped_coordinates:
+            return coords, res
+        else: 
+            return res
+
+    if "prism" in dataset:
+        if dataset == "prism-precip":
+            dataset_units = PRISMC_DATASETS["precip"]["units"]
+        elif dataset == "prism-temp":
+            dataset_units = PRISMC_DATASETS["temp"]["units"]
+        if use_imperial_units:
+            output_units = MTI[dataset_units] if dataset_units in MTI else dataset_units
+        else:
+            output_units = ITM[dataset_units] if dataset_units in ITM else dataset_units      
+        missing_value = PRISMC_DATASETS["precip"]["missing value"]
+        resolution, min_lat, min_lon, precision = PRISMC_DATASETS["precip"]["resolution"], PRISMC_DATASETS["precip"]["min_lat"], PRISMC_DATASETS["precip"]["min_lon"], PRISMC_DATASETS["precip"]["precision"]
+        snapped_lat, snapped_lon = snap_to_grid_no_metadata(lat, lon, resolution, min_lat, min_lon, precision)
+        if dataset == "prism-precip":
+            res = get_prismc_dict(snapped_lat, snapped_lon, "precip")
+            for k in res:
+                val = np.nan if res[k] == missing_value else res[k]
+                datapoint = val * dataset_units
+                datapoint = datapoint.to(output_units)
+                res[k] = datapoint
+            if also_return_snapped_coordinates:
+                return coords, res
+            else: 
+                return res
+        elif dataset == "prism-temp":
+            res_tmin = get_prismc_dict(snapped_lat, snapped_lon, "tmin")
+            res_tmax = get_prismc_dict(snapped_lat, snapped_lon, "tmax")
+            ress = [res_tmin, res_tmax]
+            for res in ress:
+                for k in res:
+                    val = np.nan if res[k] == missing_value else res[k]
+                    datapoint = val * dataset_units
+                    datapoint = datapoint.to(output_units)
+                    res[k] = datapoint                
+            if also_return_snapped_coordinates:
+                return coords, {"minimums": ress[0], "maximums": ress[1]}
+            else: 
+                return  {"minimums": ress[0], "maximums": ress[1]}
+
     metadata = get_metadata(get_heads()[dataset])
 
     unit_reg = pint.UnitRegistry()

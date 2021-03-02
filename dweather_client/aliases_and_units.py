@@ -8,24 +8,69 @@ deal with.
 """
 from dweather_client.ipfs_errors import AliasNotFound
 import zeep, os
+from astropy import units as u
+from astropy.units import imperial
+
 import pandas as pd
 
+FLASK_DATASETS = {
+    "rtma_pcp-hourly": {
+        "missing value": "",
+        "units": u.mm
+    },
+    "chirpsc_final_05-daily": {
+        "missing value": "-9999.00",
+        "units": u.mm
+    },
+    "chirpsc_final_25-daily": {
+        "missing value": "-9999.00",
+        "units": u.mm
+    },
+    "chirpsc_prelim_05-daily": {
+        "missing value": "-9999.00",
+        "units": u.mm
+    }
+}
+
+PRISMC_DATASETS = {
+    "temp": {
+        "units": imperial.deg_F,
+        "missing value": -9999,
+        "precision": 3,
+        "min_lat": 24.08333333,
+        "min_lon": -125,
+        "resolution": 0.04166667
+    },
+    "precip": {
+        "units": u.mm,
+        "missing value": -9999,
+        "precision": 3,
+        "min_lat": 24.08333333,
+        "min_lon": -125,
+        "resolution": 0.04166667   
+    }
+}
+
 METRIC_TO_IMPERIAL = { \
+    u.mm: imperial.inch,
     "mm": "inches",
     "millimeters": "inches",
     "millimeter": "inches",
     "degC": "degF",
     "degree_Celsius": "degF",
-    "degrees Celsius": "degF"
+    "degrees Celsius": "degF",
+    "m s**-1": "mph"
 }
 
 IMPERIAL_TO_METRIC = { \
+    imperial.inch: u.mm,
     "inches": "mm",
     "inch": "mm",
     "in": "mm",
     "degF": "degC",
     "degree_Fahrenheit": "degC",
-    "degrees Fahrenheit": "degC"
+    "degrees Fahrenheit": "degC",
+    "mph": "m s**-1"
 }
 
 STATION_COLUMN_LOOKUP = { \

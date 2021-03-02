@@ -219,3 +219,23 @@ def snap_to_grid(lat, lon, metadata):
     snap_lon = round(round((lon - min_lon)/resolution) * resolution + min_lon, precision)
 
     return snap_lat, snap_lon
+
+def snap_to_grid_no_metadata(lat, lon, resolution, min_lat, min_lon, precision):
+    """ 
+    Find the nearest valid (lat,lon) for a given metadata file and arbitrary
+    "unsnapped" lat lon.
+
+    Use this when you want to query a gridded dataset for some arbitrary
+    point.
+
+    return: lat, lon
+    args:
+        lat = -90 < lat < 90, float
+        lon = -180 < lon < 180, float
+        metadata: a dWeather metadata file
+
+    """
+    snap_lat = round(round((lat - min_lat)/resolution) * resolution + min_lat, precision)
+    snap_lon = round(round((lon - min_lon)/resolution) * resolution + min_lon, precision)
+
+    return snap_lat, snap_lon

@@ -8,9 +8,11 @@ from dweather_client.ipfs_errors import AliasNotFound, DataMalformedError
 from dweather_client.grid_utils import snap_to_grid, conventional_lat_lon_to_cpc, cpc_lat_lon_to_conventional
 from dweather_client.http_queries import flask_query, get_prismc_dict
 import datetime
+import pytz
 from astropy import units as u
 import pandas as pd
 import numpy as np
+from timezonefinder import TimezoneFinder
 
 
 def get_gridcell_history(
@@ -32,10 +34,10 @@ def get_gridcell_history(
     lat, lon.
 
     If snap_lat_lon_to_closest_valid_point is set to True (which it is
-    by default), returns the history for the closest valid lat lon as 
+    by default), returns the history for the closest valid lat lon as
     determined by the dataset's metadata resolution.
 
-    protocol is set to 'https' by default, but can also be set to 
+    protocol is set to 'https' by default, but can also be set to
     'ipfs'. There are performance tradeoffs depending on which protocol is
     selected.
 
@@ -66,101 +68,97 @@ def get_gridcell_history(
 
     if dataset in FLASK_DATASETS:
         missing_value = metadata["missing value"]
-        coords, res = flask_query(dataset, lat, lon)
-        for k in res:
-            val = np.nan if res[k] == missing_value else float(res[k])
+        history_dict = {}
+        (lat, lon), resp_dict = flask_query(dataset, lat, lon)
+        if dataset == "rtma_pcp-hourly":
+            tf = TimezoneFinder()
+            local_tz = pytz.timezone(tf.timezone_at(lng=lon, lat=lat))
+        for k in resp_dict:
+            val = np.nan if resp_dict[k] == missing_value else float(resp_dict[k])
             datapoint = val * dataset_units
             if output_units != dataset_units:
                 datapoint = datapoint.to(output_units)
-            res[k] = datapoint
-        if also_return_snapped_coordinates:
-            return coords, res
-        else:
-            return res
+            if dataset == "rtma_pcp-hourly":
+                k = pytz.utc.localize(k).astimezone(local_tz)
+            history_dict[k] = datapoint
 
-    if "prism" in dataset:
-        snapped_lat, snapped_lon = snap_to_grid(lat, lon, metadata)
+    elif "prism" in dataset:
+        lat, lon = snap_to_grid(lat, lon, metadata)
         missing_value = metadata["missing value"]
         if dataset == "prism-precip":
-            res = get_prismc_dict(snapped_lat, snapped_lon, "precip")
-            for k in res:
-                val = np.nan if res[k] == missing_value else res[k]
+            history_dict = {}
+            resp_dict = get_prismc_dict(lat, lon, "precip")
+            for k in resp_dict:
+                val = np.nan if resp_dict[k] == missing_value else resp_dict[k]
                 datapoint = val * dataset_units
-                if not output_units == dataset_units:
+                if output_units != dataset_units:
                     datapoint = datapoint.to(output_units)
-                res[k] = datapoint
-            if also_return_snapped_coordinates:
-                return (snapped_lat, snapped_lon), res
-            else:
-                return res
+                history_dict[k] = datapoint
 
         elif dataset == "prism-temp":
-            res_tmin = get_prismc_dict(snapped_lat, snapped_lon, "tmin")
-            res_tmax = get_prismc_dict(snapped_lat, snapped_lon, "tmax")
-            ress = [res_tmin, res_tmax]
-            for res in ress:
+            res_tmin = get_prismc_dict(lat, lon, "tmin")
+            res_tmax = get_prismc_dict(lat, lon, "tmax")
+            history_dicts = [res_tmin, res_tmax]
+            for res in history_dicts:
                 for k in res:
                     val = np.nan if res[k] == missing_value else res[k]
                     datapoint = val * dataset_units
-                    if not output_units == dataset_units:
+                    if output_units != dataset_units:
                         datapoint = datapoint.to(output_units, equivalencies=u.temperature())
                     res[k] = datapoint
-            if also_return_snapped_coordinates:
-                return (snapped_lat, snapped_lon), {"minimums": ress[0], "maximums": ress[1]}
-            else:
-                return {"minimums": ress[0], "maximums": ress[1]}
-
-    if snap_lat_lon_to_closest_valid_point:
-        lat, lon = snap_to_grid(lat, lon, metadata)
-
-    if 'cpc' in metadata['source data url']:
-        lat, lon = conventional_lat_lon_to_cpc(lat, lon)
-
-    history_text = get_dataset_cell(lat, lon, dataset, metadata=metadata)
-    day_strs = history_text.replace(',', ' ').split()
-
-    dataset_start_date = datetime.datetime.strptime(metadata['date range'][0], "%Y/%m/%d").date()
-    dataset_end_date = datetime.datetime.strptime(metadata['date range'][1], "%Y/%m/%d").date()
-    timedelta = dataset_end_date - dataset_start_date
-    days_in_record = timedelta.days + 1  # we have both the start and end date in the dataset so its the difference + 1
-
-    if (len(day_strs) != days_in_record):
-        raise DataMalformedError("Number of days in data file does not match the provided metadata")
-
-    if 'temperature delimiter' in metadata:
-        if return_result_as_counter:
-            raise ValueError("Can't return temperature delimited record as counter")
-        highs = {}
-        lows = {}
-        for i in range(days_in_record):
-            date_iter = dataset_start_date + datetime.timedelta(days=i)
-            if day_strs[i] == metadata["missing value"]:
-                low_datapoint, high_datapoint = np.nan * dataset_units, np.nan * dataset_units
-            else:
-                low, high = map(float, day_strs[i].split(metadata['temperature delimiter']))
-                low_datapoint, high_datapoint = low * dataset_units, high * dataset_units
-            if output_units != dataset_units:
-                low_datapoint = low_datapoint.to(output_units, equivalencies=u.temperature())
-                high_datapoint = high_datapoint.to(output_units, equivalencies=u.temperature())
-            highs[date_iter] = high_datapoint
-            lows[date_iter] = low_datapoint
-
-        history_dict = highs, lows
-
+            history_dict = tuple(history_dicts)
     else:
-        history_dict = Counter({}) if return_result_as_counter else {}
-        for i in range(days_in_record):
-            date_iter = dataset_start_date + datetime.timedelta(days=i)
-            if day_strs[i] == metadata["missing value"]:
-                datapoint = np.nan * dataset_units
-            else:
-                datapoint = float(day_strs[i]) * dataset_units
-            if output_units != dataset_units:
-                datapoint = datapoint.to(output_units)
-            history_dict[date_iter] = datapoint
+        if snap_lat_lon_to_closest_valid_point:
+            lat, lon = snap_to_grid(lat, lon, metadata)
 
-    if 'cpc' in metadata['source data url']:
-        lat, lon = cpc_lat_lon_to_conventional(lat, lon)
+        if 'source data url' in metadata and 'cpc' in metadata['source data url']:
+            lat, lon = conventional_lat_lon_to_cpc(lat, lon)
+
+        history_text = get_dataset_cell(lat, lon, dataset, metadata=metadata)
+        day_strs = history_text.replace(',', ' ').split()
+
+        dataset_start_date = datetime.datetime.strptime(metadata['date range'][0], "%Y/%m/%d").date()
+        dataset_end_date = datetime.datetime.strptime(metadata['date range'][1], "%Y/%m/%d").date()
+        timedelta = dataset_end_date - dataset_start_date
+        days_in_record = timedelta.days + 1  # we have both the start and end date in the dataset so its the difference + 1
+
+        if (len(day_strs) != days_in_record):
+            raise DataMalformedError("Number of days in data file does not match the provided metadata")
+
+        if 'temperature delimiter' in metadata:
+            if return_result_as_counter:
+                raise ValueError("Can't return temperature delimited record as counter")
+            highs = {}
+            lows = {}
+            for i in range(days_in_record):
+                date_iter = dataset_start_date + datetime.timedelta(days=i)
+                if day_strs[i] == metadata["missing value"]:
+                    low_datapoint, high_datapoint = np.nan * dataset_units, np.nan * dataset_units
+                else:
+                    low, high = map(float, day_strs[i].split(metadata['temperature delimiter']))
+                    low_datapoint, high_datapoint = low * dataset_units, high * dataset_units
+                if output_units != dataset_units:
+                    low_datapoint = low_datapoint.to(output_units, equivalencies=u.temperature())
+                    high_datapoint = high_datapoint.to(output_units, equivalencies=u.temperature())
+                highs[date_iter] = high_datapoint
+                lows[date_iter] = low_datapoint
+
+            history_dict = highs, lows
+
+        else:
+            history_dict = Counter({}) if return_result_as_counter else {}
+            for i in range(days_in_record):
+                date_iter = dataset_start_date + datetime.timedelta(days=i)
+                if day_strs[i] == metadata["missing value"]:
+                    datapoint = np.nan * dataset_units
+                else:
+                    datapoint = float(day_strs[i]) * dataset_units
+                if output_units != dataset_units:
+                    datapoint = datapoint.to(output_units)
+                history_dict[date_iter] = datapoint
+
+        if 'source data url' in metadata and 'cpc' in metadata['source data url']:
+            lat, lon = cpc_lat_lon_to_conventional(lat, lon)
 
     result = history_dict
     if also_return_metadata:

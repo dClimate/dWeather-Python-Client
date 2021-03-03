@@ -10,7 +10,6 @@ from dweather_client.ipfs_errors import AliasNotFound
 import zeep, os
 from astropy import units as u
 from astropy.units import imperial
-
 import pandas as pd
 
 FLASK_DATASETS = {
@@ -115,13 +114,14 @@ STATION_COLUMN_LOOKUP = { \
                     'rainfall'): ('PRCP',)
 }
 
+# see ghcnd readme ftp://ftp.ncdc.noaa.gov/pub/data/ghcn/daily/readme.txt
 STATION_UNITS_LOOKUP = { \
-    'PRCP': {'imperial': "inches", 'metric': "millimeters", 'precision': '.3f'},
-    'SNWD': {'imperial': "inches", 'metric': "millimeters", 'precision': '.3f'},
-    'SNOW': {'imperial': "inches", 'metric': "millimeters", 'precision': '.3f'},
-    'WESD': {'imperial': "inches", 'metric': "millimeters", 'precision': '.3f'},
-    'TMAX': {'imperial': "degF", 'metric': "degC", 'precision': '.3f'},
-    'TMIN': {'imperial': "degF", 'metric': "degC", 'precision': '.3f'},
+    'PRCP': {'vectorize': lambda m: (m/10.0) * u.mm, 'imperial': imperial.inch},
+    'SNWD': {'vectorize': lambda m: m * u.mm, 'imperial': imperial.inch},
+    'SNOW': {'vectorize': lambda m: m * u.mm, 'imperial': imperial.inch},
+    'WESD': {'vectorize': lambda m: (m/10.0) * u.mm, 'imperial': imperial.inch},
+    'TMAX': {'vectorize': lambda m: (m/10.0) * u.deg_C, 'imperial': imperial.deg_F},
+    'TMIN': {'vectorize': lambda m: (m/10.0) * u.deg_C, 'imperial': imperial.deg_F},
 }
 
 parent_dir = os.path.dirname(os.path.abspath(__file__))
@@ -216,7 +216,4 @@ def snotel_to_ghcnd(snotel_id, state_fips):
         '%s:%s:SNTL' % (str(snotel_id), str(state_fips)))
     ghcn_id = 'USS00%s' % result['actonId']
     return ghcn_id
-
-
-
 

@@ -147,7 +147,6 @@ def get_station_csv(station_id, station_dataset="ghcnd-imputed-daily", url=GATEW
     with gzip.GzipFile(fileobj=io.BytesIO(r.content)) as zip_data:
         return zip_data.read().decode("utf-8")
 
-
 def get_hurricane_dict(head=get_heads()['atcf_btk-seasonal']):
     """
     Get a hurricane dictionary for the atcf_btk-seasonal dataset. 
@@ -187,7 +186,6 @@ def get_simulated_hurricane_files(basin):
     base_url = f"{GATEWAY_URL}/ipfs/{hurr_hash}/"
     files = [base_url + f for f in metadata['files'] if basin in f]
     return files
-
 
 def get_prismc_dict(lat, lon, dataset):
     """

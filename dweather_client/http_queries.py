@@ -269,16 +269,20 @@ def flask_query(dataset, lat, lon, base_url=FLASK_URL):
     elif "chirpsc" in dataset:
         no_frequency = dataset.split('-')[0]
         url = f"{base_url}/chirps/{no_frequency.split('_')[1]}/{no_frequency.split('_')[2]}/{lat}_{lon}"
-        
+    elif "cpcc" in dataset:
+        url = f"{base_url}/cpc/{dataset}/{lat}_{lon}"
+    elif "prismc" in dataset:
+        url = f"{base_url}/prism/{dataset.split('-')[1]}/{lat}_{lon}"
+
     r = requests.get(url)
     r.raise_for_status()
     resp = r.json()
 
     data_dict = {}
-    if dataset == "rtma_pcp-hourly":
+    if "hourly" in dataset:
         for k, v in resp["data"].items():
             data_dict[datetime.datetime.fromisoformat(k)] = v
-    elif "chirpsc" in dataset:
+    elif "daily" in dataset:
         for k, v in resp["data"].items():
             data_dict[datetime.datetime.fromisoformat(k).date()] = v
 

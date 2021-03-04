@@ -20,11 +20,6 @@ FLASK_DATASETS = [
     "chirpsc_prelim_05-daily"
 ]
 
-DATASET_ALIASES = {
-    "prism-temp": "prismc-tmax-daily",
-    "prism-precip": "prismc-precip-daily"
-}
-
 UNIT_ALIASES = {
     "kg/m**2": u.kg / u.m**2,
     "mm": u.mm,
@@ -34,30 +29,30 @@ UNIT_ALIASES = {
 }
 
 METRIC_TO_IMPERIAL = {
-    u.mm: imperial.inch,
-    u.deg_C: imperial.deg_F,
-    u.kg / u.m**2: imperial.pound / imperial.ft ** 2,
-    u.m / u.s: imperial.mile / u.hour
+    u.mm: lambda q: q.to(imperial.inch),
+    u.deg_C: lambda q: q.to(imperial.deg_F, equivalencies=u.temperature()),
+    u.kg / u.m**2: lambda q: q.to(imperial.pound / imperial.ft ** 2),
+    u.m / u.s: lambda q: q.to(imperial.mile / u.hour)
 }
 
 IMPERIAL_TO_METRIC = {
-    imperial.inch: u.mm,
-    imperial.deg_F: u.deg_C,
-    imperial.pound / imperial.ft ** 2: u.kg / u.m**2,
-    imperial.mile / u.hour: u.m / u.s
+    imperial.inch: lambda q: q.to(u.mm),
+    imperial.deg_F: lambda q: q.to(u.deg_C, equivalencies=u.temperature()),
+    imperial.pound / imperial.ft ** 2: lambda q: q.to(u.kg / u.m**2),
+    imperial.mile / u.hour: lambda q: q.to(u.m / u.s)
 }
 
-STATION_COLUMN_LOOKUP = {
+STATION_ALIASES_TO_COLUMNS = {
     ('SNWD',
      'snow depth',
-     'snowdepth'): ('SNWD',),
+     'snowdepth'): 'SNWD',
     ('SNOW',
      'snow fall',
      'snowfall',
-     'snow'): ('SNOW',),
+     'snow'): 'SNOW',
     ('WESD',
      'snow water equivalent',
-     'water equivalent snow depth'): ('WESD',),
+     'water equivalent snow depth'): 'WESD',
     ('TMAX',
      'highs',
      'max temperature',
@@ -67,7 +62,7 @@ STATION_COLUMN_LOOKUP = {
      'max temp',
      'temp max',
      'maximum temp',
-     'temp maximum'): ('TMAX',),
+     'temp maximum'): 'TMAX',
     ('TMIN',
      'lows',
      'min temperature',
@@ -77,26 +72,34 @@ STATION_COLUMN_LOOKUP = {
      'min temp',
      'temp min',
      'minimum temp',
-     'temp minimum'): ('TMIN',),
-    ('temperature',
-     'temperatures',
-     'temp',
-     'temps'): ('TMAX', 'TMIN'),
+     'temp minimum'): 'TMIN',
     ('PRCP',
      'precipitation',
      'precip',
      'rain',
-     'rainfall'): ('PRCP',)
+     'rainfall'): 'PRCP'
 }
+
+def lookup_station_alias(alias):
+    for aliases in STATION_ALIASES_TO_COLUMNS:
+        if alias in aliases:
+            return STATION_ALIASES_TO_COLUMNS[aliases]
+    raise AliasNotFound()
 
 # see ghcnd readme ftp://ftp.ncdc.noaa.gov/pub/data/ghcn/daily/readme.txt
 STATION_UNITS_LOOKUP = {
-    'PRCP': {'vectorize': lambda m: (m/10.0) * u.mm, 'imperial': imperial.inch},
-    'SNWD': {'vectorize': lambda m: m * u.mm, 'imperial': imperial.inch},
-    'SNOW': {'vectorize': lambda m: m * u.mm, 'imperial': imperial.inch},
-    'WESD': {'vectorize': lambda m: (m/10.0) * u.mm, 'imperial': imperial.inch},
-    'TMAX': {'vectorize': lambda m: (m/10.0) * u.deg_C, 'imperial': imperial.deg_F},
-    'TMIN': {'vectorize': lambda m: (m/10.0) * u.deg_C, 'imperial': imperial.deg_F},
+    'PRCP': {'vectorize': lambda m: (m/10.0) * u.mm, 
+             'imperialize': lambda m: m.to(imperial.inch)},
+    'SNWD': {'vectorize': lambda m: m * u.mm, 
+             'imperialize': lambda m: m.to(imperial.inch)},
+    'SNOW': {'vectorize': lambda m: m * u.mm, 
+             'imperialize': lambda m: m.to(imperial.inch)},
+    'WESD': {'vectorize': lambda m: (m/10.0) * u.mm, 
+             'imperialize': lambda m: m.to(imperial.inch)},
+    'TMAX': {'vectorize': lambda m: (m/10.0) * u.deg_C, 
+             'imperialize': lambda m: m.to(imperial.deg_F, equivalencies=u.temperature())},
+    'TMIN': {'vectorize': lambda m: (m/10.0) * u.deg_C, 
+             'imperialize': lambda m: m.to(imperial.deg_F, equivalencies=u.temperature())},
 }
 
 parent_dir = os.path.dirname(os.path.abspath(__file__))

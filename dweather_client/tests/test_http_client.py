@@ -35,7 +35,6 @@ def test_parse_station_temps_as_dict():
     assert len(tmaxs) > 100
     assert len(tmins) > 100 
 
-
 def test_get_full_prismc_history():
     lat, lon = 25.000, -80.750
     res = http_client.get_prismc_dict(lat, lon, "precip")

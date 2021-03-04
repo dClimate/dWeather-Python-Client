@@ -3,12 +3,12 @@ Use these functions to get historical climate data.
 """
 from dweather_client.http_queries import get_station_csv, get_dataset_cell, get_metadata, get_heads
 from dweather_client.aliases_and_units import \
-    STATION_COLUMN_LOOKUP as SCL, STATION_UNITS_LOOKUP as SUL, METRIC_TO_IMPERIAL as MTI, IMPERIAL_TO_METRIC as ITM, FLASK_DATASETS, UNIT_ALIASES, DATASET_ALIASES
+    lookup_station_alias, STATION_UNITS_LOOKUP as SUL, METRIC_TO_IMPERIAL as M2I, IMPERIAL_TO_METRIC as I2M, FLASK_DATASETS, UNIT_ALIASES
 from dweather_client.ipfs_errors import AliasNotFound, DataMalformedError
 from dweather_client.grid_utils import snap_to_grid, conventional_lat_lon_to_cpc, cpc_lat_lon_to_conventional
 from dweather_client.http_queries import flask_query, get_prismc_dict
-import datetime
-import pytz
+from dweather_client.struct_utils import tupleify
+import datetime, pytz, csv
 from astropy import units as u
 import pandas as pd
 import numpy as np
@@ -22,7 +22,7 @@ def get_gridcell_history(
         snap_lat_lon_to_closest_valid_point=True,
         also_return_snapped_coordinates=False,
         protocol='https',
-        # return_result_as_dataframe=False,
+        # return_result_as_dataframe=False, TODO
         also_return_metadata=False,
         use_imperial_units=True,
         return_result_as_counter=False):
@@ -52,66 +52,55 @@ def get_gridcell_history(
     use_imperial_units is set to True by default, but if set to False,
     will get the appropriate metric unit from aliases_and_units
     """
-    dataset_name = DATASET_ALIASES[dataset] if dataset in DATASET_ALIASES else dataset
+    metadata = get_metadata(get_heads()[dataset])
 
-    metadata = get_metadata(get_heads()[dataset_name])
-    unit_str = metadata["unit of measurement"]
+    # set up units
+    str_u = metadata['unit of measurement']
+    with u.imperial.enable():
+        dweather_unit = UNIT_ALIASES[str_u] if str_u in UNIT_ALIASES else u.Unit(str_u)
+    converter = None
+    # if imperial is desired and dweather_unit is imperial   
+    if use_imperial_units and (dweather_unit in M2I): 
+        converter = M2I[dweather_unit]
+    # if metric is desired and dweather_unit is imperial
+    elif (not use_imperial_units) and (dweather_unit in I2M): 
+        converter = I2M[dweather_unit]
 
-    try:
-        dataset_units = UNIT_ALIASES[unit_str]
-    except KeyError:
-        raise AliasNotFound("Invalid unit in metadata")
-    if use_imperial_units:
-        output_units = MTI[dataset_units] if dataset_units in MTI else dataset_units
-    else:
-        output_units = ITM[dataset_units] if dataset_units in ITM else dataset_units
+    # get dataset-specific "no observation" value
+    missing_value = metadata["missing value"]
 
+    # snap to grid if desired
+    if snap_lat_lon_to_closest_valid_point and "rtma" not in dataset:
+       lat, lon = snap_to_grid(lat, lon, metadata)
+
+    if "cpcc" in dataset:
+        raise DatasetError("Not supporting cpcc yet, use cpc.")
+
+    # stopgap implementation of using flask app
     if dataset in FLASK_DATASETS:
-        missing_value = metadata["missing value"]
         history_dict = {}
         (lat, lon), resp_dict = flask_query(dataset, lat, lon)
-        if dataset == "rtma_pcp-hourly":
-            tf = TimezoneFinder()
-            local_tz = pytz.timezone(tf.timezone_at(lng=lon, lat=lat))
         for k in resp_dict:
             val = np.nan if resp_dict[k] == missing_value else float(resp_dict[k])
-            datapoint = val * dataset_units
-            if output_units != dataset_units:
-                datapoint = datapoint.to(output_units)
-            if dataset == "rtma_pcp-hourly":
-                k = pytz.utc.localize(k).astimezone(local_tz)
+            datapoint = val * dweather_unit
+            if converter is not None:
+                datapoint = converter(datapoint)
             history_dict[k] = datapoint
 
-    elif "prism" in dataset:
-        lat, lon = snap_to_grid(lat, lon, metadata)
-        missing_value = metadata["missing value"]
-        if dataset == "prism-precip":
-            history_dict = {}
-            resp_dict = get_prismc_dict(lat, lon, "precip")
-            for k in resp_dict:
-                val = np.nan if resp_dict[k] == missing_value else resp_dict[k]
-                datapoint = val * dataset_units
-                if output_units != dataset_units:
-                    datapoint = datapoint.to(output_units)
-                history_dict[k] = datapoint
+    # another sort of stopgap, there should be a single "gridded linked list" loader
+    elif "prismc" in dataset:
+        history_dict = {}
+        resp_dict = get_prismc_dict(lat, lon, dataset)
+        for k in resp_dict:
+            val = np.nan if resp_dict[k] == missing_value else resp_dict[k]
+            datapoint = val * dweather_unit
+            if converter is not None:
+                datapoint = converter(datapoint)
+            history_dict[k] = datapoint
 
-        elif dataset == "prism-temp":
-            res_tmin = get_prismc_dict(lat, lon, "tmin")
-            res_tmax = get_prismc_dict(lat, lon, "tmax")
-            history_dicts = [res_tmin, res_tmax]
-            for res in history_dicts:
-                for k in res:
-                    val = np.nan if res[k] == missing_value else res[k]
-                    datapoint = val * dataset_units
-                    if output_units != dataset_units:
-                        datapoint = datapoint.to(output_units, equivalencies=u.temperature())
-                    res[k] = datapoint
-            history_dict = tuple(history_dicts)
+    # any of the currently non-weird datasets
     else:
-        if snap_lat_lon_to_closest_valid_point:
-            lat, lon = snap_to_grid(lat, lon, metadata)
-
-        if 'source data url' in metadata and 'cpc' in metadata['source data url']:
+        if 'cpc' in dataset:
             lat, lon = conventional_lat_lon_to_cpc(lat, lon)
 
         history_text = get_dataset_cell(lat, lon, dataset, metadata=metadata)
@@ -125,69 +114,50 @@ def get_gridcell_history(
         if (len(day_strs) != days_in_record):
             raise DataMalformedError("Number of days in data file does not match the provided metadata")
 
-        if 'temperature delimiter' in metadata:
-            if return_result_as_counter:
-                raise ValueError("Can't return temperature delimited record as counter")
-            highs = {}
-            lows = {}
-            for i in range(days_in_record):
-                date_iter = dataset_start_date + datetime.timedelta(days=i)
-                if day_strs[i] == metadata["missing value"]:
-                    low_datapoint, high_datapoint = np.nan * dataset_units, np.nan * dataset_units
-                else:
-                    low, high = map(float, day_strs[i].split(metadata['temperature delimiter']))
-                    low_datapoint, high_datapoint = low * dataset_units, high * dataset_units
-                if output_units != dataset_units:
-                    low_datapoint = low_datapoint.to(output_units, equivalencies=u.temperature())
-                    high_datapoint = high_datapoint.to(output_units, equivalencies=u.temperature())
-                highs[date_iter] = high_datapoint
-                lows[date_iter] = low_datapoint
+        history_dict = Counter({}) if return_result_as_counter else {}
+        for i in range(days_in_record):
+            date_iter = dataset_start_date + datetime.timedelta(days=i)
+            if day_strs[i] == metadata["missing value"]:
+                datapoint = np.nan * dweather_unit
+            else:
+                datapoint = float(day_strs[i]) * dweather_unit
+            if converter is not None:
+                datapoint = converter(datapoint)
+            history_dict[date_iter] = datapoint
 
-            history_dict = highs, lows
-
-        else:
-            history_dict = Counter({}) if return_result_as_counter else {}
-            for i in range(days_in_record):
-                date_iter = dataset_start_date + datetime.timedelta(days=i)
-                if day_strs[i] == metadata["missing value"]:
-                    datapoint = np.nan * dataset_units
-                else:
-                    datapoint = float(day_strs[i]) * dataset_units
-                if output_units != dataset_units:
-                    datapoint = datapoint.to(output_units)
-                history_dict[date_iter] = datapoint
-
-        if 'source data url' in metadata and 'cpc' in metadata['source data url']:
+        if 'cpc' in dataset:
             lat, lon = cpc_lat_lon_to_conventional(lat, lon)
+        
+    # Try a timezone-based transformation on the times in case we're using an hourly set.
+    try:
+        tf = TimezoneFinder()
+        local_tz = pytz.timezone(tf.timezone_at(lng=lon, lat=lat))
+        tz_history_dict = {}
+        for time in history_dict:
+            tz_history_dict[pytz.utc.localize(time).astimezone(local_tz)] = history_dict[time]
+        history_dict = tz_history_dict
+    except AttributeError: #datetime.date (daily sets) doesn't work with this, only datetime.datetime (hourly sets)
+        pass
 
     result = history_dict
     if also_return_metadata:
-        try:
-            result = result + ({"metadata": metadata},)
-        except TypeError:
-            result = (result,) + ({"metadata": metadata},)
+        result = tupleify(result) + ({"metadata": metadata},)
     if also_return_snapped_coordinates:
-        try:
-            result = result + ({"snapped to": (lat, lon)},)
-        except TypeError:
-            result = (result,) + ({"snapped to": (lat, lon)},)
+        result = tupleify(result) + ({"snapped to": (lat, lon)},)
     return result
-
 
 def get_storm_history():
     pass
 
-
 def get_station_history(
         station_id,
-        column,
+        weather_variable,
         dataset='ghcnd',
         protocol='https',
         return_result_as_dataframe=False,
-        #    also_return_metadata=False,  TODO
         use_imperial_units=True):
     """
-    Takes in a station id and a column name.
+    Takes in a station id and a weather variable.
 
     Gets the csv body associated with the station_id, defaulting to the
     ghcnd dataset. Pass in dataset='ghcnd-imputed-daily' for imputed,
@@ -211,15 +181,12 @@ def get_station_history(
 
     """
     csv_text = get_station_csv(station_id, station_dataset=dataset)
-    variables = ()
-    for aliases in SCL:
-        if columns in aliases:
-            variable = SCL[aliases]
+    column = lookup_station_alias(weather_variable)
     dict_results = {}
     reader = csv.reader(csv_text.split('\n'))
-    column_names = next(reader)
-    date_col = column_names.index('DATE')
-    data_col = column_names.index(variable)
+    headers = next(reader)
+    date_col = headers.index('DATE')
+    data_col = headers.index(column)
     data = {}
     for row in reader:
         try:
@@ -227,28 +194,21 @@ def get_station_history(
                 continue
         except IndexError:
             continue
-        datapoint = SUL[variable]['vectorize'](float(row[data_col]))
+        datapoint = SUL[column]['vectorize'](float(row[data_col]))
         if use_imperial_units:
-            datapoint = datapoint.to(SUL[variable]['imperial'])
+            datapoint = SUL[column]['imperialize'](datapoint)
         data[datetime.datetime.strptime(row[date_col], "%Y-%m-%d").date()] = datapoint
-    dict_results[variable] = data
+    dict_results[column] = data
 
     if return_result_as_dataframe == False:
         return dict_results
     else:
-        intermediate_dict["DATE"] = [date for date in dict_results[variable]]
-        intermediate_dict[variable] = [dict_results[variable][date] for date in dict_results[variable]]
+        intermediate_dict = {}
+        intermediate_dict["DATE"] = [date for date in dict_results[column]]
+        intermediate_dict[column] = [dict_results[column][date] for date in dict_results[column]]
         df = pd.DataFrame.from_dict(intermediate_dict)
         df.DATE = pd.to_datetime(df.DATE)
         df.index = df["DATE"]
         df.drop(df.columns[0], axis=1, inplace=True)
-        return final_df
+        return df
 
-# def get_station_history_experimen( \
-#     station_id,
-#     column,
-#     dataset='ghcnd',
-#     protocol='https',
-#     return_result_as_dataframe=False,
-# #    also_return_metadata=False,  TODO
-#     use_imperial_units=True):

@@ -1,12 +1,13 @@
 """
 Queries associated with the https protocol option.
 """
-
 import os, pickle, math, requests, datetime, io, gzip, json, logging, csv, tarfile
 from collections import Counter, deque
 from dweather_client.ipfs_errors import *
+from dweather_client.aliases_and_units import FLASK_DATASETS
 
 GATEWAY_URL = 'https://gateway.arbolmarket.com'
+FLASK_URL = 'https://parser.arbolmarket.com/linked-list'
 
 def get_heads(url=GATEWAY_URL):
     """
@@ -188,31 +189,6 @@ def get_simulated_hurricane_files(basin):
     return files
 
 
-def get_full_rtma_history(lat, lon):
-    """
-    Calls endpoint that iterates through all updates to the RTMA dataset and returns a dictionary
-    containing the full time series of data.
-    Args:
-        lat (float): latitude coordinate of RTMA data
-        lon (float): longitude coordinate of RTMA data
-    Returns:
-        tuple containing (<ret_lat>, <ret_lon>, <data>)
-        where ret_lat and ret_lon are floats representing the coordinates of the data after the
-        argument coordinates are snapped to the RTMA grid, and <data> is a time series dict with 
-        datetime keys
-    """
-    if ((lat < 20) or (53 < lat)):
-        raise InputOutOfRangeError('RTMA only covers latitudes 20 thru 53')
-    if ((lon < -132) or (-60 < lon)):
-        raise InputOutOfRangeError('RTMA only covers longitudes -132 thru -60')
-    base_url = "https://parser.arbolmarket.com/linked-list/rtma"
-    r = requests.get(f"{base_url}/{lat}_{lon}")
-    resp = r.json()
-    data_dict = {}
-    for k, v in resp["data"].items():
-        data_dict[datetime.datetime.fromisoformat(k)] = v
-    return ((resp["lat"], resp["lon"]), data_dict)
-
 def get_prismc_dict(lat, lon, dataset):
     """
     Builds a dict of latest PRISM data by using datasets combining all PRISM revisions
@@ -224,10 +200,8 @@ def get_prismc_dict(lat, lon, dataset):
         a dict ({datetime.date: float}) of datetime dates and the corresponding weather values.
         Units are mm for precip or degrees F for tmax and tmin
     """
-    if dataset not in {"precip", "tmax", "tmin"}:
-        raise ValueError("Dataset must be 'precip', 'tmax' or 'tmin'")
     str_lat, str_lon = "{:.3f}".format(lat), "{:.3f}".format(lon)
-    prismc_head = get_heads()[f"prismc-{dataset}-daily"]
+    prismc_head = get_heads()[dataset]
     date_dict = {}
     hashes = traverse_ll(prismc_head)
     for h in list(hashes)[::-1]:
@@ -288,14 +262,9 @@ def traverse_ll(head):
         else:
             return release_ll
 
-def flask_query(dataset, lat, lon):
-    flask_datasets = {"rtma_pcp-hourly", "chirpsc_final_05-daily", "chirpsc_final_25-daily", "chirpsc_prelim_05-daily"}
-    if dataset not in flask_datasets:
-        raise ValueError(f"Valid flask datasets are {flask_datasets}")
-    if dataset == "rtma_pcp-horuly" and ((lat < 20) or (lat > 53) or (lon < -132) or (lon > -60)):
-        raise InputOutOfRangeError('RTMA only covers latitudes 20 thru 53 and longitudes -132 thru -60')
-
-    base_url = "https://parser.arbolmarket.com/linked-list"
+def flask_query(dataset, lat, lon, base_url=FLASK_URL):
+    if dataset not in FLASK_DATASETS:
+        raise ValueError(f"Valid flask datasets are {FLASK_DATASETS}")
 
     if dataset == "rtma_pcp-hourly":
         url = f"{base_url}/rtma/{lat}_{lon}"

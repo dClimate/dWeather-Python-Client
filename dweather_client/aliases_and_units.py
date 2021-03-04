@@ -17,7 +17,14 @@ FLASK_DATASETS = [
     "rtma_pcp-hourly",
     "chirpsc_final_05-daily",
     "chirpsc_final_25-daily",
-    "chirpsc_prelim_05-daily"
+    "chirpsc_prelim_05-daily",
+    "cpcc_precip_global-daily",
+    "cpcc_precip_us-daily",
+    "cpcc_temp_max-daily",
+    "cpcc_temp_min-daily",
+    "prismc-tmax-daily",
+    "prismc-tmin-daily",
+    "prismc-precip-daily"
 ]
 
 UNIT_ALIASES = {

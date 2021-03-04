@@ -69,14 +69,8 @@ def get_gridcell_history(
     # get dataset-specific "no observation" value
     missing_value = metadata["missing value"]
 
-    # snap to grid if desired
-    # rtma is quasi gridded so we don't snap that here
+    # snap to grid done automatically in flask app, so not required
 
-    # Actually, all the flask datasets implement the snapping logic server-side, so this is not necessary for now
-    # if snap_lat_lon_to_closest_valid_point and "rtma" not in dataset:
-    #     lat, lon = snap_to_grid(lat, lon, metadata)
-
-    # stopgap implementation of using flask app
     if dataset in FLASK_DATASETS:
         history_dict = {}
         (lat, lon), resp_dict = flask_query(dataset, lat, lon)
@@ -86,7 +80,8 @@ def get_gridcell_history(
             if converter is not None:
                 datapoint = converter(datapoint)
             history_dict[k] = datapoint
-
+    else:
+        raise ValueError("Only flask datasets supported at this time")
     # Try a timezone-based transformation on the times in case we're using an hourly set.
     try:
         tf = TimezoneFinder()

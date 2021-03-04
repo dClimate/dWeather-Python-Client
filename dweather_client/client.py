@@ -70,6 +70,7 @@ def get_gridcell_history(
     missing_value = metadata["missing value"]
 
     # snap to grid if desired
+    # rtma is quasi gridded so we don't snap that here
     if snap_lat_lon_to_closest_valid_point and "rtma" not in dataset:
        lat, lon = snap_to_grid(lat, lon, metadata)
 
@@ -97,36 +98,6 @@ def get_gridcell_history(
             if converter is not None:
                 datapoint = converter(datapoint)
             history_dict[k] = datapoint
-
-    # any of the currently non-weird datasets
-    else:
-        if 'cpc' in dataset:
-            lat, lon = conventional_lat_lon_to_cpc(lat, lon)
-
-        history_text = get_dataset_cell(lat, lon, dataset, metadata=metadata)
-        day_strs = history_text.replace(',', ' ').split()
-
-        dataset_start_date = datetime.datetime.strptime(metadata['date range'][0], "%Y/%m/%d").date()
-        dataset_end_date = datetime.datetime.strptime(metadata['date range'][1], "%Y/%m/%d").date()
-        timedelta = dataset_end_date - dataset_start_date
-        days_in_record = timedelta.days + 1  # we have both the start and end date in the dataset so its the difference + 1
-
-        if (len(day_strs) != days_in_record):
-            raise DataMalformedError("Number of days in data file does not match the provided metadata")
-
-        history_dict = Counter({}) if return_result_as_counter else {}
-        for i in range(days_in_record):
-            date_iter = dataset_start_date + datetime.timedelta(days=i)
-            if day_strs[i] == metadata["missing value"]:
-                datapoint = np.nan * dweather_unit
-            else:
-                datapoint = float(day_strs[i]) * dweather_unit
-            if converter is not None:
-                datapoint = converter(datapoint)
-            history_dict[date_iter] = datapoint
-
-        if 'cpc' in dataset:
-            lat, lon = cpc_lat_lon_to_conventional(lat, lon)
         
     # Try a timezone-based transformation on the times in case we're using an hourly set.
     try:

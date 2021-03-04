@@ -289,10 +289,18 @@ def traverse_ll(head):
             return release_ll
 
 def flask_query(dataset, lat, lon):
-    flask_datasets = {"rtma_pcp-hourly", "chirpsc_final_05-daily", "chirpsc_final_25-daily", "chirpsc_prelim_05-daily"}
+    flask_datasets = {"rtma_pcp-hourly", 
+                      "chirpsc_final_05-daily",
+                      "chirpsc_final_25-daily",
+                      "chirpsc_prelim_05-daily",
+                      "cpcc_precip_global-daily",
+                      "cpcc_precip_us-daily",
+                      "cpcc_temp_max-daily",
+                      "cpcc_temp_min-daily"
+                      }
     if dataset not in flask_datasets:
         raise ValueError(f"Valid flask datasets are {flask_datasets}")
-    if dataset == "rtma_pcp-horuly" and ((lat < 20) or (lat > 53) or (lon < -132) or (lon > -60)):
+    if dataset == "rtma_pcp-hourly" and ((lat < 20) or (lat > 53) or (lon < -132) or (lon > -60)):
         raise InputOutOfRangeError('RTMA only covers latitudes 20 thru 53 and longitudes -132 thru -60')
 
     base_url = "https://parser.arbolmarket.com/linked-list"
@@ -302,16 +310,18 @@ def flask_query(dataset, lat, lon):
     elif "chirpsc" in dataset:
         no_frequency = dataset.split('-')[0]
         url = f"{base_url}/chirps/{no_frequency.split('_')[1]}/{no_frequency.split('_')[2]}/{lat}_{lon}"
-        
+    elif "cpcc" in dataset:
+        url = f"https://parser.arbolmarket.com/linked-list/cpc/{dataset}/{lat}_{lon}"
+
     r = requests.get(url)
     r.raise_for_status()
     resp = r.json()
 
     data_dict = {}
-    if dataset == "rtma_pcp-hourly":
+    if "hourly" in dataset:
         for k, v in resp["data"].items():
             data_dict[datetime.datetime.fromisoformat(k)] = v
-    elif "chirpsc" in dataset:
+    elif "daily" in dataset:
         for k, v in resp["data"].items():
             data_dict[datetime.datetime.fromisoformat(k).date()] = v
 

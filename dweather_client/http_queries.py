@@ -296,7 +296,10 @@ def flask_query(dataset, lat, lon):
                       "cpcc_precip_global-daily",
                       "cpcc_precip_us-daily",
                       "cpcc_temp_max-daily",
-                      "cpcc_temp_min-daily"
+                      "cpcc_temp_min-daily",
+                      "prismc-tmax-daily", 
+                      "prismc-tmin-daily", 
+                      "prismc-precip-daily"
                       }
     if dataset not in flask_datasets:
         raise ValueError(f"Valid flask datasets are {flask_datasets}")
@@ -311,7 +314,9 @@ def flask_query(dataset, lat, lon):
         no_frequency = dataset.split('-')[0]
         url = f"{base_url}/chirps/{no_frequency.split('_')[1]}/{no_frequency.split('_')[2]}/{lat}_{lon}"
     elif "cpcc" in dataset:
-        url = f"https://parser.arbolmarket.com/linked-list/cpc/{dataset}/{lat}_{lon}"
+        url = f"{base_url}/cpc/{dataset}/{lat}_{lon}"
+    elif "prismc" in dataset:
+        url = f"{base_url}/prism/{dataset.split('-')[1]}/{lat}_{lon}"
 
     r = requests.get(url)
     r.raise_for_status()

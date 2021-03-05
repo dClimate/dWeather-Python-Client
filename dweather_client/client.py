@@ -79,6 +79,7 @@ def get_gridcell_history(
             history_dict[k] = datapoint
     else:
         raise ValueError("Only flask datasets supported at this time")
+
     # Try a timezone-based transformation on the times in case we're using an hourly set.
     try:
         tf = TimezoneFinder()

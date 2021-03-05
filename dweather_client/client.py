@@ -69,8 +69,6 @@ def get_gridcell_history(
     # get dataset-specific "no observation" value
     missing_value = metadata["missing value"]
 
-    # snap to grid done automatically in flask app, so not required
-
     if dataset in FLASK_DATASETS:
         history_dict = {}
         (lat, lon), resp_dict = flask_query(dataset, lat, lon)

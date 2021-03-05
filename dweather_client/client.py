@@ -59,7 +59,7 @@ def get_gridcell_history(
     with u.imperial.enable():
         dweather_unit = UNIT_ALIASES[str_u] if str_u in UNIT_ALIASES else u.Unit(str_u)
     converter = None
-    # if imperial is desired and dweather_unit is imperial
+    # if imperial is desired and dweather_unit is metric
     if use_imperial_units and (dweather_unit in M2I):
         converter = M2I[dweather_unit]
     # if metric is desired and dweather_unit is imperial

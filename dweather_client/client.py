@@ -67,17 +67,14 @@ def get_gridcell_history(
     # get dataset-specific "no observation" value
     missing_value = metadata["missing value"]
 
-    if dataset in FLASK_DATASETS:
-        history_dict = {}
-        (lat, lon), resp_dict = flask_query(dataset, lat, lon)
-        for k in resp_dict:
-            val = np.nan if resp_dict[k] == missing_value else float(resp_dict[k])
-            datapoint = val * dweather_unit
-            if converter is not None:
-                datapoint = converter(datapoint)
-            history_dict[k] = datapoint
-    else:
-        raise ValueError("Only flask datasets supported at this time")
+    history_dict = {}
+    (lat, lon), resp_dict = flask_query(dataset, lat, lon)
+    for k in resp_dict:
+        val = np.nan if resp_dict[k] == missing_value else float(resp_dict[k])
+        datapoint = val * dweather_unit
+        if converter is not None:
+            datapoint = converter(datapoint)
+        history_dict[k] = datapoint
 
     # Try a timezone-based transformation on the times in case we're using an hourly set.
     try:

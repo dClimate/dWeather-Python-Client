@@ -19,7 +19,6 @@ def get_gridcell_history(
         lat,
         lon,
         dataset,
-        snap_lat_lon_to_closest_valid_point=True,
         also_return_snapped_coordinates=False,
         protocol='https',
         # return_result_as_dataframe=False, TODO

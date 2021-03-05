@@ -14,7 +14,6 @@ import pandas as pd
 import numpy as np
 from timezonefinder import TimezoneFinder
 
-
 def get_gridcell_history(
         lat,
         lon,

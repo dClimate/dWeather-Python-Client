@@ -5,7 +5,7 @@ from dweather_client.http_queries import get_heads, get_metadata
 try:
     import geopandas as gpd
 except:
-    pass
+    gpd = None
 from geopy.distance import geodesic
 from heapq import heappush, heappushpop
 import pandas as pd

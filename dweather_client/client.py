@@ -14,10 +14,12 @@ import pandas as pd
 import numpy as np
 from timezonefinder import TimezoneFinder
 
+
 def get_gridcell_history(
         lat,
         lon,
         dataset,
+        snap_lat_lon_to_closest_valid_point=True,
         also_return_snapped_coordinates=False,
         protocol='https',
         # return_result_as_dataframe=False, TODO
@@ -57,25 +59,46 @@ def get_gridcell_history(
     with u.imperial.enable():
         dweather_unit = UNIT_ALIASES[str_u] if str_u in UNIT_ALIASES else u.Unit(str_u)
     converter = None
-    # if imperial is desired and dweather_unit is metric
-    if use_imperial_units and (dweather_unit in M2I):
+    # if imperial is desired and dweather_unit is imperial   
+    if use_imperial_units and (dweather_unit in M2I): 
         converter = M2I[dweather_unit]
     # if metric is desired and dweather_unit is imperial
-    elif (not use_imperial_units) and (dweather_unit in I2M):
+    elif (not use_imperial_units) and (dweather_unit in I2M): 
         converter = I2M[dweather_unit]
 
     # get dataset-specific "no observation" value
     missing_value = metadata["missing value"]
 
-    history_dict = {}
-    (lat, lon), resp_dict = flask_query(dataset, lat, lon)
-    for k in resp_dict:
-        val = np.nan if resp_dict[k] == missing_value else float(resp_dict[k])
-        datapoint = val * dweather_unit
-        if converter is not None:
-            datapoint = converter(datapoint)
-        history_dict[k] = datapoint
+    # snap to grid if desired
+    # rtma is quasi gridded so we don't snap that here
+    if snap_lat_lon_to_closest_valid_point and "rtma" not in dataset:
+       lat, lon = snap_to_grid(lat, lon, metadata)
 
+    if "cpcc" in dataset:
+        raise DatasetError("Not supporting cpcc yet, use cpc.")
+
+    # stopgap implementation of using flask app
+    if dataset in FLASK_DATASETS:
+        history_dict = {}
+        (lat, lon), resp_dict = flask_query(dataset, lat, lon)
+        for k in resp_dict:
+            val = np.nan if resp_dict[k] == missing_value else float(resp_dict[k])
+            datapoint = val * dweather_unit
+            if converter is not None:
+                datapoint = converter(datapoint)
+            history_dict[k] = datapoint
+
+    # another sort of stopgap, there should be a single "gridded linked list" loader
+    elif "prismc" in dataset:
+        history_dict = {}
+        resp_dict = get_prismc_dict(lat, lon, dataset)
+        for k in resp_dict:
+            val = np.nan if resp_dict[k] == missing_value else resp_dict[k]
+            datapoint = val * dweather_unit
+            if converter is not None:
+                datapoint = converter(datapoint)
+            history_dict[k] = datapoint
+        
     # Try a timezone-based transformation on the times in case we're using an hourly set.
     try:
         tf = TimezoneFinder()
@@ -84,7 +107,7 @@ def get_gridcell_history(
         for time in history_dict:
             tz_history_dict[pytz.utc.localize(time).astimezone(local_tz)] = history_dict[time]
         history_dict = tz_history_dict
-    except AttributeError:  # datetime.date (daily sets) doesn't work with this, only datetime.datetime (hourly sets)
+    except AttributeError: #datetime.date (daily sets) doesn't work with this, only datetime.datetime (hourly sets)
         pass
 
     result = history_dict
@@ -130,12 +153,11 @@ def get_station_history(
     """
     csv_text = get_station_csv(station_id, station_dataset=dataset)
     column = lookup_station_alias(weather_variable)
-    dict_results = {}
+    history = {}
     reader = csv.reader(csv_text.split('\n'))
     headers = next(reader)
     date_col = headers.index('DATE')
     data_col = headers.index(column)
-    data = {}
     for row in reader:
         try:
             if row[data_col] == '':
@@ -145,15 +167,14 @@ def get_station_history(
         datapoint = SUL[column]['vectorize'](float(row[data_col]))
         if use_imperial_units:
             datapoint = SUL[column]['imperialize'](datapoint)
-        data[datetime.datetime.strptime(row[date_col], "%Y-%m-%d").date()] = datapoint
-    dict_results[column] = data
+        history[datetime.datetime.strptime(row[date_col], "%Y-%m-%d").date()] = datapoint
 
     if return_result_as_dataframe == False:
-        return dict_results
+        return history
     else:
         intermediate_dict = {}
-        intermediate_dict["DATE"] = [date for date in dict_results[column]]
-        intermediate_dict[column] = [dict_results[column][date] for date in dict_results[column]]
+        intermediate_dict["DATE"] = [date for date in history[column]]
+        intermediate_dict[column] = [history[column][date] for date in history[column]]
         df = pd.DataFrame.from_dict(intermediate_dict)
         df.DATE = pd.to_datetime(df.DATE)
         df.index = df["DATE"]

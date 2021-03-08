@@ -2,7 +2,10 @@
 Various utilities associated with the coordinate grid system.
 """
 from dweather_client.http_queries import get_heads, get_metadata
-import geopandas as gpd
+try:
+    import geopandas as gpd
+except:
+    pass
 from geopy.distance import geodesic
 from heapq import heappush, heappushpop
 import pandas as pd

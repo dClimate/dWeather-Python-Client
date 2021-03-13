@@ -1,10 +1,6 @@
 from dweather_client import http_client, utils
 from datetime import date
 
-def test_get_best_rtma_dict():
-    client = http_client.RTMAClient()
-    client.get_best_rtma_dict('49.01', '-125.01')
-
 def test_http_client_rainfall():
     dataset = 'chirps_05'
     dataset_revision = 'chirps_05-daily'
@@ -40,7 +36,7 @@ def test_get_full_prismc_history():
     res = http_client.get_prismc_dict(lat, lon, "precip")
     first_date, last_date = sorted(res)[0], sorted(res)[-1]
     diff = last_date - first_date
-    assert diff.days == len(res) - 1
+    assert diff.days + 1 == len(res)
     
 def test_get_full_rtma_history():
     lat, lon = 27.5343, -75.2341
@@ -50,7 +46,7 @@ def test_get_full_rtma_history():
     first_date, last_date = sorted(res[1])[0], sorted(res[1])[-1]
     time_diff = last_date - first_date
     time_diff_hours = time_diff.days * 24 + time_diff.seconds // 3600
-    assert time_diff_hours == len(res[1])
+    assert time_diff_hours + 1 == len(res[1])
 
 def test_get_era5_dict():
     lat, lon = 35.70284883765463, -81.29880863239713

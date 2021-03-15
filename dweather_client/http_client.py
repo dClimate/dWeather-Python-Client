@@ -581,31 +581,7 @@ def get_era5_dict(lat, lon, dataset):
                 time_of_year += datetime.timedelta(hours=1)
     return (snapped_lat, snapped_lon), datetime_dict
 
-def get_chirpsc_dict(lat, lon, revision, resolution):
-    """
-    Calls endpoint that iterates through all updates to the CHIRPS datasets and returns a dictionary
-    containing the full time series of data.
-    Args:
-        lat (float): latitude coordinate of CHIRPS data
-        lon (float): longitude coordinate of CHIRPS data
-        revision (str): one of 'final' or 'prelim'
-        resolution (int): one of 5 or 25
-    Returns:
-        tuple containing (<ret_lat>, <ret_lon>, <data>)
-        where ret_lat and ret_lon are floats representing the coordinates of the data after the
-        argument coordinates are snapped to the CHIRPS grid, and <data> is a time series dict with 
-        datetime date keys. Raises an exception if the lat/lon is outside the valid range or not over
-        land
-    """
-    if (revision, resolution) not in {("final", 5), ("final", 25), ("prelim", 5)}:
-        raise ValueError("invalid revision-resolution combination")
-    
-    base_url = "https://parser.arbolmarket.com/linked-list/chirps"
-    url = f"{base_url}/{revision}/{resolution:02}/{lat}_{lon}"
-    r = requests.get(url)
-    r.raise_for_status()
-    resp = r.json()
-    data_dict = {}
-    for k, v in resp["data"].items():
-        data_dict[datetime.datetime.fromisoformat(k).date()] = float(v)
-    return ((resp["lat"], resp["lon"]), data_dict)
+
+
+
+

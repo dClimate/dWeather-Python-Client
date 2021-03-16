@@ -319,7 +319,6 @@ def cat_station_csv(station_id, station_dataset="ghcnd-imputed-daily", client=No
         if (client is None):
             session_client.close()
 
-
 def cat_icao_stations(station_dataset="ghcnd-imputed-daily", pin=True, force_hash=None):
     """
     For every station that has an icao code, load it into a dataframe and
@@ -338,7 +337,6 @@ def cat_n_closest_station_dfs(lat, lon, n, station_dataset="ghcnd-imputed-daily"
         metadata = cat_metadata(force_hash)
     station_ids = get_n_closest_station_ids(lat, lon, metadata, n)
     return cat_station_df_list(station_ids, station_dataset=station_dataset, pin=pin, force_hash=force_hash)
-
 
 def cat_station_df_list(station_ids, station_dataset="ghcnd-imputed-daily", pin=True, force_hash=None):
     batch_hash = force_hash

@@ -120,13 +120,6 @@ def get_n_closest_station_ids(lat, lon, n, metadata=get_metadata(get_heads()['gh
             heappush(pq, (1 / distance, station_id))
     return [pair[1] for pair in pq]
 
-def find_closest_lat_lon(lst, K):
-    """
-    Find the closest (lat, lon) tuple in a list to a given 
-    (lat, lon) tuple K. Use euclidian distance for performance reasons.
-    """
-    return lst[min(range(len(lst)), key = lambda i: math.sqrt((float(lst[i][0]) - float(K[0]))**2 + (float(lst[i][1]) - float(K[1]))**2 ))] 
-
 def build_rtma_lookup(grid_history):
     """
     turn the string representation of the grid history into a data structure.

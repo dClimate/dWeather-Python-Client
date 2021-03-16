@@ -22,7 +22,6 @@ def get_gridcell_history(
         snap_lat_lon_to_closest_valid_point=True,
         also_return_snapped_coordinates=False,
         protocol='https',
-        # return_result_as_dataframe=False, TODO
         also_return_metadata=False,
         use_imperial_units=True,
         return_result_as_counter=False):
@@ -104,7 +103,6 @@ def get_station_history(
         weather_variable,
         dataset='ghcnd',
         protocol='https',
-        return_result_as_dataframe=False,
         use_imperial_units=True):
     """
     Takes in a station id and a weather variable.
@@ -121,9 +119,12 @@ def get_station_history(
         observation
         'SNOW' or alias 'snowfall -- the total snowfall observed since the
         last observation
-        '' or alias 'snow water equivalent' -- the water level in inches
-        equivalent to the amount of snow currently on the ground at the
-        time of the observation.
+        'WESD' or alias 'snow water equivalent', 'water equivalent snow depth' 
+        -- the water level in inchesequivalent to the amount of snow currently 
+        on the ground at the time of the observation.
+        'TMAX' -- daily high temperature
+        'TMIN' -- daily low temperature
+        'PRCP' -- depth of rainfall
 
     The GHCN column names are fairly esoteric so a column_lookup
     dictionary will try to find a valid GHCN column name for common 
@@ -148,15 +149,4 @@ def get_station_history(
             datapoint = SUL[column]['imperialize'](datapoint)
         history[datetime.datetime.strptime(row[date_col], "%Y-%m-%d").date()] = datapoint
 
-    if return_result_as_dataframe == False:
-        return history
-    else:
-        intermediate_dict = {}
-        intermediate_dict["DATE"] = [date for date in history[column]]
-        intermediate_dict[column] = [history[column][date] for date in history[column]]
-        df = pd.DataFrame.from_dict(intermediate_dict)
-        df.DATE = pd.to_datetime(df.DATE)
-        df.index = df["DATE"]
-        df.drop(df.columns[0], axis=1, inplace=True)
-        return df
-
+    return history

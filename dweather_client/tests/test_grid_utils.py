@@ -4,10 +4,6 @@ from dweather_client.http_queries import get_heads, get_metadata
 def test_grid():
     get_n_closest_station_ids(38, -94, 5)
 
-def test_snotel_to_ghcnd():
-    assert snotel_to_ghcnd(602, 'CO') == 'USS0005K05S'
-    assert snotel_to_ghcnd(838, 'CO') == 'USS0005J08S'
-
 def test_snap_to_grid_chirps():
     heads = get_heads()
     chirps_metadata = get_metadata(heads['chirps_05-daily'])
@@ -43,7 +39,6 @@ def test_cpc_lat_lon_to_conventional():
     new_lat, new_lon = cpc_lat_lon_to_conventional(lat, lon)
     assert new_lat == lat
     assert new_lon == -98.000
-    
 
 def test_conventional_lat_lon_to_cpc():
     # case where coords are ok:

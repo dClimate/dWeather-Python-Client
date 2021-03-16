@@ -187,68 +187,6 @@ def get_simulated_hurricane_files(basin):
     files = [base_url + f for f in metadata['files'] if basin in f]
     return files
 
-def get_prismc_dict(lat, lon, dataset):
-    """
-    Builds a dict of latest PRISM data by using datasets combining all PRISM revisions
-    Args:
-        lat (float): the latitude of the grid cell, to 3 decimals
-        lon (float): the longitude of the grid cell, to 3 decimals
-        dataset (str): one of 'precip', 'tmax' or 'tmin'
-    Returns:
-        a dict ({datetime.date: float}) of datetime dates and the corresponding weather values.
-        Units are mm for precip or degrees F for tmax and tmin
-    """
-    str_lat, str_lon = "{:.3f}".format(lat), "{:.3f}".format(lon)
-    prismc_head = get_heads()[dataset]
-    date_dict = {}
-    hashes = traverse_ll(prismc_head)
-    for h in list(hashes)[::-1]:
-        tar_url = f"{GATEWAY_URL}/ipfs/{h}/{str_lat}.tar"
-        resp = requests.get(tar_url)
-        resp.raise_for_status()
-        with tarfile.open(fileobj=io.BytesIO(resp.content)) as tar:
-            with tar.extractfile(f"{str_lat}_{str_lon}.gz") as f:
-                with gzip.open(f) as gz:
-                    for i, line in enumerate(gz):
-                        day_of_year = datetime.date(1981 + i, 1, 1)
-                        data_list = line.decode('utf-8').strip().split(',')
-                        for point in data_list:
-                            if (day_of_year not in date_dict) and point:
-                                date_dict[day_of_year] = float(point)
-                                day_of_year += datetime.timedelta(days=1)
-    return date_dict
-
-def get_era5_dict(lat, lon, dataset):
-    """
-    Builds a dict of era5 data
-    Args:
-        lat (float): the latitude of the grid cell. Will be rounded to one decimal
-        lon (float): the longitude of the grid cell. Will be rounded to one decimal
-        dataset (str): valid era5 dataset. Currently only 'era5_land_wind_u-hourly', but
-        more will be added to ipfs soon
-    Returns:
-        a dict ({datetime.datetime: float}) of datetimes and the corresponding weather values.
-        Units are m/s for the wind datasets
-    """
-    heads = get_heads()
-    era5_hash = heads[dataset]
-
-    snapped_lat, snapped_lon = round(lat, 1), round(lon, 1)
-    cpc_lat, cpc_lon = conventional_lat_lon_to_cpc(snapped_lat, snapped_lon)
-    formatted_lat, formatted_lon = f"{cpc_lat:08.3f}", f"{cpc_lon:08.3f}"
-    url = f"{GATEWAY_URL}/ipfs/{era5_hash}/{formatted_lat}_{formatted_lon}.gz"
-    resp = requests.get(url)
-    resp.raise_for_status()
-    datetime_dict = {}
-    with gzip.GzipFile(fileobj=io.BytesIO(resp.content)) as gz:
-        for i, line in enumerate(gz):
-            time_of_year = datetime.datetime(1990 + i, 1, 1)
-            data_list = line.decode('utf-8').strip().split(',')
-            for point in data_list:
-                datetime_dict[time_of_year] = float(point)
-                time_of_year += datetime.timedelta(hours=1)
-    return (snapped_lat, snapped_lon), datetime_dict
-
 def traverse_ll(head):
     release_itr = head
     release_ll = deque()
@@ -264,16 +202,7 @@ def flask_query(dataset, lat, lon, base_url=FLASK_URL):
     if dataset not in FLASK_DATASETS:
         raise ValueError(f"Valid flask datasets are {FLASK_DATASETS}")
 
-    if dataset == "rtma_pcp-hourly":
-        url = f"{base_url}/rtma/{lat}_{lon}"
-    elif "chirpsc" in dataset:
-        no_frequency = dataset.split('-')[0]
-        url = f"{base_url}/chirps/{no_frequency.split('_')[1]}/{no_frequency.split('_')[2]}/{lat}_{lon}"
-    elif "cpcc" in dataset:
-        url = f"{base_url}/cpc/{dataset}/{lat}_{lon}"
-    elif "prismc" in dataset:
-        url = f"{base_url}/prism/{dataset.split('-')[1]}/{lat}_{lon}"
-
+    url = f"{base_url}/{dataset}/{lat}_{lon}"
     r = requests.get(url)
     r.raise_for_status()
     resp = r.json()

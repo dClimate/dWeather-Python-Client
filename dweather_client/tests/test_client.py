@@ -19,7 +19,9 @@ DAILY_DATASETS = [
 ]
 
 HOURLY_DATASETS = [
-    "rtma_pcp-hourly"
+    "rtma_pcp-hourly",
+    "era5_land_wind_v-hourly",
+    "era5_land_wind_u-hourly"
 ]
 
 def test_get_gridcell_history_units():
@@ -31,12 +33,16 @@ def test_get_gridcell_history_units():
                     assert res[k].unit == imperial.inch
                 elif use_imperial and s == "rtma_pcp-hourly":
                     assert res[k].unit == imperial.pound / imperial.foot**2
+                elif use_imperial and "wind" in s:
+                    assert res[k].unit == imperial.mile / u.hour
                 elif use_imperial:
                     assert res[k].unit == imperial.deg_F
                 elif "precip" in s or "chirps" in s:
                     assert res[k].unit == u.mm
                 elif s == "rtma_pcp-hourly":
                     assert res[k].unit == u.kg / u.m**2
+                elif "wind" in s:
+                    assert res[k].unit == u.m / u.s
                 else:
                     assert res[k].unit == u.deg_C
 
@@ -64,9 +70,6 @@ def test_get_gridcell_history_date_range():
         time_diff = last_date - first_date
         time_diff_hours = time_diff.days * 24 + time_diff.seconds // 3600
         assert time_diff_hours + 1 == len(res)
-
-    # era5_land_wind_u-hourly TODO
-    # era5_land_wind_v-hourly TODO
 
 def test_station():
     get_station_history('USW00014820', 'SNOW')

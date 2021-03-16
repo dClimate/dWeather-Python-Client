@@ -24,7 +24,9 @@ FLASK_DATASETS = [
     "cpcc_temp_min-daily",
     "prismc-tmax-daily",
     "prismc-tmin-daily",
-    "prismc-precip-daily"
+    "prismc-precip-daily",
+    "era5_land_wind_u-hourly",
+    "era5_land_wind_v-hourly"
 ]
 
 UNIT_ALIASES = {

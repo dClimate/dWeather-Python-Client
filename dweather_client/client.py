@@ -6,7 +6,7 @@ from dweather_client.aliases_and_units import \
     lookup_station_alias, STATION_UNITS_LOOKUP as SUL, METRIC_TO_IMPERIAL as M2I, IMPERIAL_TO_METRIC as I2M, FLASK_DATASETS, UNIT_ALIASES
 from dweather_client.ipfs_errors import AliasNotFound, DataMalformedError
 from dweather_client.grid_utils import snap_to_grid, conventional_lat_lon_to_cpc, cpc_lat_lon_to_conventional
-from dweather_client.http_queries import flask_query, get_prismc_dict
+from dweather_client.http_queries import flask_query
 from dweather_client.struct_utils import tupleify
 import datetime, pytz, csv
 from astropy import units as u

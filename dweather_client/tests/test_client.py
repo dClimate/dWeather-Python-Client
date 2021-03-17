@@ -2,6 +2,7 @@ from dweather_client.client import get_station_history, get_gridcell_history
 from dweather_client.aliases_and_units import snotel_to_ghcnd
 import pandas as pd
 import numpy as np
+import datetime
 from astropy import units as u
 from astropy.units import imperial
 
@@ -70,6 +71,14 @@ def test_get_gridcell_history_date_range():
         time_diff = last_date - first_date
         time_diff_hours = time_diff.days * 24 + time_diff.seconds // 3600
         assert time_diff_hours + 1 == len(res)
+
+def test_get_gridcell_nans():
+    prism_r = get_gridcell_history(31.083, -120, "prismc-precip-daily")
+    assert np.isnan(prism_r[datetime.date(1981, 8, 29)].value)
+
+    rtma_r = get_gridcell_history(40.694754071664825, -73.93445989160746, "rtma_pcp-hourly")
+    tz = next(iter(rtma_r)).tzinfo
+    assert np.isnan(rtma_r[datetime.datetime(2011, 1, 29, 17, tzinfo=tz)].value)
 
 def test_station():
     get_station_history('USW00014820', 'SNOW')

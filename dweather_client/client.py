@@ -71,7 +71,10 @@ def get_gridcell_history(
     history_dict = {}
     (lat, lon), resp_dict = flask_query(dataset, lat, lon)
     for k in resp_dict:
-        val = np.nan if resp_dict[k] == missing_value else float(resp_dict[k])
+        if type(missing_value) == str:
+            val = np.nan if resp_dict[k] == missing_value else float(resp_dict[k])
+        else:
+            val = np.nan if float(resp_dict[k]) == missing_value else float(resp_dict[k])
         datapoint = val * dweather_unit
         if converter is not None:
             datapoint = converter(datapoint)

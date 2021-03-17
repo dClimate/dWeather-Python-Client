@@ -7,7 +7,6 @@ from dweather_client.ipfs_errors import *
 from dweather_client.aliases_and_units import FLASK_DATASETS
 
 GATEWAY_URL = 'https://gateway.arbolmarket.com'
-FLASK_URL = 'https://parser.arbolmarket.com/linked-list'
 
 def get_heads(url=GATEWAY_URL):
     """
@@ -198,11 +197,11 @@ def traverse_ll(head):
         else:
             return release_ll
 
-def flask_query(dataset, lat, lon, base_url=FLASK_URL):
+def flask_query(dataset, lat, lon, base_url=GATEWAY_URL):
     if dataset not in FLASK_DATASETS:
         raise ValueError(f"Valid flask datasets are {FLASK_DATASETS}")
 
-    url = f"{base_url}/{dataset}/{lat}_{lon}"
+    url = f"{base_url}/linked-list/{dataset}/{lat}_{lon}"
     r = requests.get(url)
     r.raise_for_status()
     resp = r.json()

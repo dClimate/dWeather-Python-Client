@@ -21,7 +21,7 @@ setuptools.setup(
     name="dweather_client",
     include_package_data=True,
     install_requires=load_requirements("requirements.txt"),
-    version="2.1.5.dev3",
+    version="2.1.6.dev3",
     author="Arbol",
     author_email="info@arbolmarket.com",
     description="Python client for interacting with weather data on IPFS.",

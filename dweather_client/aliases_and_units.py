@@ -116,16 +116,6 @@ CPC_LOOKUP_PATH = os.path.join(parent_dir, '/etc/cpc-grid-ids.csv')
 ICAO_LOOKUP_PATH = os.path.join(parent_dir, '/etc/airport-codes.csv')
 
 
-def lookup_station_column_alias(alias):
-    """
-    Get a valid GHCN station column for a given alias
-    """
-    for aliases in STATION_COLUMN_LOOKUP:
-        if alias in aliases:
-            return STATION_COLUMN_LOOKUP[aliases]
-    raise AliasNotFound('The alias %s was not found in the station lookup' % alias)
-
-
 def lookup_station_column_units(column_name):
     """
     Get the metric and imperial units for a given station column name

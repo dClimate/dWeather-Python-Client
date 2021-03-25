@@ -146,26 +146,29 @@ def get_station_csv(station_id, station_dataset="ghcnd-imputed-daily", url=GATEW
     with gzip.GzipFile(fileobj=io.BytesIO(r.content)) as zip_data:
         return zip_data.read().decode("utf-8")
 
+def get_hurricane_release_dict(release_hash, url=GATEWAY_URL):
+    url = "%s/ipfs/%s/history.json.gz" % (url, release_hash)
+    resp = requests.get(url)
+    resp.raise_for_status()
+    with gzip.GzipFile(fileobj=io.BytesIO(resp.content)) as zip_data:
+        return json.loads(zip_data.read().decode("utf-8"))
+
 def get_hurricane_dict(head=get_heads()['atcf_btk-seasonal']):
     """
     Get a hurricane dictionary for the atcf_btk-seasonal dataset. 
-
     To get a unique value to query the dict by storm, use BASIN + CY + the year
     part of the HOUR value. BASIN is the ocean, CY is the storm index, and
     the year is needed as well because the storm index resets every year.
-
     Note that there will be multiple readings with the same HOUR value,
     as readings are taken more than once per hour and then rounded to the nearest
     hour before posting. 
     """
-    release_ll = traverse_ll(head)
+    heads = get_heads()
+    hurr_head = heads['atcf_btk-seasonal']
+    release_ll = traverse_ll(hurr_head)
     hurr_dict = {}
     for release_hash in release_ll:
-        url = "%s/ipfs/%s/history.json.gz" % (url, release_hash)
-        resp = requests.get(url)
-        resp.raise_for_status()
-        with gzip.GzipFile(fileobj=io.BytesIO(resp.content)) as zip_data:
-            release_content =json.loads(zip_data.read().decode("utf-8"))
+        release_content = get_hurricane_release_dict(release_hash)
         try:
             hurr_dict['features'] += release_content['features']
         except KeyError:
@@ -185,6 +188,13 @@ def get_simulated_hurricane_files(basin):
     base_url = f"{GATEWAY_URL}/ipfs/{hurr_hash}/"
     files = [base_url + f for f in metadata['files'] if basin in f]
     return files
+
+def get_ibracs_hurricane_file():
+    heads = get_heads()
+    hurr_hash = heads['ibtracs-tropical-storm']
+    metadata = get_metadata(hurr_hash)
+    base_url = f"{GATEWAY_URL}/ipfs/{hurr_hash}/"
+    return base_url + metadata["files"][0]
 
 def traverse_ll(head):
     release_itr = head

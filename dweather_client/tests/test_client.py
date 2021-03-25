@@ -1,10 +1,10 @@
-from dweather_client.client import get_station_history, get_gridcell_history
+from dweather_client.client import get_station_history, get_gridcell_history, get_tropical_storms
 from dweather_client.aliases_and_units import snotel_to_ghcnd
-import pandas as pd
 import numpy as np
 import datetime
 from astropy import units as u
 from astropy.units import imperial
+import pytest
 
 DAILY_DATASETS = [
     "chirpsc_final_05-daily",
@@ -87,6 +87,40 @@ def test_station():
     get_station_history('USW00014820', 'TMIN', dataset='ghcnd-imputed-daily')
     get_station_history(snotel_to_ghcnd(602, 'CO'), 'WESD')#, return_result_as_dataframe=True)
 
+def test_storms_bad_args():
+    with pytest.raises(ValueError):
+        get_tropical_storms('simulated', 'NI', radius=100)
+    with pytest.raises(ValueError):
+        get_tropical_storms('simulated', 'NI', lat=100)
+    with pytest.raises(ValueError):
+        get_tropical_storms('simulated', 'NI', radius=500, lat=21, lon=65, min_lat=21, max_lat=22, min_lon=65, max_lon=66)
+
+def test_simulated_storms():
+    df_all_ni = get_tropical_storms('simulated', 'NI')
+    df_subset_circle_ni = get_tropical_storms('simulated', 'NI', radius=500, lat=21, lon=65)
+    df_subset_box_ni = get_tropical_storms('simulated', 'NI', min_lat=21, max_lat=22, min_lon=65, max_lon=66)
+
+    assert len(df_all_ni.columns) == len(df_subset_circle_ni.columns) == len(df_subset_box_ni.columns) == 10
+    assert len(df_subset_circle_ni) < len(df_all_ni)
+    assert len(df_subset_box_ni) < len(df_all_ni)
+
+def test_atcf_storms():
+    df_all_al = get_tropical_storms('atcf', 'AL')
+    df_subset_circle_al = get_tropical_storms('atcf', 'AL', radius=50, lat=26, lon=-90)
+    df_subset_box_al = get_tropical_storms('atcf', 'AL', min_lat=26, max_lat=26.5, min_lon=-91, max_lon=-90.5)
+
+    assert len(df_all_al.columns) == len(df_subset_circle_al.columns) == len(df_subset_box_al.columns) == 37
+    assert len(df_subset_circle_al) < len(df_all_al)
+    assert len(df_subset_box_al) < len(df_all_al)
+
+def test_historical_storms():
+    df_all_na = get_tropical_storms('historical', 'NA')
+    df_subset_circle_na = get_tropical_storms('historical', 'NA', radius=50, lat=26, lon=-90)
+    df_subset_box_na = get_tropical_storms('historical', 'NA', min_lat=26, max_lat=26.5, min_lon=-91, max_lon=-90.5)
+
+    assert len(df_all_na.columns) == len(df_subset_circle_na.columns) == len(df_subset_box_na.columns) == 163
+    assert len(df_subset_circle_na) < len(df_all_na)
+    assert len(df_subset_box_na) < len(df_all_na)
 
 ''' TODO some tests for RTMA behavior to be integrated into the new system
 def test_lat_lon_to_grid():

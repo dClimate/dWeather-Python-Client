@@ -8,6 +8,7 @@ from dweather_client.ipfs_errors import AliasNotFound, DataMalformedError
 from dweather_client.grid_utils import snap_to_grid, conventional_lat_lon_to_cpc, cpc_lat_lon_to_conventional
 from dweather_client.http_queries import flask_query
 from dweather_client.struct_utils import tupleify
+from dweather_client.df_loader import get_atcf_hurricane_df, get_historical_hurricane_df, get_simulated_hurricane_df
 import datetime, pytz, csv
 from astropy import units as u
 import pandas as pd
@@ -98,8 +99,59 @@ def get_gridcell_history(
         result = tupleify(result) + ({"snapped to": (lat, lon)},)
     return result
 
-def get_storm_history():
-    pass
+def get_tropical_storms(
+        source,
+        basin,
+        radius=None,
+        lat=None,
+        lon=None,
+        min_lat=None,
+        min_lon=None,
+        max_lat=None,
+        max_lon=None):
+    """
+    return:
+        pd.DataFrame containing time series information on tropical storms
+    args:
+        source (str), one of: 'atcf', 'historical', 'simulated'
+        basin (str),
+            if source is 'atcf', one of: 'AL', 'CP', 'EP', 'SL'
+            if source is 'simulated', one of: 'EP', 'NA', 'NI', 'SI', 'SP' or 'WP'
+            if source is 'historical', one of: 'NI', 'SI', 'NA', 'EP', 'WP', 'SP', 'SA'
+        radius (float), lat (float), lon (float),
+            if given radius, lat, lon, will subset df to only include points within radius in km of the point (lat, lon)
+        min_lat (float), min_lon (float), max_lat (float), max_lon (float)
+            if given kwargs min_lat, min_lon, max_lat, max_lon, selects points within a bounding box.
+    Note:
+        (radius, lat, lon) and (min_lat, min_lon, max_lat, max_lon) are incompatible kwargs.
+        i.e., if function is given args containing members from both tuples, raise ValueError
+        in addition, the function's args must contain either all members of one of the above tuples, or none
+        i.e., if function is given args containing some but not all of the members of one of the above tuples, raise ValueError
+    """
+    if ((radius is not None) or (lat is not None) or (lon is not None)) \
+            and ((radius is None) or (lat is None) or (lon is None)):
+        raise ValueError
+    if ((min_lat is not None) or (min_lon is not None) or (max_lat is not None) or (max_lon is not None)) \
+            and ((min_lat is None) or (min_lon is None) or (max_lat is None) or (max_lon is None)):
+        raise ValueError
+    if radius and min_lat:
+        raise ValueError
+
+    if source == "atcf":
+        storm_getter = get_atcf_hurricane_df
+    elif source == "historical":
+        storm_getter = get_historical_hurricane_df
+    elif source == "simulated":
+        storm_getter = get_simulated_hurricane_df
+    else:
+        raise ValueError
+
+    if radius:
+        return storm_getter(basin, radius=radius, lat=lat, lon=lon)
+    elif min_lat:
+        return storm_getter(basin, min_lat=min_lat, min_lon=min_lon, max_lat=max_lat, max_lon=max_lon)
+    else:
+        return storm_getter(basin)
 
 def get_station_history(
         station_id,

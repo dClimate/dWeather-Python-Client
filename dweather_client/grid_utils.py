@@ -103,11 +103,13 @@ def nearby_storms(df, c_lat, c_lon, radius):
     dist = haversine_vectorize(df['lon'], df['lat'], c_lon, c_lat)
     return df[dist < radius]
 
-def get_n_closest_station_ids(lat, lon, n, metadata=get_metadata(get_heads()['ghcnd'])):
+def get_n_closest_station_ids(lat, lon, n, metadata=None):
     """
     Get the station ids for the <n> closest stations to a given lat lon. 
     Requires metadata of ghcnd to get station coordinates.
     """
+    if metadata == None:
+        metadata = get_metadata(get_heads()['ghcnd'])
     pq = []
     for feature in metadata["stations"]["features"]:
         s_lat = float(feature["geometry"]["coordinates"][0])

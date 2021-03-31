@@ -153,7 +153,7 @@ def get_hurricane_release_dict(release_hash, url=GATEWAY_URL):
     with gzip.GzipFile(fileobj=io.BytesIO(resp.content)) as zip_data:
         return json.loads(zip_data.read().decode("utf-8"))
 
-def get_hurricane_dict(head=get_heads()['atcf_btk-seasonal']):
+def get_hurricane_dict(head=None):
     """
     Get a hurricane dictionary for the atcf_btk-seasonal dataset. 
     To get a unique value to query the dict by storm, use BASIN + CY + the year

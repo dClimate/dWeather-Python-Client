@@ -4,3 +4,5 @@ pytest>=6.1.2
 requests
 geopy
 zeep
+astropy
+timezonefinder

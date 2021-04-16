@@ -17,3 +17,7 @@ class CoordinateNotFoundError(IPFSError):
 class DataMalformedError(IPFSError):
     """Raised when a grid cell text file is unable to be parsed according to metadata"""
     pass
+
+class AliasNotFound(IPFSError):
+    """The alias was not found in the lookup"""
+    pass

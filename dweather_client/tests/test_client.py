@@ -1,29 +1,13 @@
 from dweather_client.client import get_station_history, get_gridcell_history, get_tropical_storms
-from dweather_client.aliases_and_units import snotel_to_ghcnd
+from dweather_client.aliases_and_units import snotel_to_ghcnd, FLASK_DATASETS
 import numpy as np
 import datetime
 from astropy import units as u
 from astropy.units import imperial
 import pytest
 
-DAILY_DATASETS = [
-    "chirpsc_final_05-daily",
-    "chirpsc_final_25-daily",
-    "chirpsc_prelim_05-daily",
-    "cpcc_precip_global-daily",
-    "cpcc_precip_us-daily",
-    "cpcc_temp_max-daily",
-    "cpcc_temp_min-daily",
-    "prismc-tmax-daily",
-    "prismc-tmin-daily",
-    "prismc-precip-daily"
-]
-
-HOURLY_DATASETS = [
-    "rtma_pcp-hourly",
-    "era5_land_wind_v-hourly",
-    "era5_land_wind_u-hourly"
-]
+DAILY_DATASETS = [ds for ds in FLASK_DATASETS if "daily" in ds]
+HOURLY_DATASETS = [ds for ds in FLASK_DATASETS if "hourly" in ds]
 
 def test_get_gridcell_history_units():
     for s in DAILY_DATASETS + HOURLY_DATASETS:
@@ -45,7 +29,7 @@ def test_get_gridcell_history_units():
                 elif "wind" in s:
                     assert res[k].unit == u.m / u.s
                 else:
-                    assert res[k].unit == u.deg_C
+                    assert res[k].unit in (u.deg_C, u.K)
 
 def test_get_gridcell_history_snap():
     lat_range = np.linspace(35, 40, 3)

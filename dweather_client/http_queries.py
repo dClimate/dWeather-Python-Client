@@ -189,13 +189,14 @@ def get_simulated_hurricane_files(basin):
     files = [base_url + f for f in metadata['files'] if basin in f]
     return files
 
-def get_ibracs_hurricane_file():
+def get_ibracs_hurricane_file(basin):
+    if basin not in {'NI', 'SI', 'NA', 'EP', 'WP', 'SP', 'SA'}:
+        raise ValueError("Invalid basin ID")
     heads = get_heads()
-    hurr_hash = heads['ibtracs-tropical-storm']
-    metadata = get_metadata(hurr_hash)
-    base_url = f"{GATEWAY_URL}/ipfs/{hurr_hash}/"
-    return base_url + metadata["files"][0]
-
+    hurr_hash = heads['ibtracs_storm_basins']
+    file_url = f"{GATEWAY_URL}/ipfs/{hurr_hash}/ibtracs-{basin}.csv.gz"
+    return file_url
+    
 def traverse_ll(head):
     release_itr = head
     release_ll = deque()

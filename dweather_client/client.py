@@ -205,3 +205,4 @@ def get_station_history(
         history[datetime.datetime.strptime(row[date_col], "%Y-%m-%d").date()] = datapoint
 
     return history
+    

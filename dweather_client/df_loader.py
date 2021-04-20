@@ -71,9 +71,8 @@ def get_historical_hurricane_df(basin, **kwargs):
     args:
         basin (str), one of: 'NI', 'SI', 'NA', 'EP', 'WP', 'SP', 'SA'
     """
-    df = pd.read_csv(get_ibracs_hurricane_file(), na_values=["", " "], keep_default_na=False, low_memory=False)
+    df = pd.read_csv(get_ibracs_hurricane_file(basin), na_values=["", " "], keep_default_na=False, low_memory=False)
     df = df[1:]
-    df = df[df['BASIN'] == basin]
 
     df["lat"] = df.LAT.astype(float)
     df["lon"] = df.LON.astype(float)

@@ -15,6 +15,9 @@ import pandas as pd
 
 FLASK_DATASETS = [
     "rtma_pcp-hourly",
+    "rtma_wind_u-hourly",
+    "rtma_wind_v-hourly",
+    "rtma_temp-hourly",
     "chirpsc_final_05-daily",
     "chirpsc_final_25-daily",
     "chirpsc_prelim_05-daily",
@@ -26,7 +29,10 @@ FLASK_DATASETS = [
     "prismc-tmin-daily",
     "prismc-precip-daily",
     "era5_land_wind_u-hourly",
-    "era5_land_wind_v-hourly"
+    "era5_land_wind_v-hourly",
+    "era5_land_wind_v-hourly",
+    "era5_wind_100m_u-hourly",
+    "era5_wind_100m_v-hourly"
 ]
 
 UNIT_ALIASES = {
@@ -40,6 +46,7 @@ UNIT_ALIASES = {
 METRIC_TO_IMPERIAL = {
     u.mm: lambda q: q.to(imperial.inch),
     u.deg_C: lambda q: q.to(imperial.deg_F, equivalencies=u.temperature()),
+    u.K: lambda q: q.to(imperial.deg_F, equivalencies=u.temperature()),
     u.kg / u.m**2: lambda q: q.to(imperial.pound / imperial.ft ** 2),
     u.m / u.s: lambda q: q.to(imperial.mile / u.hour)
 }

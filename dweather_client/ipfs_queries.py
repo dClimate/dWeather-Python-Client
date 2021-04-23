@@ -28,15 +28,13 @@ class IpfsDataset(ABC):
         """
         pass
 
-    def __init__(self, ipfs_timeout=120, on_gateway=False):
+    def __init__(self, ipfs_timeout=None):
         """
         args:
-        :ipfs_timeout: Time IPFS should wait for response before throwing exception.
-        :on_gateway: Bool to indicate whether this code is running on a gateway containing all dClimate data
-            if True, do not connect to the gateway before getting data
+        :ipfs_timeout: Time IPFS should wait for response before throwing exception. If None, will assume that
+        code is running in an environment containing all datasets (such as gateway)
         """
-        self.head = get_heads()[self.dataset]
-        self.on_gateway = on_gateway
+        self.on_gateway = not ipfs_timeout
         self.ipfs = ipfshttpclient.connect(timeout=ipfs_timeout)
 
     def get_metadata(self, h):
@@ -63,11 +61,12 @@ class IpfsDataset(ABC):
         return BytesIO(self.ipfs.cat(f))
 
     @abstractmethod
-    def get_data(*args, **kwargs):
+    def get_data(self, *args, **kwargs):
         """
         Exposed method that allows user to get data in the dataset. Args and return value will depend on whether
         this is a gridded, station or storm dataset
         """
+        self.head = get_heads()[self.dataset]
         pass
 
 class GriddedDataset(IpfsDataset):
@@ -183,6 +182,7 @@ class PrismGriddedDataset(GriddedDataset):
         return: tuple of lat/lon snapped to PRISM grid, and weather data, which has date keys and str values
         corresponding to weather observations
         """
+        super().get_data()
         first_metadata = self.get_metadata(self.head)
         snapped_lat, snapped_lon = self.snap_to_grid(float(lat), float(lon), first_metadata)
         self.tar_name = f"{snapped_lat:.3f}.tar"
@@ -232,6 +232,7 @@ class RtmaGriddedDataset(GriddedDataset):
         return: tuple of lat/lon snapped to RTMA grid, and weather data, which has datetime keys and str values
         corresponding to weather observations
         """
+        super().get_data()
         (self.x_grid, self.y_grid), (self.snapped_lat, self.snapped_lon) = self.get_grid_x_y(lat, lon)
         str_x, str_y = f'{self.x_grid:04}', f'{self.y_grid:04}'
         index = self.get_file_index()
@@ -332,6 +333,7 @@ class SimpleGriddedDataset(GriddedDataset):
         return: tuple of lat/lon snapped to dataset grid, and weather data, which has datetime or date keys and str values
         corresponding to weather observations
         """
+        super().get_data()
         first_metadata = self.get_metadata(self.head)
         if "cpcc" in self.dataset or "era5" in self.dataset:
             lat, lon = conventional_lat_lon_to_cpc(float(lat), float(lon))
@@ -353,6 +355,21 @@ class Era5LandWind(SimpleGriddedDataset):
     @property
     def zero_padding(self):
         return 8
+
+class StationDataset(IpfsDataset):
+    @property
+    def dataset(self):
+        return self._dataset
+
+    def __init__(self, dataset, ipfs_timeout=None):
+        super().__init__(ipfs_timeout=ipfs_timeout)
+        self._dataset = dataset
+
+    def get_data(self, station):
+        super().get_data()
+        file_name = f"{self.head}/{station}.csv.gz"
+        with gzip.open(self.get_file_object(file_name)) as gz:
+            return gz.read().decode('utf-8')
 
 def pin_all_stations(client=None, station_dataset="ghcnd-imputed-daily"):
     """ Sync all stations locally."""
@@ -468,9 +485,3 @@ def cat_icao_stations(client=None, pin=True):
         if (client is None):
             session_client.close()
     return dfs
-
-
-if __name__ == "__main__":
-    dataset = PrismcTmaxDaily(ipfs_timeout=10)
-    x = dataset.get_data(40, -120)
-    import ipdb; ipdb.set_trace()

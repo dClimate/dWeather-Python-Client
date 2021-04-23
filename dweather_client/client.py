@@ -10,10 +10,14 @@ import datetime, pytz, csv, inspect
 from astropy import units as u
 import numpy as np
 from timezonefinder import TimezoneFinder
-import dweather_client.gridded_datasets as datasets
+from dweather_client import gridded_datasets
+from dweather_client.ipfs_queries import StationDataset
 
-# Gets all dataset classes from the datasets module
-DATASETS = {obj.dataset: obj for obj in vars(datasets).values() if inspect.isclass(obj) and type(obj.dataset) == str}
+# Gets all gridded dataset classes from the datasets module
+GRIDDED_DATASETS = {
+    obj.dataset: obj for obj in vars(gridded_datasets).values()
+    if inspect.isclass(obj) and type(obj.dataset) == str
+}
 
 def get_gridcell_history(
         lat,
@@ -155,6 +159,7 @@ def get_tropical_storms(
 def get_station_history(
         station_id,
         weather_variable,
+        ipfs_timeout=None,
         dataset='ghcnd',
         protocol='https',
         use_imperial_units=True):
@@ -185,7 +190,7 @@ def get_station_history(
     aliases.
 
     """
-    csv_text = get_station_csv(station_id, station_dataset=dataset)
+    csv_text = StationDataset(dataset, ipfs_timeout=ipfs_timeout).get_data(station_id)
     column = lookup_station_alias(weather_variable)
     history = {}
     reader = csv.reader(csv_text.split('\n'))

@@ -1,20 +1,19 @@
 """
 Use these functions to get historical climate data.
 """
-from dweather_client.http_queries import get_station_csv, get_dataset_cell, get_metadata, get_heads
+from dweather_client.http_queries import get_station_csv, get_metadata, get_heads
 from dweather_client.aliases_and_units import \
-    lookup_station_alias, STATION_UNITS_LOOKUP as SUL, METRIC_TO_IMPERIAL as M2I, IMPERIAL_TO_METRIC as I2M, FLASK_DATASETS, UNIT_ALIASES
-from dweather_client.ipfs_errors import AliasNotFound, DataMalformedError
-from dweather_client.grid_utils import snap_to_grid, conventional_lat_lon_to_cpc, cpc_lat_lon_to_conventional
-from dweather_client.http_queries import flask_query
+    lookup_station_alias, STATION_UNITS_LOOKUP as SUL, METRIC_TO_IMPERIAL as M2I, IMPERIAL_TO_METRIC as I2M, UNIT_ALIASES
 from dweather_client.struct_utils import tupleify
 from dweather_client.df_loader import get_atcf_hurricane_df, get_historical_hurricane_df, get_simulated_hurricane_df
-import datetime, pytz, csv
+import datetime, pytz, csv, inspect
 from astropy import units as u
-import pandas as pd
 import numpy as np
 from timezonefinder import TimezoneFinder
+import dweather_client.gridded_datasets as datasets
 
+# Gets all dataset classes from the datasets module
+DATASETS = {obj.dataset: obj for obj in vars(datasets).values() if inspect.isclass(obj) and type(obj.dataset) == str}
 
 def get_gridcell_history(
         lat,
@@ -22,7 +21,7 @@ def get_gridcell_history(
         dataset,
         snap_lat_lon_to_closest_valid_point=True,
         also_return_snapped_coordinates=False,
-        protocol='https',
+        ipfs_timeout=None,
         also_return_metadata=False,
         use_imperial_units=True,
         return_result_as_counter=False):
@@ -70,7 +69,7 @@ def get_gridcell_history(
     missing_value = metadata["missing value"]
 
     history_dict = {}
-    (lat, lon), resp_dict = flask_query(dataset, lat, lon)
+    (lat, lon), resp_dict = DATASETS[dataset](ipfs_timeout=ipfs_timeout).get_data(lat, lon)
     for k in resp_dict:
         if type(missing_value) == str:
             val = np.nan if resp_dict[k] == missing_value else float(resp_dict[k])
@@ -205,4 +204,3 @@ def get_station_history(
         history[datetime.datetime.strptime(row[date_col], "%Y-%m-%d").date()] = datapoint
 
     return history
-    

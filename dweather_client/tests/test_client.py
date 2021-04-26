@@ -1,13 +1,14 @@
-from dweather_client.client import get_station_history, get_gridcell_history, get_tropical_storms
-from dweather_client.aliases_and_units import snotel_to_ghcnd, FLASK_DATASETS
+from dweather_client.client import get_station_history, get_gridcell_history, get_tropical_storms, GRIDDED_DATASETS
+from dweather_client.aliases_and_units import snotel_to_ghcnd
 import numpy as np
 import datetime
 from astropy import units as u
 from astropy.units import imperial
 import pytest
 
-DAILY_DATASETS = [ds for ds in FLASK_DATASETS if "daily" in ds]
-HOURLY_DATASETS = [ds for ds in FLASK_DATASETS if "hourly" in ds]
+
+DAILY_DATASETS = [ds for ds in GRIDDED_DATASETS if "daily" in ds]
+HOURLY_DATASETS = [ds for ds in GRIDDED_DATASETS if "hourly" in ds]
 
 def test_get_gridcell_history_units():
     for s in DAILY_DATASETS + HOURLY_DATASETS:

@@ -1,7 +1,7 @@
 """
 Use these functions to get historical climate data.
 """
-from dweather_client.http_queries import get_station_csv, get_metadata, get_heads
+from dweather_client.http_queries import get_metadata, get_heads
 from dweather_client.aliases_and_units import \
     lookup_station_alias, STATION_UNITS_LOOKUP as SUL, METRIC_TO_IMPERIAL as M2I, IMPERIAL_TO_METRIC as I2M, UNIT_ALIASES
 from dweather_client.struct_utils import tupleify
@@ -23,34 +23,18 @@ def get_gridcell_history(
         lat,
         lon,
         dataset,
-        snap_lat_lon_to_closest_valid_point=True,
         also_return_snapped_coordinates=False,
-        ipfs_timeout=None,
         also_return_metadata=False,
         use_imperial_units=True,
-        return_result_as_counter=False):
+        ipfs_timeout=None):
     """
-    Get the historical timeseries data for a gridded dataset in a dictionary,
-    or, if return_result_as_counter is set to True, as a collections.Counter
+    Get the historical timeseries data for a gridded dataset in a dictionary
 
-    This is a dictionary of dates: climate values for a given dataset and 
+    This is a dictionary of dates: climate values for a given dataset and
     lat, lon.
 
-    If snap_lat_lon_to_closest_valid_point is set to True (which it is
-    by default), returns the history for the closest valid lat lon as
-    determined by the dataset's metadata resolution.
-
-    protocol is set to 'https' by default, but can also be set to
-    'ipfs'. There are performance tradeoffs depending on which protocol is
-    selected.
-
-    return_result_as_counter is set to False by default, but if it is set
-    to true, the historical timeseries will be returned as a collections.Counter
-    instead of as a dict. collections.Counter is useful for performance sensitive
-    aggregations, for example as in grid_utils.get_polygon_df
-
     also_return_metadata is set to False by default, but if set to True,
-    returns the metadata next to the dict/counter within a tuple.
+    returns the metadata next to the dict within a tuple.
 
     use_imperial_units is set to True by default, but if set to False,
     will get the appropriate metric unit from aliases_and_units
@@ -73,7 +57,7 @@ def get_gridcell_history(
     missing_value = metadata["missing value"]
 
     history_dict = {}
-    (lat, lon), resp_dict = DATASETS[dataset](ipfs_timeout=ipfs_timeout).get_data(lat, lon)
+    (lat, lon), resp_dict = GRIDDED_DATASETS[dataset](ipfs_timeout=ipfs_timeout).get_data(lat, lon)
     for k in resp_dict:
         if type(missing_value) == str:
             val = np.nan if resp_dict[k] == missing_value else float(resp_dict[k])
@@ -170,8 +154,8 @@ def get_station_history(
     ghcnd dataset. Pass in dataset='ghcnd-imputed-daily' for imputed,
     though note that ghcndi is only temperature as of this writing.
 
-    Passing in use_imperial_units=False will return results in metric. 
-    Imperial is the default as Arbol is based in the USA and the bulk of our 
+    Passing in use_imperial_units=False will return results in metric.
+    Imperial is the default as Arbol is based in the USA and the bulk of our
     deals are done in imperial.
 
         'SNWD' or alias 'snow depth' -- the depth of snow at the time of the

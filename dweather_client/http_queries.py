@@ -4,7 +4,6 @@ Queries associated with the https protocol option.
 import os, pickle, math, requests, datetime, io, gzip, json, logging, csv, tarfile
 from collections import Counter, deque
 from dweather_client.ipfs_errors import *
-from dweather_client.aliases_and_units import FLASK_DATASETS
 
 GATEWAY_URL = 'https://gateway.arbolmarket.com'
 
@@ -207,22 +206,3 @@ def traverse_ll(head):
             release_itr = prev_release
         else:
             return release_ll
-
-def flask_query(dataset, lat, lon, base_url=GATEWAY_URL):
-    if dataset not in FLASK_DATASETS:
-        raise ValueError(f"Valid flask datasets are {FLASK_DATASETS}")
-
-    url = f"{base_url}/linked-list/{dataset}/{lat}_{lon}"
-    r = requests.get(url)
-    r.raise_for_status()
-    resp = r.json()
-
-    data_dict = {}
-    if "hourly" in dataset:
-        for k, v in resp["data"].items():
-            data_dict[datetime.datetime.fromisoformat(k)] = v
-    elif "daily" in dataset:
-        for k, v in resp["data"].items():
-            data_dict[datetime.datetime.fromisoformat(k).date()] = v
-
-    return ((resp["lat"], resp["lon"]), data_dict)

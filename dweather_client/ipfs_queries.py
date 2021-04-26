@@ -67,7 +67,6 @@ class IpfsDataset(ABC):
         this is a gridded, station or storm dataset
         """
         self.head = get_heads()[self.dataset]
-        pass
 
 class GriddedDataset(IpfsDataset):
     """
@@ -88,8 +87,8 @@ class GriddedDataset(IpfsDataset):
         min_lon = metadata['longitude range'][0]  # end [lat, lon]
 
         # check that the lat lon is in the bounding box
-        snap_lat = round(round((lat - min_lat)/resolution) * resolution + min_lat, 3)
-        snap_lon = round(round((lon - min_lon)/resolution) * resolution + min_lon, 3)
+        snap_lat = round(round((lat - min_lat) / resolution) * resolution + min_lat, 3)
+        snap_lon = round(round((lon - min_lon) / resolution) * resolution + min_lon, 3)
         return snap_lat, snap_lon
 
     def traverse_ll(self, head):
@@ -142,7 +141,7 @@ class GriddedDataset(IpfsDataset):
             try:
                 with tarfile.open(fileobj=self.get_file_object(f"{ipfs_hash}/{self.tar_name}")) as tar:
                     member = tar.getmember(self.gzip_name)
-                    with gzip.open(tar.extractfile(member), "rb") as gz:
+                    with gzip.open(tar.extractfile(member)) as gz:
                         cell_text = gz.read().decode('utf-8')
             except ipfshttpclient.exceptions.ErrorResponse:
                 zip_file_name = self.tar_name[:-4] + '.zip'
@@ -357,6 +356,9 @@ class Era5LandWind(SimpleGriddedDataset):
         return 8
 
 class StationDataset(IpfsDataset):
+    """
+    Instantiable class used for pulling in "ghcnd" or "ghcnd-imputed-daily" station data
+    """
     @property
     def dataset(self):
         return self._dataset

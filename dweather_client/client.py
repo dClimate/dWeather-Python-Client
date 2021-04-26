@@ -81,10 +81,9 @@ def get_gridcell_history(
 
     result = history_dict
     if also_return_metadata:
-        result["metadata"] = metadata  
+        result = tupleify(result) + ({"metadata": metadata},)
     if also_return_snapped_coordinates:
-        result["snapped_lat"] = lat
-        result["snapped_lon"] = lon
+        result = tupleify(result) + ({"snapped to": (lat, lon)},)
     return result
 
 def get_tropical_storms(

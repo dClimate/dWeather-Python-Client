@@ -44,7 +44,7 @@ def get_gridcell_history(
     try:
         metadata = get_metadata(get_heads()[dataset])
     except KeyError:
-        raise DatasetError()
+        raise DatasetError("No such dataset in dClimate")
 
     # set up units
     str_u = metadata['unit of measurement']
@@ -65,11 +65,11 @@ def get_gridcell_history(
     try:
         dataset_obj = GRIDDED_DATASETS[dataset](ipfs_timeout=ipfs_timeout)
     except KeyError:
-        raise DatasetError()
+        raise DatasetError("No such dataset in dClimate")
     try:
         (lat, lon), resp_dict = GRIDDED_DATASETS[dataset](ipfs_timeout=ipfs_timeout).get_data(lat, lon)
     except (ipfshttpclient.exceptions.ErrorResponse, ipfshttpclient.exceptions.TimeoutError, KeyError, FileNotFoundError) as e:
-        raise CoordinateNotFoundError()
+        raise CoordinateNotFoundError("Invalid coordinate for dataset")
     for k in resp_dict:
         if type(missing_value) == str:
             val = np.nan if resp_dict[k] == missing_value else float(resp_dict[k])
@@ -188,9 +188,9 @@ def get_station_history(
     try:
         csv_text = StationDataset(dataset, ipfs_timeout=ipfs_timeout).get_data(station_id)
     except KeyError:
-        raise DatasetError()
+        raise DatasetError("No such dataset in dClimate")
     except ipfshttpclient.exceptions.ErrorResponse:
-        raise StationNotFound()
+        raise StationNotFoundError("Invalid station ID for dataset")
     column = lookup_station_alias(weather_variable)
     history = {}
     reader = csv.reader(csv_text.split('\n'))
@@ -199,7 +199,7 @@ def get_station_history(
     try:
         data_col = headers.index(column)
     except ValueError:
-        raise WeatherVariableNotFound()
+        raise WeatherVariableNotFoundError("Invalid weather variable for this station")
     for row in reader:
         try:
             if row[data_col] == '':

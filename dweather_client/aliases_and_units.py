@@ -6,7 +6,7 @@ given point.
 In general, all the idiosyncratic reality-based things that one has to 
 deal with.
 """
-from dweather_client.ipfs_errors import AliasNotFound
+from dweather_client.ipfs_errors import AliasNotFoundError
 import zeep
 import os
 from astropy import units as u
@@ -78,7 +78,7 @@ def lookup_station_alias(alias):
     for aliases in STATION_ALIASES_TO_COLUMNS:
         if alias in aliases:
             return STATION_ALIASES_TO_COLUMNS[aliases]
-    raise AliasNotFound()
+    raise AliasNotFoundError("Invalid weather variable")
 
 # see ghcnd readme ftp://ftp.ncdc.noaa.gov/pub/data/ghcn/daily/readme.txt
 STATION_UNITS_LOOKUP = {

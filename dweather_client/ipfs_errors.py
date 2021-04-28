@@ -21,3 +21,11 @@ class DataMalformedError(IPFSError):
 class AliasNotFound(IPFSError):
     """The alias was not found in the lookup"""
     pass
+
+class StationNotFound(IPFSError):
+    """The station was not found in the dataset"""
+    pass
+
+class WeatherVariableNotFound(IPFSError):
+    """The weather variable was not found for the station"""
+    pass

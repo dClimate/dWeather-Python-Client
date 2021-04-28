@@ -12,6 +12,8 @@ import numpy as np
 from timezonefinder import TimezoneFinder
 from dweather_client import gridded_datasets
 from dweather_client.ipfs_queries import StationDataset
+from dweather_client.ipfs_errors import *
+import ipfshttpclient
 
 # Gets all gridded dataset classes from the datasets module
 GRIDDED_DATASETS = {
@@ -30,7 +32,7 @@ def get_gridcell_history(
     """
     Get the historical timeseries data for a gridded dataset in a dictionary
 
-    This is a dictionary of dates: climate values for a given dataset and
+    This is a dictionary of dates/datetimes: climate values for a given dataset and
     lat, lon.
 
     also_return_metadata is set to False by default, but if set to True,
@@ -39,7 +41,10 @@ def get_gridcell_history(
     use_imperial_units is set to True by default, but if set to False,
     will get the appropriate metric unit from aliases_and_units
     """
-    metadata = get_metadata(get_heads()[dataset])
+    try:
+        metadata = get_metadata(get_heads()[dataset])
+    except KeyError:
+        raise DatasetError()
 
     # set up units
     str_u = metadata['unit of measurement']
@@ -57,7 +62,14 @@ def get_gridcell_history(
     missing_value = metadata["missing value"]
 
     history_dict = {}
-    (lat, lon), resp_dict = GRIDDED_DATASETS[dataset](ipfs_timeout=ipfs_timeout).get_data(lat, lon)
+    try:
+        dataset_obj = GRIDDED_DATASETS[dataset](ipfs_timeout=ipfs_timeout)
+    except KeyError:
+        raise DatasetError()
+    try:
+        (lat, lon), resp_dict = GRIDDED_DATASETS[dataset](ipfs_timeout=ipfs_timeout).get_data(lat, lon)
+    except (ipfshttpclient.exceptions.ErrorResponse, ipfshttpclient.exceptions.TimeoutError, KeyError, FileNotFoundError) as e:
+        raise CoordinateNotFoundError()
     for k in resp_dict:
         if type(missing_value) == str:
             val = np.nan if resp_dict[k] == missing_value else float(resp_dict[k])
@@ -143,10 +155,9 @@ def get_tropical_storms(
 def get_station_history(
         station_id,
         weather_variable,
-        ipfs_timeout=None,
-        dataset='ghcnd',
-        protocol='https',
-        use_imperial_units=True):
+        use_imperial_units=True,
+        dataset='ghcnd',     
+        ipfs_timeout=None):
     """
     Takes in a station id and a weather variable.
 
@@ -174,13 +185,21 @@ def get_station_history(
     aliases.
 
     """
-    csv_text = StationDataset(dataset, ipfs_timeout=ipfs_timeout).get_data(station_id)
+    try:
+        csv_text = StationDataset(dataset, ipfs_timeout=ipfs_timeout).get_data(station_id)
+    except KeyError:
+        raise DatasetError()
+    except ipfshttpclient.exceptions.ErrorResponse:
+        raise StationNotFound()
     column = lookup_station_alias(weather_variable)
     history = {}
     reader = csv.reader(csv_text.split('\n'))
     headers = next(reader)
     date_col = headers.index('DATE')
-    data_col = headers.index(column)
+    try:
+        data_col = headers.index(column)
+    except ValueError:
+        raise WeatherVariableNotFound()
     for row in reader:
         try:
             if row[data_col] == '':

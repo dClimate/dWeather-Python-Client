@@ -131,12 +131,12 @@ def get_tropical_storms(
     """
     if ((radius is not None) or (lat is not None) or (lon is not None)) \
             and ((radius is None) or (lat is None) or (lon is None)):
-        raise ValueError
+        raise ValueError("Invalid args")
     if ((min_lat is not None) or (min_lon is not None) or (max_lat is not None) or (max_lon is not None)) \
             and ((min_lat is None) or (min_lon is None) or (max_lat is None) or (max_lon is None)):
-        raise ValueError
+        raise ValueError("Invalid args")
     if radius and min_lat:
-        raise ValueError
+        raise ValueError("Invalid args")
 
     if source == "atcf":
         storm_getter = AtcfDataset(ipfs_timeout=ipfs_timeout)
@@ -145,7 +145,7 @@ def get_tropical_storms(
     elif source == "simulated":
         storm_getter = SimulatedStormsDataset(ipfs_timeout=ipfs_timeout)
     else:
-        raise ValueError
+        raise ValueError("Invalid source")
 
     if radius:
         return storm_getter.get_data(basin, radius=radius, lat=lat, lon=lon)
@@ -154,13 +154,6 @@ def get_tropical_storms(
     else:
         return storm_getter.get_data(basin)
     
-    # if radius:
-    #     return storm_getter(basin, radius=radius, lat=lat, lon=lon)
-    # elif min_lat:
-    #     return storm_getter(basin, min_lat=min_lat, min_lon=min_lon, max_lat=max_lat, max_lon=max_lon)
-    # else:
-    #     return storm_getter(basin)
-
 def get_station_history(
         station_id,
         weather_variable,

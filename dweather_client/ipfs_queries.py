@@ -60,6 +60,26 @@ class IpfsDataset(ABC):
             self.ipfs._client.request('/swarm/connect', (GATEWAY_IPFS_ID,))
         return BytesIO(self.ipfs.cat(f))
 
+    def traverse_ll(self, head):
+        """
+        Iterates through a linked list of metadata files
+        args:
+        :head: ipfs hash of the directory at the head of the linked list
+        return: deque containing all hashes in the linked list
+        """
+        release_itr = head
+        release_ll = deque()
+        while True:
+            release_ll.appendleft(release_itr)
+            try:
+                prev_release = self.get_metadata(release_itr)['previous hash']
+            except KeyError:
+                return release_ll
+            if prev_release is not None:
+                release_itr = prev_release
+            else:
+                return release_ll
+
     @abstractmethod
     def get_data(self, *args, **kwargs):
         """
@@ -90,26 +110,6 @@ class GriddedDataset(IpfsDataset):
         snap_lat = round(round((lat - min_lat) / resolution) * resolution + min_lat, 3)
         snap_lon = round(round((lon - min_lon) / resolution) * resolution + min_lon, 3)
         return snap_lat, snap_lon
-
-    def traverse_ll(self, head):
-        """
-        Iterates through a linked list of metadata files
-        args:
-        :head: ipfs hash of the directory at the head of the linked list
-        return: deque containing all hashes in the linked list
-        """
-        release_itr = head
-        release_ll = deque()
-        while True:
-            release_ll.appendleft(release_itr)
-            try:
-                prev_release = self.get_metadata(release_itr)['previous hash']
-            except KeyError:
-                return release_ll
-            if prev_release is not None:
-                release_itr = prev_release
-            else:
-                return release_ll
 
     def get_hashes(self):
         """

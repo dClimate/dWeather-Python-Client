@@ -11,6 +11,7 @@ from astropy import units as u
 import numpy as np
 from timezonefinder import TimezoneFinder
 from dweather_client import gridded_datasets
+from dweather_client.storms_datasets import IbtracsDataset, AtcfDataset, SimulatedStormsDataset
 from dweather_client.ipfs_queries import StationDataset
 from dweather_client.ipfs_errors import *
 import ipfshttpclient
@@ -107,7 +108,8 @@ def get_tropical_storms(
         min_lat=None,
         min_lon=None,
         max_lat=None,
-        max_lon=None):
+        max_lon=None,
+        ipfs_timeout=None):
     """
     return:
         pd.DataFrame containing time series information on tropical storms
@@ -137,20 +139,27 @@ def get_tropical_storms(
         raise ValueError
 
     if source == "atcf":
-        storm_getter = get_atcf_hurricane_df
+        storm_getter = AtcfDataset(ipfs_timeout=ipfs_timeout)
     elif source == "historical":
-        storm_getter = get_historical_hurricane_df
+        storm_getter = IbtracsDataset(ipfs_timeout=ipfs_timeout)
     elif source == "simulated":
-        storm_getter = get_simulated_hurricane_df
+        storm_getter = SimulatedStormsDataset(ipfs_timeout=ipfs_timeout)
     else:
         raise ValueError
 
     if radius:
-        return storm_getter(basin, radius=radius, lat=lat, lon=lon)
+        return storm_getter.get_data(basin, radius=radius, lat=lat, lon=lon)
     elif min_lat:
-        return storm_getter(basin, min_lat=min_lat, min_lon=min_lon, max_lat=max_lat, max_lon=max_lon)
+        return storm_getter.get_data(basin, min_lat=min_lat, min_lon=min_lon, max_lat=max_lat, max_lon=max_lon)
     else:
-        return storm_getter(basin)
+        return storm_getter.get_data(basin)
+    
+    # if radius:
+    #     return storm_getter(basin, radius=radius, lat=lat, lon=lon)
+    # elif min_lat:
+    #     return storm_getter(basin, min_lat=min_lat, min_lon=min_lon, max_lat=max_lat, max_lon=max_lon)
+    # else:
+    #     return storm_getter(basin)
 
 def get_station_history(
         station_id,

@@ -73,12 +73,13 @@ def get_gridcell_history(
         raise CoordinateNotFoundError("Invalid coordinate for dataset")
     for k in resp_dict:
         if type(missing_value) == str:
-            val = np.nan if resp_dict[k] == missing_value else float(resp_dict[k])
+            val = None if resp_dict[k] == missing_value else float(resp_dict[k])
         else:
-            val = np.nan if float(resp_dict[k]) == missing_value else float(resp_dict[k])
-        datapoint = val * dweather_unit
+            val = None if float(resp_dict[k]) == missing_value else float(resp_dict[k])
+        
+        datapoint = val * dweather_unit if val is not None else None
         if converter is not None:
-            datapoint = converter(datapoint)
+            datapoint = converter(datapoint) if datapoint is not None else None
         history_dict[k] = datapoint
 
     # try a timezone-based transformation on the times in case we're using an hourly set.

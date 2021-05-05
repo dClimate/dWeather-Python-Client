@@ -15,22 +15,23 @@ def test_get_gridcell_history_units():
         for use_imperial in [True, False]:
             res = get_gridcell_history(37, -83, s, use_imperial_units=use_imperial)
             for k in res:
-                if use_imperial and ("precip" in s or "chirps" in s):
-                    assert res[k].unit == imperial.inch
-                elif use_imperial and s == "rtma_pcp-hourly":
-                    assert res[k].unit == imperial.pound / imperial.foot**2
-                elif use_imperial and "wind" in s:
-                    assert res[k].unit == imperial.mile / u.hour
-                elif use_imperial:
-                    assert res[k].unit == imperial.deg_F
-                elif "precip" in s or "chirps" in s:
-                    assert res[k].unit == u.mm
-                elif s == "rtma_pcp-hourly":
-                    assert res[k].unit == u.kg / u.m**2
-                elif "wind" in s:
-                    assert res[k].unit == u.m / u.s
-                else:
-                    assert res[k].unit in (u.deg_C, u.K)
+                if res[k] is not None:
+                    if use_imperial and ("precip" in s or "chirps" in s):
+                        assert res[k].unit == imperial.inch
+                    elif use_imperial and s == "rtma_pcp-hourly":
+                        assert res[k].unit == imperial.pound / imperial.foot**2
+                    elif use_imperial and "wind" in s:
+                        assert res[k].unit == imperial.mile / u.hour
+                    elif use_imperial:
+                        assert res[k].unit == imperial.deg_F
+                    elif "precip" in s or "chirps" in s:
+                        assert res[k].unit == u.mm
+                    elif s == "rtma_pcp-hourly":
+                        assert res[k].unit == u.kg / u.m**2
+                    elif "wind" in s:
+                        assert res[k].unit == u.m / u.s
+                    else:
+                        assert res[k].unit in (u.deg_C, u.K)
 
 def test_get_gridcell_history_snap():
     lat_range = np.linspace(35, 40, 3)
@@ -59,11 +60,11 @@ def test_get_gridcell_history_date_range():
 
 def test_get_gridcell_nans():
     prism_r = get_gridcell_history(31.083, -120, "prismc-precip-daily")
-    assert np.isnan(prism_r[datetime.date(1981, 8, 29)].value)
+    assert prism_r[datetime.date(1981, 8, 29)] is None
 
     rtma_r = get_gridcell_history(40.694754071664825, -73.93445989160746, "rtma_pcp-hourly")
     tz = next(iter(rtma_r)).tzinfo
-    assert np.isnan(rtma_r[datetime.datetime(2011, 1, 29, 17, tzinfo=tz)].value)
+    assert rtma_r[datetime.datetime(2011, 1, 29, 17, tzinfo=tz)] is None
 
 def test_station():
     get_station_history('USW00014820', 'SNOW')

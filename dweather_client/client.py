@@ -4,11 +4,12 @@ Use these functions to get historical climate data.
 from dweather_client.http_queries import get_metadata, get_heads
 from dweather_client.aliases_and_units import \
     lookup_station_alias, STATION_UNITS_LOOKUP as SUL, METRIC_TO_IMPERIAL as M2I, IMPERIAL_TO_METRIC as I2M, UNIT_ALIASES
-from dweather_client.struct_utils import tupleify
+from dweather_client.struct_utils import tupleify, convert_nans_to_none
 from dweather_client.df_loader import get_atcf_hurricane_df, get_historical_hurricane_df, get_simulated_hurricane_df
 import datetime, pytz, csv, inspect
 from astropy import units as u
 import numpy as np
+import pandas as pd
 from timezonefinder import TimezoneFinder
 from dweather_client import gridded_datasets
 from dweather_client.storms_datasets import IbtracsDataset, AtcfDataset, SimulatedStormsDataset
@@ -62,38 +63,36 @@ def get_gridcell_history(
     # get dataset-specific "no observation" value
     missing_value = metadata["missing value"]
 
-    history_dict = {}
     try:
         dataset_obj = GRIDDED_DATASETS[dataset](ipfs_timeout=ipfs_timeout)
     except KeyError:
         raise DatasetError("No such dataset in dClimate")
+
     try:
-        (lat, lon), resp_dict = GRIDDED_DATASETS[dataset](ipfs_timeout=ipfs_timeout).get_data(lat, lon)
+        (lat, lon), resp_series = GRIDDED_DATASETS[dataset](ipfs_timeout=ipfs_timeout).get_data(lat, lon)
+
     except (ipfshttpclient.exceptions.ErrorResponse, ipfshttpclient.exceptions.TimeoutError, KeyError, FileNotFoundError) as e:
         raise CoordinateNotFoundError("Invalid coordinate for dataset")
-    for k in resp_dict:
-        if type(missing_value) == str:
-            val = None if resp_dict[k] == missing_value else float(resp_dict[k])
-        else:
-            val = None if float(resp_dict[k]) == missing_value else float(resp_dict[k])
-        
-        datapoint = val * dweather_unit if val is not None else None
-        if converter is not None:
-            datapoint = converter(datapoint) if datapoint is not None else None
-        history_dict[k] = datapoint
 
     # try a timezone-based transformation on the times in case we're using an hourly set.
     try:
         tf = TimezoneFinder()
         local_tz = pytz.timezone(tf.timezone_at(lng=lon, lat=lat))
-        tz_history_dict = {}
-        for time in history_dict:
-            tz_history_dict[pytz.utc.localize(time).astimezone(local_tz)] = history_dict[time]
-        history_dict = tz_history_dict
-    except AttributeError:  # datetime.date (daily sets) doesn't work with this, only datetime.datetime (hourly sets)
+        resp_series = resp_series.tz_localize("UTC").tz_convert(local_tz)
+    except (AttributeError, TypeError):  # datetime.date (daily sets) doesn't work with this, only datetime.datetime (hourly sets)
         pass
 
-    result = history_dict
+    if type(missing_value) == str:
+        resp_series = resp_series.replace(missing_value, np.NaN).astype(float)
+    else:
+        resp_series.loc[resp_series.astype(float) == missing_value] = np.NaN
+        resp_series = resp_series.astype(float)
+    
+    resp_series = resp_series * dweather_unit
+    if converter is not None:
+        resp_series = pd.Series(converter(resp_series.values), resp_series.index)
+    result = {k: convert_nans_to_none(v) for k, v in resp_series.to_dict().items()}
+    
     if also_return_metadata:
         result = tupleify(result) + ({"metadata": metadata},)
     if also_return_snapped_coordinates:

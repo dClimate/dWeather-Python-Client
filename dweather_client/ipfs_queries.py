@@ -130,12 +130,12 @@ class GriddedDataset(IpfsDataset):
 
     def get_weather_dict(self, date_range, ipfs_hash, is_root):
         """
-        Get a dict of weather values for a given IPFS hash
+        Get a pd.Series of weather values for a given IPFS hash
         args:
         :date_range: time range that hash has data for
         :ipfs_hash: hash containing data
         :is_root: bool indicating whether this is the root node in the linked list
-        return: dict with date or datetime keys and weather values
+        return: pd.Series with date or datetime index and weather values
         """
         if not is_root:
             try:
@@ -178,8 +178,8 @@ class PrismGriddedDataset(GriddedDataset):
         args:
         :lat: float of latitude from which to get data
         :lon: float of longitude from which to get data
-        return: tuple of lat/lon snapped to PRISM grid, and weather data, which has date keys and str values
-        corresponding to weather observations
+        return: tuple of lat/lon snapped to PRISM grid, and weather data, which is pd.Series with date index
+        and str values corresponding to weather observations
         """
         super().get_data()
         first_metadata = self.get_metadata(self.head)
@@ -189,7 +189,7 @@ class PrismGriddedDataset(GriddedDataset):
         self.ret_dict = {}
         for h in self.get_hashes()[::-1]:
             self.update_prismc_dict(h)
-        return (float(snapped_lat), float(snapped_lon)), self.ret_dict
+        return (float(snapped_lat), float(snapped_lon)), pd.Series(self.ret_dict)
 
     def update_prismc_dict(self, ipfs_hash):
         """
@@ -212,7 +212,7 @@ class PrismGriddedDataset(GriddedDataset):
 
 class RtmaGriddedDataset(GriddedDataset):
     """
-    Abstract class from which RTMA datasets inherity. Contains custom logic for converting lat/lons to 
+    Abstract class from which RTMA datasets inherits. Contains custom logic for converting lat/lons to 
     RTMAs unique gridding system
     """
     _etc_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "etc")
@@ -228,8 +228,8 @@ class RtmaGriddedDataset(GriddedDataset):
         args:
         :lat: float of latitude from which to get data
         :lon: float of longitude from which to get data
-        return: tuple of lat/lon snapped to RTMA grid, and weather data, which has datetime keys and str values
-        corresponding to weather observations
+        return: tuple of lat/lon snapped to RTMA grid, and weather data, which is pd.Series with datetime index
+        and str values corresponding to weather observations
         """
         super().get_data()
         (self.x_grid, self.y_grid), (self.snapped_lat, self.snapped_lon) = self.get_grid_x_y(lat, lon)
@@ -243,7 +243,7 @@ class RtmaGriddedDataset(GriddedDataset):
             rtma_dict = self.get_weather_dict(date_range, h, i == 0)
             ret_dict = {**ret_dict, **rtma_dict}
         ret_lat, ret_lon = cpc_lat_lon_to_conventional(self.snapped_lat, self.snapped_lon)
-        return (float(ret_lat), float(ret_lon)), ret_dict
+        return (float(ret_lat), float(ret_lon)), pd.Series(ret_dict)
 
     def get_grid_x_y(self, lat, lon):
         """
@@ -329,8 +329,8 @@ class SimpleGriddedDataset(GriddedDataset):
         args:
         :lat: float of latitude from which to get data
         :lon: float of longitude from which to get data
-        return: tuple of lat/lon snapped to dataset grid, and weather data, which has datetime or date keys and str values
-        corresponding to weather observations
+        return: tuple of lat/lon snapped to dataset grid, and weather data, is pd.Series with datetime or date index
+        and str values corresponding to weather observations
         """
         super().get_data()
         first_metadata = self.get_metadata(self.head)
@@ -345,7 +345,7 @@ class SimpleGriddedDataset(GriddedDataset):
             weather_dict = self.get_weather_dict(date_range, h, i == 0)
             ret_dict = {**ret_dict, **weather_dict}
         ret_lat, ret_lon = cpc_lat_lon_to_conventional(self.snapped_lat, self.snapped_lon)
-        return (float(ret_lat), float(ret_lon)), ret_dict
+        return (float(ret_lat), float(ret_lon)), pd.Series(ret_dict)
 
 class Era5LandWind(SimpleGriddedDataset):
     """

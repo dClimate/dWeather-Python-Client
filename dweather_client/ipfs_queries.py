@@ -373,6 +373,19 @@ class StationDataset(IpfsDataset):
         with gzip.open(self.get_file_object(file_name)) as gz:
             return gz.read().decode('utf-8')
 
+class ScoYieldDataset(IpfsDataset):
+    """
+    Instantiable class used for pulling in "ghcnd" or "ghcnd-imputed-daily" station data
+    """
+    @property
+    def dataset(self):
+        return "sco-yearly"
+
+    def get_data(self, commodity, state, county):
+        super().get_data()
+        file_name = f"{self.head}/{commodity}-{state}-{county}.csv"
+        return self.get_file_object(file_name).read().decode("utf-8")
+
 def pin_all_stations(client=None, station_dataset="ghcnd-imputed-daily"):
     """ Sync all stations locally."""
     heads = get_heads()

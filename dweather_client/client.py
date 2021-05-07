@@ -13,7 +13,7 @@ import pandas as pd
 from timezonefinder import TimezoneFinder
 from dweather_client import gridded_datasets
 from dweather_client.storms_datasets import IbtracsDataset, AtcfDataset, SimulatedStormsDataset
-from dweather_client.ipfs_queries import StationDataset
+from dweather_client.ipfs_queries import StationDataset, ScoYieldDataset
 from dweather_client.ipfs_errors import *
 import ipfshttpclient
 
@@ -214,3 +214,9 @@ def get_station_history(
         history[datetime.datetime.strptime(row[date_col], "%Y-%m-%d").date()] = datapoint
 
     return history
+
+def get_yield_history(commodity, state, county, ipfs_timeout=None):
+    try:
+        return  ScoYieldDataset(ipfs_timeout=ipfs_timeout).get_data(commodity, state, county)
+    except ipfshttpclient.exceptions.ErrorResponse:
+        raise ValueError("Invalid commodity/state/county code combination")

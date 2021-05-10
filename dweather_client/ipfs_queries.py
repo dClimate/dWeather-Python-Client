@@ -397,6 +397,49 @@ def pin_all_stations(client=None, station_dataset="ghcnd-imputed-daily"):
         if (client is None):
             session_client.close()
 
+class AemoPowerDataset(IpfsDataset):
+
+    @property
+    def dataset(self):
+        return "aemo-semihourly"
+
+    DATA_FILE_NAME = "aeomo_update.gz"
+
+    def get_date_range_from_metadata(self, h):
+        """
+        args:
+        :h: hash for ipfs directory containing metadata
+        return: list of [start_time, end_time]
+        """
+        metadata = self.get_metadata(h)
+        str_dates = (metadata["date_range"][0], metadata["date_range"][1])
+        return [datetime.datetime.fromisoformat(dt) for dt in str_dates]
+
+    def get_data(self):
+        super().get_data()
+        hashes = self.traverse_ll(self.head)
+        ret_dict = {}
+        for h in hashes:
+            date_range = self.get_date_range_from_metadata(h)
+            new_dict = self.extract_data_from_gz(date_range, h)
+            ret_dict = {**ret_dict, **new_dict}
+            return ret_dict
+
+    def extract_data_from_gz(self, date_range, ipfs_hash):
+        with gzip.open(self.get_file_object(f"{ipfs_hash}/{self.DATA_FILE_NAME}")) as gz:
+            cell_text = gz.read().decode('utf-8')
+        time_itr = date_range[0]
+        data_dict = {}
+        for year_data in cell_text.split('\n'):
+            for half_hour_data in year_data.split(','):
+                if not half_hour_data:
+                    demand, price = -9999, -9999
+                else:
+                    demand, price = half_hour_data.split("_")
+                data_dict[time_itr] = {"demand": float(demand), "price": float(price)}
+                time_itr = time_itr + datetime.timedelta(minutes=30)
+        return data_dict
+
 def cat_station_df(station_id, station_dataset="ghcnd-imputed-daily", client=None, pin=True, force_hash=None):
     """ Cat a given station's raw data as a pandas dataframe. """
     df = pd.read_csv(io.StringIO(\
@@ -409,6 +452,7 @@ def cat_station_df(station_id, station_dataset="ghcnd-imputed-daily", client=Non
         )
     ))
     return df.set_index(pd.DatetimeIndex(df['DATE']))
+
 
 def cat_station_csv(station_id, station_dataset="ghcnd-imputed-daily", client=None, pin=True, force_hash=None):
     """

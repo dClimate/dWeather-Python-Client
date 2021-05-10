@@ -423,7 +423,7 @@ class AemoPowerDataset(IpfsDataset):
             date_range = self.get_date_range_from_metadata(h)
             new_dict = self.extract_data_from_gz(date_range, h)
             ret_dict = {**ret_dict, **new_dict}
-            return ret_dict
+        return ret_dict
 
     def extract_data_from_gz(self, date_range, ipfs_hash):
         with gzip.open(self.get_file_object(f"{ipfs_hash}/{self.DATA_FILE_NAME}")) as gz:

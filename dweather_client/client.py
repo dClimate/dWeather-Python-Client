@@ -5,7 +5,6 @@ from dweather_client.http_queries import get_metadata, get_heads
 from dweather_client.aliases_and_units import \
     lookup_station_alias, STATION_UNITS_LOOKUP as SUL, METRIC_TO_IMPERIAL as M2I, IMPERIAL_TO_METRIC as I2M, UNIT_ALIASES
 from dweather_client.struct_utils import tupleify, convert_nans_to_none
-from dweather_client.df_loader import get_atcf_hurricane_df, get_historical_hurricane_df, get_simulated_hurricane_df
 import datetime, pytz, csv, inspect
 from astropy import units as u
 import numpy as np
@@ -30,6 +29,7 @@ def get_gridcell_history(
         also_return_snapped_coordinates=False,
         also_return_metadata=False,
         use_imperial_units=True,
+        convert_to_local_time=True,
         ipfs_timeout=None):
     """
     Get the historical timeseries data for a gridded dataset in a dictionary
@@ -69,18 +69,19 @@ def get_gridcell_history(
         raise DatasetError("No such dataset in dClimate")
 
     try:
-        (lat, lon), resp_series = GRIDDED_DATASETS[dataset](ipfs_timeout=ipfs_timeout).get_data(lat, lon)
+        (lat, lon), resp_series = dataset_obj.get_data(lat, lon)
 
     except (ipfshttpclient.exceptions.ErrorResponse, ipfshttpclient.exceptions.TimeoutError, KeyError, FileNotFoundError) as e:
         raise CoordinateNotFoundError("Invalid coordinate for dataset")
 
     # try a timezone-based transformation on the times in case we're using an hourly set.
-    try:
-        tf = TimezoneFinder()
-        local_tz = pytz.timezone(tf.timezone_at(lng=lon, lat=lat))
-        resp_series = resp_series.tz_localize("UTC").tz_convert(local_tz)
-    except (AttributeError, TypeError):  # datetime.date (daily sets) doesn't work with this, only datetime.datetime (hourly sets)
-        pass
+    if convert_to_local_time:
+        try:
+            tf = TimezoneFinder()
+            local_tz = pytz.timezone(tf.timezone_at(lng=lon, lat=lat))
+            resp_series = resp_series.tz_localize("UTC").tz_convert(local_tz)
+        except (AttributeError, TypeError):  # datetime.date (daily sets) doesn't work with this, only datetime.datetime (hourly sets)
+            pass
 
     if type(missing_value) == str:
         resp_series = resp_series.replace(missing_value, np.NaN).astype(float)

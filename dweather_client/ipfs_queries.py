@@ -386,24 +386,18 @@ class ScoYieldDataset(IpfsDataset):
         file_name = f"{self.head}/{commodity}-{state}-{county}.csv"
         return self.get_file_object(file_name).read().decode("utf-8")
 
-def pin_all_stations(client=None, station_dataset="ghcnd-imputed-daily"):
-    """ Sync all stations locally."""
-    heads = get_heads()
-    dataset_hash = heads[station_dataset]
-    session_client = ipfshttpclient.connect() if client is None else client
-    try:
-        session_client.pin.add(dataset_hash)
-    finally:
-        if (client is None):
-            session_client.close()
 
-class AemoPowerDataset(IpfsDataset):
-
+class AemoDataset(IpfsDataset):
+    """
+    Abstract class from which all AEMO datasets inherit
+    """
     @property
-    def dataset(self):
-        return "aemo-semihourly"
-
-    DATA_FILE_NAME = "aeomo_update.gz"
+    @abstractmethod
+    def data_file_name(self):
+        """
+        Name for all data files for dataset
+        """
+        pass
 
     def get_date_range_from_metadata(self, h):
         """
@@ -425,8 +419,21 @@ class AemoPowerDataset(IpfsDataset):
             ret_dict = {**ret_dict, **new_dict}
         return ret_dict
 
+
+class AemoPowerDataset(AemoDataset):
+    """
+    Instantiable class for AEMO Victoria power data
+    """
+    @property
+    def dataset(self):
+        return "aemo-semihourly"
+
+    @property
+    def data_file_name(self):
+        return "aeomo_update.gz"
+
     def extract_data_from_gz(self, date_range, ipfs_hash):
-        with gzip.open(self.get_file_object(f"{ipfs_hash}/{self.DATA_FILE_NAME}")) as gz:
+        with gzip.open(self.get_file_object(f"{ipfs_hash}/{self.data_file_name}")) as gz:
             cell_text = gz.read().decode('utf-8')
         time_itr = date_range[0]
         data_dict = {}
@@ -440,107 +447,26 @@ class AemoPowerDataset(IpfsDataset):
                 time_itr = time_itr + datetime.timedelta(minutes=30)
         return data_dict
 
-def cat_station_df(station_id, station_dataset="ghcnd-imputed-daily", client=None, pin=True, force_hash=None):
-    """ Cat a given station's raw data as a pandas dataframe. """
-    df = pd.read_csv(io.StringIO(\
-        cat_station_csv(
-            station_id,
-            station_dataset=station_dataset,
-            client=client, 
-            pin=pin,
-            force_hash=force_hash
-        )
-    ))
-    return df.set_index(pd.DatetimeIndex(df['DATE']))
 
-
-def cat_station_csv(station_id, station_dataset="ghcnd-imputed-daily", client=None, pin=True, force_hash=None):
+class AemoGasDataset(AemoDataset):
     """
-    Retrieve the contents of a station data csv file.
-    Args:
-        station_id (str): the id of the weather station
-        station_dataset(str): on of ["ghcnd", "ghcnd-imputed-daily"]
-    returns:
-        the contents of the station csv file as a string
+    Instantiable class for AEMO Victoria gas data
     """
-    if (force_hash is None):
-        all_hashes = get_heads()
-        dataset_hash = all_hashes[station_dataset]
-    else:
-        dataset_hash = force_hash
-    csv_hash = dataset_hash + '/' + station_id + ".csv.gz"
-    session_client = ipfshttpclient.connect() if client is None else client
-    try:
-        if pin:
-            session_client.pin.add(csv_hash)
-        csv = session_client.cat(csv_hash)
-        with gzip.GzipFile(fileobj=io.BytesIO(csv)) as zip_data:
-            return zip_data.read().decode("utf-8")
-    finally:
-        if (client is None):
-            session_client.close()
+    @property
+    def dataset(self):
+        return "edd-daily"
 
-def cat_icao_stations(station_dataset="ghcnd-imputed-daily", pin=True, force_hash=None):
-    """
-    For every station that has an icao code, load it into a dataframe and
-    return them all as a list.
-    """
-    station_ids = get_station_ids_with_icao()
-    return cat_station_df_list(station_ids, station_dataset=station_dataset, pin=pin, force_hash=force_hash)
+    @property
+    def data_file_name(self):
+        return "edd_update.gz"
 
-def cat_n_closest_station_dfs(lat, lon, n, station_dataset="ghcnd-imputed-daily", pin=True, force_hash=None):
-    """
-    Load the closest n stations to a given point into a list of dataframes.
-    """
-    if (force_hash is None):
-        metadata = cat_metadata(get_heads()[station_dataset])
-    else:
-        metadata = cat_metadata(force_hash)
-    station_ids = get_n_closest_station_ids(lat, lon, metadata, n)
-    return cat_station_df_list(station_ids, station_dataset=station_dataset, pin=pin, force_hash=force_hash)
-
-def cat_station_df_list(station_ids, station_dataset="ghcnd-imputed-daily", pin=True, force_hash=None):
-    batch_hash = force_hash
-    if (force_hash is None):
-        batch_hash = get_heads()[station_dataset]
-    metadata = cat_metadata(batch_hash, pin=pin)
-    station_content = []
-    with ipfshttpclient.connect() as client:
-        for station_id in station_ids:
-            logging.info("(%i of %i): Loading station %s from %s into DataFrame%s" % ( \
-                station_ids.index(station_id) + 1,
-                len(station_ids),
-                station_id, 
-                "dWeather head" if force_hash is None else "forced hash",
-                " and pinning to ipfs datastore" if pin else ""
-            ))
-            try:
-                station_content.append(cat_station_df( \
-                    station_id,
-                    station_dataset=station_dataset,
-                    client=client,
-                    pin=pin,
-                    force_hash=batch_hash
-            ))
-            except ipfshttpclient.exceptions.ErrorResponse:
-                logging.warning("Station %s not found" % station_id)
-                
-    return station_content 
-
-
-def cat_icao_stations(client=None, pin=True):
-    """ Get a list of station dataframes for all stations that have an icao"""
-    dfs = []
-    session_client = ipfshttpclient.connect() if client is None else client
-    try:
-        for station_id in get_station_ids_with_icao():
-            try:
-                print(station_id)
-                dfs.append(cat_station_csv(station_id, client=client, pin=pin))
-            except Exception as e:
-                print(e)
-                continue
-    finally:
-        if (client is None):
-            session_client.close()
-    return dfs
+    def extract_data_from_gz(self, date_range, ipfs_hash):
+        with gzip.open(self.get_file_object(f"{ipfs_hash}/{self.data_file_name}")) as gz:
+            cell_text = gz.read().decode('utf-8')
+        date_itr = date_range[0].date()
+        data_dict = {}
+        for year_data in cell_text.split('\n'):
+            for day_data in year_data.split(','):
+                data_dict[date_itr] = float(day_data)
+                date_itr = date_itr + datetime.timedelta(days=1)
+        return data_dict

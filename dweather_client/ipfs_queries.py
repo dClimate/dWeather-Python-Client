@@ -198,17 +198,29 @@ class PrismGriddedDataset(GriddedDataset):
         args:
         :ipfs_hash: hash in linked list from which to get data
         """
-        with tarfile.open(fileobj=self.get_file_object(f"{ipfs_hash}/{self.tar_name}")) as tar:
-            member = tar.getmember(self.gzip_name)
-            with gzip.open(tar.extractfile(member), "rb") as gz:
-                for i, line in enumerate(gz):
-                    day_of_year = datetime.date(1981 + i, 1, 1)
-                    data_list = line.decode('utf-8').strip().split(',')
-                    for point in data_list:
-                        if (day_of_year not in self.ret_dict) and point:
-                            self.ret_dict[day_of_year] = point
-                            day_of_year += datetime.timedelta(days=1)
-
+        try:
+            with tarfile.open(fileobj=self.get_file_object(f"{ipfs_hash}/{self.tar_name}")) as tar:
+                member = tar.getmember(self.gzip_name)
+                with gzip.open(tar.extractfile(member), "rb") as gz:
+                    for i, line in enumerate(gz):
+                        day_of_year = datetime.date(1981 + i, 1, 1)
+                        data_list = line.decode('utf-8').strip().split(',')
+                        for point in data_list:
+                            if (day_of_year not in self.ret_dict) and point:
+                                self.ret_dict[day_of_year] = point
+                                day_of_year += datetime.timedelta(days=1)
+                        
+        except ipfshttpclient.exceptions.ErrorResponse:
+            zip_file_name = self.tar_name[:-4] + '.zip'
+            with zipfile.ZipFile(self.get_file_object(f"{ipfs_hash}/{zip_file_name}")) as zi:
+                with gzip.open(zi.open(self.gzip_name), "rb") as gz:
+                    for i, line in enumerate(gz):
+                        day_of_year = datetime.date(1981 + i, 1, 1)
+                        data_list = line.decode('utf-8').strip().split(',')
+                        for point in data_list:
+                            if (day_of_year not in self.ret_dict) and point:
+                                self.ret_dict[day_of_year] = point
+                                day_of_year += datetime.timedelta(days=1)
 
 class RtmaGriddedDataset(GriddedDataset):
     """

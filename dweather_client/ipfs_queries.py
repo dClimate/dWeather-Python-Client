@@ -208,7 +208,7 @@ class PrismGriddedDataset(GriddedDataset):
                         for point in data_list:
                             if (day_of_year not in self.ret_dict) and point:
                                 self.ret_dict[day_of_year] = point
-                                day_of_year += datetime.timedelta(days=1)
+                            day_of_year += datetime.timedelta(days=1)
                         
         except ipfshttpclient.exceptions.ErrorResponse:
             zip_file_name = self.tar_name[:-4] + '.zip'
@@ -220,7 +220,7 @@ class PrismGriddedDataset(GriddedDataset):
                         for point in data_list:
                             if (day_of_year not in self.ret_dict) and point:
                                 self.ret_dict[day_of_year] = point
-                                day_of_year += datetime.timedelta(days=1)
+                            day_of_year += datetime.timedelta(days=1)
 
 class RtmaGriddedDataset(GriddedDataset):
     """

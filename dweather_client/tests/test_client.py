@@ -1,6 +1,9 @@
-from dweather_client.client import get_station_history, get_gridcell_history, get_tropical_storms, GRIDDED_DATASETS
+from dweather_client.client import get_station_history, get_gridcell_history, get_tropical_storms,\
+    get_yield_history, get_power_history, get_gas_history, GRIDDED_DATASETS
 from dweather_client.aliases_and_units import snotel_to_ghcnd
 import numpy as np
+import pandas as pd
+from io import StringIO
 import datetime
 from astropy import units as u
 from astropy.units import imperial
@@ -9,11 +12,12 @@ import pytest
 
 DAILY_DATASETS = [ds for ds in GRIDDED_DATASETS if "daily" in ds]
 HOURLY_DATASETS = [ds for ds in GRIDDED_DATASETS if "hourly" in ds]
+IPFS_TIMEOUT = 20
 
 def test_get_gridcell_history_units():
     for s in DAILY_DATASETS + HOURLY_DATASETS:
         for use_imperial in [True, False]:
-            res = get_gridcell_history(37, -83, s, use_imperial_units=use_imperial)
+            res = get_gridcell_history(37, -83, s, use_imperial_units=use_imperial, ipfs_timeout=IPFS_TIMEOUT)
             for k in res:
                 if res[k] is not None:
                     if use_imperial and ("precip" in s or "chirps" in s):
@@ -40,73 +44,99 @@ def test_get_gridcell_history_snap():
     for s in DAILY_DATASETS:
         for lat in lat_range:
             for lon in lon_range:
-                res = get_gridcell_history(lat, lon, s, also_return_snapped_coordinates=True, also_return_metadata=True)
+                res = get_gridcell_history(lat, lon, s, also_return_snapped_coordinates=True, also_return_metadata=True, ipfs_timeout=IPFS_TIMEOUT)
                 resolution, (snapped_lat, snapped_lon) = res[1]["metadata"]["resolution"], res[2]["snapped to"]
                 assert abs(snapped_lat - lat) <= resolution
                 assert abs(snapped_lon - lon) <= resolution
 
 def test_get_gridcell_history_date_range():
     for s in DAILY_DATASETS:
-        res = get_gridcell_history(37, -83, s)
+        res = get_gridcell_history(37, -83, s, ipfs_timeout=IPFS_TIMEOUT)
         first_date, last_date = sorted(res)[0], sorted(res)[-1]
         diff = last_date - first_date
         assert diff.days == len(res) - 1
     for s in HOURLY_DATASETS:
-        res = get_gridcell_history(37, -83, s)
+        res = get_gridcell_history(37, -83, s, ipfs_timeout=IPFS_TIMEOUT)
         first_date, last_date = sorted(res)[0], sorted(res)[-1]
         time_diff = last_date - first_date
         time_diff_hours = time_diff.days * 24 + time_diff.seconds // 3600
         assert time_diff_hours + 1 == len(res)
 
 def test_get_gridcell_nans():
-    prism_r = get_gridcell_history(31.083, -120, "prismc-precip-daily")
+    prism_r = get_gridcell_history(31.083, -120, "prismc-precip-daily", ipfs_timeout=IPFS_TIMEOUT)
     assert prism_r[datetime.date(1981, 8, 29)] is None
 
-    rtma_r = get_gridcell_history(40.694754071664825, -73.93445989160746, "rtma_pcp-hourly")
+    rtma_r = get_gridcell_history(40.694754071664825, -73.93445989160746, "rtma_pcp-hourly", ipfs_timeout=IPFS_TIMEOUT)
     tz = next(iter(rtma_r)).tzinfo
     assert rtma_r[datetime.datetime(2011, 1, 29, 17, tzinfo=tz)] is None
 
 def test_station():
-    get_station_history('USW00014820', 'SNOW')
-    get_station_history(snotel_to_ghcnd(838, 'CO'), 'snow water equivalent')
-    get_station_history('USW00014820', 'TMAX', dataset='ghcnd-imputed-daily')
-    get_station_history('USW00014820', 'TMIN', dataset='ghcnd-imputed-daily')
-    get_station_history(snotel_to_ghcnd(602, 'CO'), 'WESD')#, return_result_as_dataframe=True)
+    get_station_history('USW00014820', 'SNOW', ipfs_timeout=IPFS_TIMEOUT)
+    get_station_history(snotel_to_ghcnd(838, 'CO'), 'snow water equivalent', ipfs_timeout=IPFS_TIMEOUT)
+    get_station_history('USW00014820', 'TMAX', dataset='ghcnd-imputed-daily', ipfs_timeout=IPFS_TIMEOUT)
+    get_station_history('USW00014820', 'TMIN', dataset='ghcnd-imputed-daily', ipfs_timeout=IPFS_TIMEOUT)
+    get_station_history(snotel_to_ghcnd(602, 'CO'), 'WESD', ipfs_timeout=IPFS_TIMEOUT)
 
 def test_storms_bad_args():
     with pytest.raises(ValueError):
-        get_tropical_storms('simulated', 'NI', radius=100)
+        get_tropical_storms('simulated', 'NI', radius=100, ipfs_timeout=IPFS_TIMEOUT)
     with pytest.raises(ValueError):
-        get_tropical_storms('simulated', 'NI', lat=100)
+        get_tropical_storms('simulated', 'NI', lat=100, ipfs_timeout=IPFS_TIMEOUT)
     with pytest.raises(ValueError):
-        get_tropical_storms('simulated', 'NI', radius=500, lat=21, lon=65, min_lat=21, max_lat=22, min_lon=65, max_lon=66)
+        get_tropical_storms('simulated', 'NI', radius=500, lat=21, lon=65, min_lat=21, max_lat=22, min_lon=65, max_lon=66, ipfs_timeout=IPFS_TIMEOUT)
 
 def test_simulated_storms():
-    df_all_ni = get_tropical_storms('simulated', 'NI')
-    df_subset_circle_ni = get_tropical_storms('simulated', 'NI', radius=500, lat=21, lon=65)
-    df_subset_box_ni = get_tropical_storms('simulated', 'NI', min_lat=21, max_lat=22, min_lon=65, max_lon=66)
+    df_all_ni = get_tropical_storms('simulated', 'NI', ipfs_timeout=IPFS_TIMEOUT)
+    df_subset_circle_ni = get_tropical_storms('simulated', 'NI', radius=500, lat=21, lon=65, ipfs_timeout=IPFS_TIMEOUT)
+    df_subset_box_ni = get_tropical_storms('simulated', 'NI', min_lat=21, max_lat=22, min_lon=65, max_lon=66, ipfs_timeout=IPFS_TIMEOUT)
 
     assert len(df_all_ni.columns) == len(df_subset_circle_ni.columns) == len(df_subset_box_ni.columns) == 10
     assert len(df_subset_circle_ni) < len(df_all_ni)
     assert len(df_subset_box_ni) < len(df_all_ni)
 
 def test_atcf_storms():
-    df_all_al = get_tropical_storms('atcf', 'AL')
-    df_subset_circle_al = get_tropical_storms('atcf', 'AL', radius=50, lat=26, lon=-90)
-    df_subset_box_al = get_tropical_storms('atcf', 'AL', min_lat=26, max_lat=26.5, min_lon=-91, max_lon=-90.5)
+    df_all_al = get_tropical_storms('atcf', 'AL', ipfs_timeout=IPFS_TIMEOUT)
+    df_subset_circle_al = get_tropical_storms('atcf', 'AL', radius=50, lat=26, lon=-90, ipfs_timeout=IPFS_TIMEOUT)
+    df_subset_box_al = get_tropical_storms('atcf', 'AL', min_lat=26, max_lat=26.5, min_lon=-91, max_lon=-90.5, ipfs_timeout=IPFS_TIMEOUT)
 
     assert len(df_all_al.columns) == len(df_subset_circle_al.columns) == len(df_subset_box_al.columns) == 37
     assert len(df_subset_circle_al) < len(df_all_al)
     assert len(df_subset_box_al) < len(df_all_al)
 
 def test_historical_storms():
-    df_all_na = get_tropical_storms('historical', 'NA')
-    df_subset_circle_na = get_tropical_storms('historical', 'NA', radius=50, lat=26, lon=-90)
-    df_subset_box_na = get_tropical_storms('historical', 'NA', min_lat=26, max_lat=26.5, min_lon=-91, max_lon=-90.5)
+    df_all_na = get_tropical_storms('historical', 'NA', ipfs_timeout=IPFS_TIMEOUT)
+    df_subset_circle_na = get_tropical_storms('historical', 'NA', radius=50, lat=26, lon=-90, ipfs_timeout=IPFS_TIMEOUT)
+    df_subset_box_na = get_tropical_storms('historical', 'NA', min_lat=26, max_lat=26.5, min_lon=-91, max_lon=-90.5, ipfs_timeout=IPFS_TIMEOUT)
 
     assert len(df_all_na.columns) == len(df_subset_circle_na.columns) == len(df_subset_box_na.columns) == 163
     assert len(df_subset_circle_na) < len(df_all_na)
     assert len(df_subset_box_na) < len(df_all_na)
+
+def test_yields():
+    df = pd.read_csv(StringIO(get_yield_history("0041", "12", "073", ipfs_timeout=IPFS_TIMEOUT)))
+    assert len(df.columns) == 10
+    assert len(df) >= 20
+
+def test_power():
+    power_dict = get_power_history(ipfs_timeout=IPFS_TIMEOUT)
+    dict_length = len(power_dict) 
+    assert dict_length >= 393885
+
+    first_date, last_date = sorted(power_dict)[0], sorted(power_dict)[-1]
+    time_diff = last_date - first_date
+    time_diff_hours = time_diff.days * 48 + time_diff.seconds // 1800
+
+    assert time_diff_hours + 1 == len(power_dict) 
+    
+def test_gas():
+    power_dict = get_gas_history(ipfs_timeout=IPFS_TIMEOUT)
+    dict_length = len(power_dict) 
+    assert dict_length >= 6719
+
+    first_date, last_date = sorted(power_dict)[0], sorted(power_dict)[-1]
+    date_diff = last_date - first_date
+
+    assert date_diff.days + 1 == len(power_dict) 
 
 ''' TODO some tests for RTMA behavior to be integrated into the new system
 def test_lat_lon_to_grid():
@@ -148,22 +178,4 @@ def test_rtma_lookup():
         rev_lookup_x, rev_lookup_y = reverse_lookup['2016-01-06T14:00:00']['lon'][rev_lookup_lon]
         assert (rev_lookup_x, rev_lookup_y) == reverse_lookup['2016-01-06T14:00:00']['lon'][rev_lookup_lon]
         assert lookup['2016-01-06T14:00:00'][1][rev_lookup_y][rev_lookup_x] == rev_lookup_lon
-
-'''
-
-
-
-
-
-'''
-def test_storm(): TODO
-   atcf_btk-seasonal
-   ibtracs-tropical-storm
-   storm-simulated-hurricane
-   teleconnections-el-nino-monthly
-
-def test_yield(): TODO
-    nass_corn-yearly
-    nass_soybeans-yearly
-    sco-yearly
 '''

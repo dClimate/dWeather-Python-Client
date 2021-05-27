@@ -14,7 +14,7 @@ from io import BytesIO
 
 
 METADATA_FILE = "metadata.json"
-GATEWAY_IPFS_ID = "/ip4/134.122.126.13/tcp/4001/p2p/12D3KooWM8nN6VbUka1NeuKnu9xcKC56D17ApAVRDyfYNytzUsqG"
+GATEWAY_IPFS_ID = "/ip4/198.211.104.50/tcp/4001/p2p/QmWsAFSDajELyneR7LkMsgfaRk2ib1y3SEU7nQuXSNPsQV"
 
 class IpfsDataset(ABC):
     """

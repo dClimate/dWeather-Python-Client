@@ -12,7 +12,7 @@ import pytest
 
 DAILY_DATASETS = [ds for ds in GRIDDED_DATASETS if "daily" in ds]
 HOURLY_DATASETS = [ds for ds in GRIDDED_DATASETS if "hourly" in ds]
-IPFS_TIMEOUT = 20
+IPFS_TIMEOUT = 60
 
 def test_get_gridcell_history_units():
     for s in DAILY_DATASETS + HOURLY_DATASETS:

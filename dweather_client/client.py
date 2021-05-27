@@ -217,12 +217,27 @@ def get_station_history(
     return history
 
 def get_yield_history(commodity, state, county, ipfs_timeout=None):
+    """
+    return:
+        string containing yield data in csv format
+    args:
+        commodity (str), 4 digit code
+        state (str), 2 digit code
+        county (str), 3 digit code
+    Note:
+        You can look up code values at:
+        https://webapp.rma.usda.gov/apps/RIRS/AreaPlanHistoricalYields.aspx
+    """
     try:
-        return  ScoYieldDataset(ipfs_timeout=ipfs_timeout).get_data(commodity, state, county)
+        return ScoYieldDataset(ipfs_timeout=ipfs_timeout).get_daeta(commodity, state, county)
     except ipfshttpclient.exceptions.ErrorResponse:
         raise ValueError("Invalid commodity/state/county code combination")
 
 def get_power_history(ipfs_timeout=None):
+    """
+    return:
+        dict with datetime keys and values that are two member dicts with keys 'demand' and 'price'
+    """
     return AemoPowerDataset(ipfs_timeout=ipfs_timeout).get_data()
 
 def get_gas_history(ipfs_timeout=None):

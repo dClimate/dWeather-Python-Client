@@ -58,3 +58,6 @@ class Era5Wind100mUHourly(SimpleGriddedDataset):
 
 class Era5Wind100mVHourly(SimpleGriddedDataset):
     dataset = "era5_wind_100m_v-hourly"
+
+class Era5VolumetricSoilWater(SimpleGriddedDataset):
+    dataset = "era5_volumetric_soil_water_layer_1-hourly"

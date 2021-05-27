@@ -4,7 +4,7 @@ Queries associated with the ipfs protocol option.
 
 from abc import ABC, abstractmethod
 from collections import deque
-import ipfshttpclient, json, datetime, io, os, tarfile, gzip, pickle, zipfile
+import ipfshttpclient, json, datetime, os, tarfile, gzip, pickle, zipfile
 from dweather_client.ipfs_errors import *
 from dweather_client.grid_utils import conventional_lat_lon_to_cpc, cpc_lat_lon_to_conventional
 from dweather_client.struct_utils import find_closest_lat_lon
@@ -14,7 +14,7 @@ from io import BytesIO
 
 
 METADATA_FILE = "metadata.json"
-GATEWAY_IPFS_ID = "/ip4/198.211.104.50/tcp/4001/p2p/QmWsAFSDajELyneR7LkMsgfaRk2ib1y3SEU7nQuXSNPsQV"
+GATEWAY_IPFS_ID = "/ip4/134.122.126.13/tcp/4001/p2p/12D3KooWM8nN6VbUka1NeuKnu9xcKC56D17ApAVRDyfYNytzUsqG"
 
 class IpfsDataset(ABC):
     """

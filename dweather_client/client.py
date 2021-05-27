@@ -229,7 +229,7 @@ def get_yield_history(commodity, state, county, ipfs_timeout=None):
         https://webapp.rma.usda.gov/apps/RIRS/AreaPlanHistoricalYields.aspx
     """
     try:
-        return ScoYieldDataset(ipfs_timeout=ipfs_timeout).get_daeta(commodity, state, county)
+        return ScoYieldDataset(ipfs_timeout=ipfs_timeout).get_data(commodity, state, county)
     except ipfshttpclient.exceptions.ErrorResponse:
         raise ValueError("Invalid commodity/state/county code combination")
 

@@ -20,7 +20,9 @@ def test_get_gridcell_history_units():
             res = get_gridcell_history(37, -83, s, use_imperial_units=use_imperial, ipfs_timeout=IPFS_TIMEOUT)
             for k in res:
                 if res[k] is not None:
-                    if use_imperial and ("precip" in s or "chirps" in s):
+                    if "volumetric" in s:
+                        assert res[k].unit == u.dimensionless_unscaled
+                    elif use_imperial and ("precip" in s or "chirps" in s):
                         assert res[k].unit == imperial.inch
                     elif use_imperial and s == "rtma_pcp-hourly":
                         assert res[k].unit == imperial.pound / imperial.foot**2

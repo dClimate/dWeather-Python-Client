@@ -22,6 +22,7 @@ UNIT_ALIASES = {
 }
 
 METRIC_TO_IMPERIAL = {
+    u.m: lambda q: q.to(imperial.inch),
     u.mm: lambda q: q.to(imperial.inch),
     u.deg_C: lambda q: q.to(imperial.deg_F, equivalencies=u.temperature()),
     u.K: lambda q: q.to(imperial.deg_F, equivalencies=u.temperature()),

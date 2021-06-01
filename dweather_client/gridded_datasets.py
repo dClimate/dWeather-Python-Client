@@ -47,6 +47,9 @@ class ChirpscFinal25Daily(SimpleGriddedDataset):
 class ChirpscPrelim05Daily(SimpleGriddedDataset):
     dataset = "chirpsc_prelim_05-daily"
 
+class Era5LandPrecipHourly(SimpleGriddedDataset):
+    dataset = "era5_land_precip-hourly"
+
 class Era5LandWindUHourly(Era5LandWind):
     dataset = "era5_land_wind_u-hourly"
 
@@ -58,6 +61,9 @@ class Era5Wind100mUHourly(SimpleGriddedDataset):
 
 class Era5Wind100mVHourly(SimpleGriddedDataset):
     dataset = "era5_wind_100m_v-hourly"
+
+class Era5SurfaceRunoffHourly(SimpleGriddedDataset):
+    dataset = "era5_surface_runoff-hourly"
 
 class Era5VolumetricSoilWater(SimpleGriddedDataset):
     dataset = "era5_volumetric_soil_water_layer_1-hourly"

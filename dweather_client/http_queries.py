@@ -60,6 +60,18 @@ def get_metadata(hash_str, url=GATEWAY_URL):
     r.raise_for_status()
     return r.json()
 
+def get_stations_metadata(hash_str, url=GATEWAY_URL):
+    """
+    Get the stations file for a given station dataset hash.
+    Args:
+        url (str): the url of the IPFS server
+        hash_str (str): the hash of the ipfs dataset
+    """
+    stations_url = "%s/ipfs/%s/stations.json" % (url, hash_str)
+    r = requests.get(stations_url)
+    r.raise_for_status()
+    return r.json()
+
 def get_hash_cell(hash_str, coord_str, url=GATEWAY_URL):
     """
     Read a text file from the gateway.

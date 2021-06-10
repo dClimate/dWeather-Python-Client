@@ -14,6 +14,9 @@ class PrismcTminDaily(PrismGriddedDataset):
 class PrismcPrecipDaily(PrismGriddedDataset):
     dataset = "prismc-precip-daily"
 
+class RtmaDewPointHourly(RtmaGriddedDataset):
+    dataset = "rtma_dew_point-hourly"
+
 class RtmaPcpHourly(RtmaGriddedDataset):
     dataset = "rtma_pcp-hourly"
 
@@ -52,6 +55,9 @@ class Era5LandWindUHourly(Era5LandWind):
 
 class Era5LandWindVHourly(Era5LandWind):
     dataset = "era5_land_wind_v-hourly"
+
+class Era5SurfaceRunoffHourly(SimpleGriddedDataset):
+    dataset = "era5_surface_runoff-hourly"
 
 class Era5Wind100mUHourly(SimpleGriddedDataset):
     dataset = "era5_wind_100m_u-hourly"

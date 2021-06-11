@@ -18,7 +18,8 @@ UNIT_ALIASES = {
     "mm": u.mm,
     "degC": u.deg_C,
     "m s**-1": u.m / u.s,
-    "degF": imperial.deg_F
+    "degF": imperial.deg_F,
+    "vegetative health score": u.dimensionless_unscaled
 }
 
 METRIC_TO_IMPERIAL = {

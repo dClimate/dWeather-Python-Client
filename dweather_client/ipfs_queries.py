@@ -385,19 +385,32 @@ class StationDataset(IpfsDataset):
         with gzip.open(self.get_file_object(file_name)) as gz:
             return gz.read().decode('utf-8')
 
-class ScoYieldDataset(IpfsDataset):
+class YieldDatasets(IpfsDataset):
     """
-    Instantiable class used for pulling in "ghcnd" or "ghcnd-imputed-daily" station data
+    Instantiable class used for pulling in sco and rma transitional yield data
     """
     @property
     def dataset(self):
-        return "sco-yearly"
+        return self._dataset
+
+    def __init__(self, dataset, ipfs_timeout=None):
+        if dataset not in {
+            "sco-yearly",
+            "rmasco_imputed-yearly",
+            "rma_t_yield-single-value",
+            "rma_t_yield_imputed-single-value"
+        }:
+            raise ValueError("Invalid yield dataset")
+        super().__init__(ipfs_timeout=ipfs_timeout)
+        self._dataset = dataset
 
     def get_data(self, commodity, state, county):
         super().get_data()
-        file_name = f"{self.head}/{commodity}-{state}-{county}.csv"
+        if "imputed" in self.dataset:
+            file_name = f"{self.head}/{state}-{county}.csv"
+        else:
+            file_name = f"{self.head}/{commodity}-{state}-{county}.csv"
         return self.get_file_object(file_name).read().decode("utf-8")
-
 
 class AemoDataset(IpfsDataset):
     """
@@ -430,7 +443,6 @@ class AemoDataset(IpfsDataset):
             new_dict = self.extract_data_from_gz(date_range, h)
             ret_dict = {**ret_dict, **new_dict}
         return ret_dict
-
 
 class AemoPowerDataset(AemoDataset):
     """

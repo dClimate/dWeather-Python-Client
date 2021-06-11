@@ -12,7 +12,7 @@ import pandas as pd
 from timezonefinder import TimezoneFinder
 from dweather_client import gridded_datasets
 from dweather_client.storms_datasets import IbtracsDataset, AtcfDataset, SimulatedStormsDataset
-from dweather_client.ipfs_queries import StationDataset, ScoYieldDataset, AemoPowerDataset, AemoGasDataset
+from dweather_client.ipfs_queries import StationDataset, YieldDatasets, AemoPowerDataset, AemoGasDataset
 from dweather_client.ipfs_errors import *
 import ipfshttpclient
 
@@ -216,7 +216,7 @@ def get_station_history(
 
     return history
 
-def get_yield_history(commodity, state, county, ipfs_timeout=None):
+def get_yield_history(commodity, state, county, dataset="sco-yearly", ipfs_timeout=None):
     """
     return:
         string containing yield data in csv format
@@ -228,8 +228,10 @@ def get_yield_history(commodity, state, county, ipfs_timeout=None):
         You can look up code values at:
         https://webapp.rma.usda.gov/apps/RIRS/AreaPlanHistoricalYields.aspx
     """
+    if "imputed" in dataset and commodity != "0081":
+        raise ValueError("Imputed currently only available for soybeans (commodity code 0081)")
     try:
-        return ScoYieldDataset(ipfs_timeout=ipfs_timeout).get_data(commodity, state, county)
+        return YieldDatasets(dataset, ipfs_timeout=ipfs_timeout).get_data(commodity, state, county)
     except ipfshttpclient.exceptions.ErrorResponse:
         raise ValueError("Invalid commodity/state/county code combination")
 

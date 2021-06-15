@@ -50,6 +50,9 @@ class ChirpscFinal25Daily(SimpleGriddedDataset):
 class ChirpscPrelim05Daily(SimpleGriddedDataset):
     dataset = "chirpsc_prelim_05-daily"
 
+class Era5LandPrecipHourly(SimpleGriddedDataset):
+    dataset = "era5_land_precip-hourly"
+
 class Era5LandWindUHourly(Era5LandWind):
     dataset = "era5_land_wind_u-hourly"
 

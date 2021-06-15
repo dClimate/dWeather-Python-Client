@@ -1,4 +1,16 @@
 import math
+import numpy as np
+
+def convert_nans_to_none(quantity):
+    if np.isnan(quantity.value):
+        return None
+    else:
+        return quantity
+
+def tupleify(args):
+    if isinstance(args, tuple):
+        return args
+    return (args,)
 
 def tupleify(args):
     if isinstance(args, tuple):

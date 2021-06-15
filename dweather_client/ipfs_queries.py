@@ -2,384 +2,495 @@
 Queries associated with the ipfs protocol option.
 """
 
-import ipfshttpclient, json, requests, datetime, io, gzip
+from abc import ABC, abstractmethod
+from collections import deque
+import ipfshttpclient, json, datetime, os, tarfile, gzip, pickle, zipfile
 from dweather_client.ipfs_errors import *
-from dweather_client.utils import listify_period
-from dweather_client.df_utils import get_station_ids_with_icao
-import dweather_client.ipfs_datasets
-import pandas as pd
+from dweather_client.grid_utils import conventional_lat_lon_to_cpc, cpc_lat_lon_to_conventional
+from dweather_client.struct_utils import find_closest_lat_lon
 from dweather_client.http_queries import get_heads
+import pandas as pd
+from io import BytesIO
 
-def cat_metadata(hash_str, client=None, pin=True):
+
+METADATA_FILE = "metadata.json"
+GATEWAY_IPFS_ID = "/ip4/134.122.126.13/tcp/4001/p2p/12D3KooWM8nN6VbUka1NeuKnu9xcKC56D17ApAVRDyfYNytzUsqG"
+
+class IpfsDataset(ABC):
     """
-    Get the metadata file for a given hash.
-    Args:
-        url (str): the url of the IPFS server
-        hash_str (str): the hash of the ipfs dataset
-    Returns (example metadata.json):
-    
-        {
-            'date range': [
-                '1981/01/01',
-                '2019/07/31'
-            ],
-            'entry delimiter': ',',
-            'latitude range': [
-                -49.975, 49.975
-            ],
-            'longitude range': [
-                -179.975, 179.975]
-            ,
-            'name': 'CHIRPS .05 Daily Full Set Uncompressed',
-            'period': 'daily',
-            'precision': 0.01,
-            'resolution': 0.05,
-            'unit of measurement': 'mm',
-            'year delimiter': '\n'
-        }
+    Base class for handling requests for all IPFS datasets
     """
-    session_client = ipfshttpclient.connect() if client is None else client
-    try:
-        if pin:
-            session_client.pin.add(hash_str + "/metadata.json")
-        metadata = session_client.cat(hash_str + "/metadata.json")
-    finally: 
-        if (client is None):
-            session_client.close()
-    return json.loads(metadata)
-
-
-def cat_hash_cell(hash_str, coord_str, client=None):
-    if (client is None):
-        with ipfshttpclient.connect() as client:
-            return client.cat(hash_str + '/' + coord_str)
-    else:
-        return client.cat(hash_str + '/' + coord_str)
-
-def cat_zipped_hash_cell(url, hash_str, coord_str, client=None):
-    """
-    Read a text file on the ipfs server compressed with gzip.
-    Args:
-        url (str): the url of the ipfs server
-        hash_str (str): the hash of the dataset
-        coord_str (str): the text file coordinate name e.g. 45.000_-96.000
-    Returns:
-        the contents of the file as a string
-    """
-    if (client is None):
-        with ipfshttpclient.connect() as client:
-            cell = client.cat(hash_str + '/' + coord_str + ".gz")
-            with gzip.GzipFile(fileobj=io.BytesIO(cell)) as zip_data:
-                return zip_data.read().decode("utf-8")
-    else:
-        cell = client.cat(hash_str + '/' + coord_str + ".gz")
-        with gzip.GzipFile(fileobj=io.BytesIO(cell)) as zip_data:
-            return zip_data.read().decode("utf-8")
-
-
-def cat_dataset_cell(lat, lon, dataset_revision, client=None):
-    """ 
-    Retrieve the text of a grid cell data file for a given lat lon and dataset.
-    Args:
-        lat (float): the latitude of the grid cell, to 3 decimals
-        lon (float): the longitude of the grid cell, to 3 decimals
-    Returns:
-        A tuple (json, str) of the dataset metadata file and the grid cell data text
-    Raises: 
-        DatasetError: If no matching dataset found on server
-        InputOutOfRangeError: If the lat/lon is outside the dataset range in metadata
-        CoordinateNotFoundError: If the lat/lon coordinate is not found on server
-    """
-    all_hashes = get_heads()
-    if dataset_revision in all_hashes:
-        dataset_hash = all_hashes[dataset_revision]
-    else:
-        raise DatasetError('{} not found on server'.format(dataset_revision))
-
-    metadata = cat_metadata(dataset_hash, client)
-    min_lat, max_lat = sorted(metadata["latitude range"])
-    min_lon, max_lon = sorted(metadata["longitude range"])
-    if lat < min_lat or lat > max_lat:
-        raise InputOutOfRangeError("Latitude {} out of dataset revision range [{:.3f}, {:.3f}] for {}".format(lat, min_lat, max_lat, dataset_revision))
-    if  lon < min_lon or lon > max_lon:
-        raise InputOutOfRangeError("Longitude {} out of dataset revision range [{:.3f}, {:.3f}] for {}".format(lon, min_lon, max_lon, dataset_revision))
-    coord_str = "{:.3f}_{:.3f}".format(lat,lon)
-    try:
-        if "compression" in metadata and metadata["compression"] == "gzip":
-            text_data = cat_zipped_hash_cell(GATEWAY_URL, dataset_hash, coord_str, client=client)
-        else:
-            text_data = cat_hash_cell(dataset_hash, coord_str, client=client)
-        return metadata, text_data
-    except requests.exceptions.HTTPError as e:
-        raise CoordinateNotFoundError('Coordinate ({}, {}) not found  on ipfs in dataset revision {}'.format(lat, lon, dataset_revision))
-
-
-
-def cat_rainfall_dict(lat, lon, dataset_revision, return_metadata=False, client=None):
-    """ 
-    Build a dict of rainfall data for a given grid cell.
-    Args:
-        lat (float): the latitude of the grid cell, to 3 decimals
-        lon (float): the longitude of the grid cell, to 3 decimals
-    Returns:
-        a dict ({datetime.date: float}) of datetime dates and the corresponding rainfall in mm for that date
-    Raises:
-        DatasetError: If no matching dataset found on server
-        InputOutOfRangeError: If the lat/lon is outside the dataset range in metadata
-        CoordinateNotFoundError: If the lat/lon coordinate is not found on server
-        DataMalformedError: If the grid cell file can't be parsed as rainfall data
-    """
-    metadata, rainfall_text = cat_dataset_cell(lat, lon, dataset_revision, client=client)
-    dataset_start_date = datetime.datetime.strptime(metadata['date range'][0], "%Y/%m/%d").date()
-    dataset_end_date = datetime.datetime.strptime(metadata['date range'][1], "%Y/%m/%d").date()
-    timedelta = dataset_end_date - dataset_start_date
-    days_in_record = timedelta.days + 1 # we have both the start and end date in the dataset so its the difference + 1
-    try:
-        rainfall_text = rainfall_text.decode()
-    except:
+    @property
+    @abstractmethod
+    def dataset(self):
+        """
+        Dataset name must be overwritten by leaf class in order to be instantiable
+        """
         pass
-    day_strs = rainfall_text.replace(',', ' ').split()
-    if (len(day_strs) != days_in_record):
-        raise DataMalformedError ("Number of days in data file does not match the provided metadata")
-    rainfall_dict = {}
-    for i in range(days_in_record):
-        if day_strs[i] == metadata["missing value"]:
-            rainfall_dict[dataset_start_date + datetime.timedelta(days=i)] = None
-        else:
-            rainfall_dict[dataset_start_date + datetime.timedelta(days=i)] = float(day_strs[i])
-    if return_metadata:
-        return metadata, rainfall_dict
-    else:
-        return rainfall_dict
-  
 
-def cat_rev_rainfall_dict(lat, lon, dataset, desired_end_date, latest_rev):
-    """
-    Build a dictionary of rainfall data. Include as much of the most accurate, final data as possible. Start by buidling from the most accurate data,
-    then keep appending data from more recent/less accurate versions of the dataset until we run out or reach the end date.
+    def __init__(self, ipfs_timeout=None):
+        """
+        args:
+        :ipfs_timeout: Time IPFS should wait for response before throwing exception. If None, will assume that
+        code is running in an environment containing all datasets (such as gateway)
+        """
+        self.on_gateway = not ipfs_timeout
+        self.ipfs = ipfshttpclient.connect(timeout=ipfs_timeout)
 
-    This will not throw an error if there are no revisions with data available, it will simply return what is available.
-    Args:
-        lat (float): the grid cell latitude
-        lon (float): the grid cell longitude
-        dataset (str): the name of the dataset, e.g., "chirps_05-daily" on hashes.json
-        desired_end_date (datetime.date): the last day of data needed.
-        latest_rev (str): the least accurate revision of the dataset that is considered final
-    Returns:
-        tuple:
-            a dict ({datetime.date: float}) of datetime dates and the corresponding rainfall in mm for that date
-            bool is_final: if all data up to desired end date is final, this will be true
-    """
-    all_rainfall = {}
-    is_final = True
-    with ipfshttpclient.connect() as client:
-        # Build the rainfall from the most accurate revision of the dataset to the least
-        for dataset_revision in dweather_client.ipfs_datasets.datasets[dataset]:
-            additional_rainfall = cat_rainfall_dict(lat, lon, dataset_revision, client=client)
-            all_dates = list(all_rainfall) + list(additional_rainfall)
-            all_rainfall = {date: all_rainfall[date] if date in all_rainfall else additional_rainfall[date] for date in all_dates}
-            # stop when we have the desired end date in the dataset
-            if desired_end_date in all_rainfall:
-                return all_rainfall, is_final
-            # data is no longer final after we pass the specified version
-            if dataset_revision == latest_rev:
-                is_final = False
+    def get_metadata(self, h):
+        """
+        args:
+        :h: dClimate IPFS hash from which to get metadata
+        return:
+            metadata as dict
+        """
+        if not self.on_gateway:
+            self.ipfs._client.request('/swarm/connect', (GATEWAY_IPFS_ID,))
+        metadata = self.ipfs.cat(f"{h}/{METADATA_FILE}").decode('utf-8')
+        return json.loads(metadata)
 
-    # If we don't reach the desired dataset, return all data.
-    return all_rainfall, is_final
+    def get_file_object(self, f):
+        """
+        args:
+        :h: dClimate IPFS hash from which to get data. Must point to a file, not a directory
+        return:
+            content of file as file-like bytes object
+        """
+        if not self.on_gateway:
+            self.ipfs._client.request('/swarm/connect', (GATEWAY_IPFS_ID,))
+        return BytesIO(self.ipfs.cat(f))
 
-
-def cat_temperature_dict(lat, lon, dataset_revision, return_metadata=False, client=None):
-    """
-    Build a dict of temperature data for a given grid cell.
-    Args:
-        lat (float): the latitude of the grid cell, to 3 decimals
-        lon (float): the longitude of the grid cell, to 3 decimals
-    Returns:
-        tuple (highs, lows) of dicts
-        highs: dict ({datetime.date: float}) of datetime dates and the corresponding high temperature in degress F
-        lows: dict ({datetime.date: float}) of datetime dates and the corresponding low temperature in degress F
-    Raises:
-        DatasetError: If no matching dataset_revision found on server
-        InputOutOfRangeError: If the lat/lon is outside the dataset_revision range in metadata
-        CoordinateNotFoundError: If the lat/lon coordinate is not found on server
-        DataMalformedError: If the grid cell file can't be parsed as temperature data
-    """
-    metadata, temp_text = cat_dataset_cell(lat, lon, dataset_revision, client=client)
-    dataset_start_date = datetime.datetime.strptime(metadata['date range'][0], "%Y/%m/%d").date()
-    dataset_end_date = datetime.datetime.strptime(metadata['date range'][1], "%Y/%m/%d").date()
-    timedelta = dataset_end_date - dataset_start_date
-    days_in_record = timedelta.days + 1 # we have both the start and end date in the dataset_revision so its the difference + 1
-    try:
-        temp_text = temp_text.decode()
-    except:
-        pass
-    day_strs = temp_text.replace(',', ' ').split()
-    if (len(day_strs) != days_in_record):
-        raise DataMalformedError ("Number of days in data file does not match the provided metadata")
-    highs = {}
-    lows = {}
-    for i in range(days_in_record):
-        low, high = map(float, day_strs[i].split('/'))
-        date_iter = dataset_start_date + datetime.timedelta(days=i)
-        highs[date_iter] = high
-        lows[date_iter] = low
-    if return_metadata:
-        return metadata, highs, lows
-    else:
-        return highs, lows
-
-
-def cat_rev_temperature_dict(lat, lon, dataset, desired_end_date, latest_rev):
-    """
-    Build a dictionary of rainfall data. Include as much final data as possible. If the desired end date
-    is not in the final dataset, append as much prelim as possible.
-    Args:
-        lat (float): the latitude of the grid cell, to 3 decimals
-        lon (float): the longitude of the grid cell, to 3 decimals
-        dataset (str): the dataset name as on hashes.json
-        desired_end_date (datetime.date): don't include prelim data after this point if not needed
-        latest_rev (str): The least accurate revision that is still considered 'final'
-    returns:
-        tuple (highs, lows) of dicts and a bool
-        highs: dict ({datetime.date: float}) of datetime dates and the corresponding high temperature in degress F
-        lows: dict ({datetime.date: float}) of datetime dates and the corresponding low temperature in degress F
-        is_final: True if all data is from final dataset, false if prelim included
-    """
-    highs = {}
-    lows = {}
-    is_final = True
-
-    with ipfshttpclient.connect() as client:
-        # Build the data from the most accurate version of the dataset to the least
-        for dataset_revision in dweather_client.ipfs_datasets.datasets[dataset]:
-            additional_highs, additional_lows = cat_temperature_dict(lat, lon, dataset_revision, client=client)
-            all_dates = list(highs) + list(additional_highs)    
-            highs = {date: highs[date] if date in highs else additional_highs[date] for date in all_dates}
-            lows = {date: lows[date] if date in lows else additional_lows[date] for date in all_dates}
-            # Stop early if we have the end date
-            if desired_end_date in highs:
-                return highs, lows, is_final
-
-            # data is no longer final after we pass the specified version
-            if dataset_revision == latest_rev:
-                is_final = False
-
-    # If we don't reach the desired dataset, return all data.
-    return highs, lows, is_final
-
-
-def pin_all_stations(client=None, station_dataset="ghcnd-imputed-daily"):
-    """ Sync all stations locally."""
-    heads = get_heads()
-    dataset_hash = heads[station_dataset]
-    session_client = ipfshttpclient.connect() if client is None else client
-    try:
-        session_client.pin.add(dataset_hash)
-    finally:
-        if (client is None):
-            session_client.close()
-
-def cat_station_df(station_id, station_dataset="ghcnd-imputed-daily", client=None, pin=True, force_hash=None):
-    """ Cat a given station's raw data as a pandas dataframe. """
-    df = pd.read_csv(io.StringIO(\
-        cat_station_csv(
-            station_id,
-            station_dataset=station_dataset,
-            client=client, 
-            pin=pin,
-            force_hash=force_hash
-        )
-    ))
-    return df.set_index(pd.DatetimeIndex(df['DATE']))
-
-def cat_station_csv(station_id, station_dataset="ghcnd-imputed-daily", client=None, pin=True, force_hash=None):
-    """
-    Retrieve the contents of a station data csv file.
-    Args:
-        station_id (str): the id of the weather station
-        station_dataset(str): on of ["ghcnd", "ghcnd-imputed-daily"]
-    returns:
-        the contents of the station csv file as a string
-    """
-    if (force_hash is None):
-        all_hashes = get_heads()
-        dataset_hash = all_hashes[station_dataset]
-    else:
-        dataset_hash = force_hash
-    csv_hash = dataset_hash + '/' + station_id + ".csv.gz"
-    session_client = ipfshttpclient.connect() if client is None else client
-    try:
-        if pin:
-            session_client.pin.add(csv_hash)
-        csv = session_client.cat(csv_hash)
-        with gzip.GzipFile(fileobj=io.BytesIO(csv)) as zip_data:
-            return zip_data.read().decode("utf-8")
-    finally:
-        if (client is None):
-            session_client.close()
-
-def cat_icao_stations(station_dataset="ghcnd-imputed-daily", pin=True, force_hash=None):
-    """
-    For every station that has an icao code, load it into a dataframe and
-    return them all as a list.
-    """
-    station_ids = get_station_ids_with_icao()
-    return cat_station_df_list(station_ids, station_dataset=station_dataset, pin=pin, force_hash=force_hash)
-
-def cat_n_closest_station_dfs(lat, lon, n, station_dataset="ghcnd-imputed-daily", pin=True, force_hash=None):
-    """
-    Load the closest n stations to a given point into a list of dataframes.
-    """
-    if (force_hash is None):
-        metadata = cat_metadata(get_heads()[station_dataset])
-    else:
-        metadata = cat_metadata(force_hash)
-    station_ids = get_n_closest_station_ids(lat, lon, metadata, n)
-    return cat_station_df_list(station_ids, station_dataset=station_dataset, pin=pin, force_hash=force_hash)
-
-def cat_station_df_list(station_ids, station_dataset="ghcnd-imputed-daily", pin=True, force_hash=None):
-    batch_hash = force_hash
-    if (force_hash is None):
-        batch_hash = get_heads()[station_dataset]
-    metadata = cat_metadata(batch_hash, pin=pin)
-    station_content = []
-    with ipfshttpclient.connect() as client:
-        for station_id in station_ids:
-            logging.info("(%i of %i): Loading station %s from %s into DataFrame%s" % ( \
-                station_ids.index(station_id) + 1,
-                len(station_ids),
-                station_id, 
-                "dWeather head" if force_hash is None else "forced hash",
-                " and pinning to ipfs datastore" if pin else ""
-            ))
+    def traverse_ll(self, head):
+        """
+        Iterates through a linked list of metadata files
+        args:
+        :head: ipfs hash of the directory at the head of the linked list
+        return: deque containing all hashes in the linked list
+        """
+        release_itr = head
+        release_ll = deque()
+        while True:
+            release_ll.appendleft(release_itr)
             try:
-                station_content.append(cat_station_df( \
-                    station_id,
-                    station_dataset=station_dataset,
-                    client=client,
-                    pin=pin,
-                    force_hash=batch_hash
-            ))
+                prev_release = self.get_metadata(release_itr)['previous hash']
+            except KeyError:
+                return release_ll
+            if prev_release is not None:
+                release_itr = prev_release
+            else:
+                return release_ll
+
+    @abstractmethod
+    def get_data(self, *args, **kwargs):
+        """
+        Exposed method that allows user to get data in the dataset. Args and return value will depend on whether
+        this is a gridded, station or storm dataset
+        """
+        self.head = get_heads()[self.dataset]
+
+class GriddedDataset(IpfsDataset):
+    """
+    Abstract class from which all gridded, linked list datasets inherit
+    """
+    @classmethod
+    def snap_to_grid(cls, lat, lon, metadata):
+        """
+        Find the nearest (lat,lon) on IPFS for a given metadata file.
+        args:
+        :lat: = -90 < lat < 90, float
+        :lon: = -180 < lon < 180, float
+        :metadata: a dWeather metadata file
+        return: lat, lon
+        """
+        resolution = metadata['resolution']
+        min_lat = metadata['latitude range'][0]  # start [lat, lon]
+        min_lon = metadata['longitude range'][0]  # end [lat, lon]
+
+        # check that the lat lon is in the bounding box
+        snap_lat = round(round((lat - min_lat) / resolution) * resolution + min_lat, 3)
+        snap_lon = round(round((lon - min_lon) / resolution) * resolution + min_lon, 3)
+        return snap_lat, snap_lon
+
+    def get_hashes(self):
+        """
+        return: list of all hashes in dataset
+        """
+        hashes = self.traverse_ll(self.head)
+        return list(hashes)
+
+    def get_date_range_from_metadata(self, h):
+        """
+        args:
+        :h: hash for ipfs directory containing metadata
+        return: list of [start_time, end_time]
+        """
+        metadata = self.get_metadata(h)
+        str_dates = (metadata["date range"][0], metadata["date range"][1])
+        return [datetime.datetime.fromisoformat(dt) for dt in str_dates]
+
+    def get_weather_dict(self, date_range, ipfs_hash, is_root):
+        """
+        Get a pd.Series of weather values for a given IPFS hash
+        args:
+        :date_range: time range that hash has data for
+        :ipfs_hash: hash containing data
+        :is_root: bool indicating whether this is the root node in the linked list
+        return: pd.Series with date or datetime index and weather values
+        """
+        if not is_root:
+            try:
+                with tarfile.open(fileobj=self.get_file_object(f"{ipfs_hash}/{self.tar_name}")) as tar:
+                    member = tar.getmember(self.gzip_name)
+                    with gzip.open(tar.extractfile(member)) as gz:
+                        cell_text = gz.read().decode('utf-8')
             except ipfshttpclient.exceptions.ErrorResponse:
-                logging.warning("Station %s not found" % station_id)
-                
-    return station_content 
+                zip_file_name = self.tar_name[:-4] + '.zip'
+                with zipfile.ZipFile(self.get_file_object(f"{ipfs_hash}/{zip_file_name}")) as zi:
+                    with gzip.open(zi.open(self.gzip_name)) as gz:
+                        cell_text = gz.read().decode('utf-8')
+        else:
+            with gzip.open(self.get_file_object(f"{ipfs_hash}/{self.gzip_name}")) as gz:
+                cell_text = gz.read().decode('utf-8')
+
+        day_itr = date_range[0]
+        weather_dict = {}
+        if "daily" in self.dataset:
+            for year_data in cell_text.split('\n'):
+                for day_data in year_data.split(','):
+                    weather_dict[day_itr.date()] = day_data
+                    day_itr = day_itr + datetime.timedelta(days=1)
+        elif "hourly" in self.dataset:
+            for year_data in cell_text.split('\n'):
+                for hour_data in year_data.split(','):
+                    weather_dict[day_itr] = hour_data
+                    day_itr = day_itr + datetime.timedelta(hours=1)
+        return weather_dict
+
+class PrismGriddedDataset(GriddedDataset):
+    """
+    Abstract class from which all PRISM datasets inherit. Contains logic for overlapping date ranges
+    that is unique to PRISM
+    """
+    def get_data(self, lat, lon):
+        """
+        PRISM datasets' method for getting data. Reverses the linked list so as to correctly prioritize displaying
+        more recent data
+        args:
+        :lat: float of latitude from which to get data
+        :lon: float of longitude from which to get data
+        return: tuple of lat/lon snapped to PRISM grid, and weather data, which is pd.Series with date index
+        and str values corresponding to weather observations
+        """
+        super().get_data()
+        first_metadata = self.get_metadata(self.head)
+        snapped_lat, snapped_lon = self.snap_to_grid(float(lat), float(lon), first_metadata)
+        self.tar_name = f"{snapped_lat:.3f}.tar"
+        self.gzip_name = f"{snapped_lat:.3f}_{snapped_lon:.3f}.gz"
+        self.ret_dict = {}
+        for h in self.get_hashes()[::-1]:
+            self.update_prismc_dict(h)
+        return (float(snapped_lat), float(snapped_lon)), pd.Series(self.ret_dict)
+
+    def update_prismc_dict(self, ipfs_hash):
+        """
+        Updates self.ret_dict with data from a hash in the linked list. Written so as to never
+        overwrite newer data with older
+        args:
+        :ipfs_hash: hash in linked list from which to get data
+        """
+        try:
+            with tarfile.open(fileobj=self.get_file_object(f"{ipfs_hash}/{self.tar_name}")) as tar:
+                member = tar.getmember(self.gzip_name)
+                with gzip.open(tar.extractfile(member), "rb") as gz:
+                    for i, line in enumerate(gz):
+                        day_of_year = datetime.date(1981 + i, 1, 1)
+                        data_list = line.decode('utf-8').strip().split(',')
+                        for point in data_list:
+                            if (day_of_year not in self.ret_dict) and point:
+                                self.ret_dict[day_of_year] = point
+                            day_of_year += datetime.timedelta(days=1)
+                        
+        except ipfshttpclient.exceptions.ErrorResponse:
+            zip_file_name = self.tar_name[:-4] + '.zip'
+            with zipfile.ZipFile(self.get_file_object(f"{ipfs_hash}/{zip_file_name}")) as zi:
+                with gzip.open(zi.open(self.gzip_name), "rb") as gz:
+                    for i, line in enumerate(gz):
+                        day_of_year = datetime.date(1981 + i, 1, 1)
+                        data_list = line.decode('utf-8').strip().split(',')
+                        for point in data_list:
+                            if (day_of_year not in self.ret_dict) and point:
+                                self.ret_dict[day_of_year] = point
+                            day_of_year += datetime.timedelta(days=1)
+
+class RtmaGriddedDataset(GriddedDataset):
+    """
+    Abstract class from which RTMA datasets inherits. Contains custom logic for converting lat/lons to 
+    RTMAs unique gridding system
+    """
+    _etc_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "etc")
+    CHUNKS = os.path.join(_etc_dir, 'rtma_chunks.txt')
+    VALID_COORDS = os.path.join(_etc_dir, 'rtma_valid_coordinates.txt')
+    GRID_MAPPING = os.path.join(_etc_dir, 'rtma_grid_mapping.p.gz')
+    COORD_BUCKETS = os.path.join(_etc_dir, 'rtma_lat_lons.p.gz')
+    CHUNK_SIZE = 1000
+
+    def get_data(self, lat, lon):
+        """
+        RTMA datasets' method for getting data.
+        args:
+        :lat: float of latitude from which to get data
+        :lon: float of longitude from which to get data
+        return: tuple of lat/lon snapped to RTMA grid, and weather data, which is pd.Series with datetime index
+        and str values corresponding to weather observations
+        """
+        super().get_data()
+        (self.x_grid, self.y_grid), (self.snapped_lat, self.snapped_lon) = self.get_grid_x_y(lat, lon)
+        str_x, str_y = f'{self.x_grid:04}', f'{self.y_grid:04}'
+        index = self.get_file_index()
+        self.tar_name = self.find_archive(index)
+        self.gzip_name = f"{str_x}_{str_y}.gz"
+        ret_dict = {}
+        for i, h in enumerate(self.get_hashes()):
+            date_range = self.get_date_range_from_metadata(h)
+            rtma_dict = self.get_weather_dict(date_range, h, i == 0)
+            ret_dict = {**ret_dict, **rtma_dict}
+        ret_lat, ret_lon = cpc_lat_lon_to_conventional(self.snapped_lat, self.snapped_lon)
+        return (float(ret_lat), float(ret_lon)), pd.Series(ret_dict)
+
+    def get_grid_x_y(self, lat, lon):
+        """
+        Converts a lat/lon to an x/y in the RTMA grid
+        args:
+        :lat: float
+        :lon: float
+        returns: pair of tuples. First is x,y for RTMA grid, Second is snapped lat,lon for that point
+        """
+        lat, lon = conventional_lat_lon_to_cpc(lat, lon)
+        if ((lat < 20) or (53 < lat)):
+            raise FileNotFoundError('RTMA only covers latitudes 20 thru 53')
+        if ((lon < 228) or (300 < lon)):
+            raise FileNotFoundError('RTMA only covers longitudes -132 thru -60')
+        lat, lon = str(lat), str(lon)
+
+        with gzip.open(self.COORD_BUCKETS) as f:
+            valid_lat_lons = pickle.load(f)
+        close_array = valid_lat_lons[lat[:2], lon[:3]]
+        closest = find_closest_lat_lon(close_array, (lat, lon))
+
+        with gzip.open(self.GRID_MAPPING) as f:
+            grid_dict = pickle.load(f)
+        grid = grid_dict[closest[0]]
+
+        return grid, closest
+
+    def get_file_index(self):
+        """
+        Uses a list of valid RTMA points in txt file to determine how to find the archive containing that point
+        return: index of x,y point
+        """
+        with open(self.VALID_COORDS, "r") as f:
+            for i, line in enumerate(f):
+                if line.strip() == str((self.x_grid, self.y_grid)):
+                    return i
+
+    def find_archive(self, index):
+        """
+        Uses a list of archives and an index to determine which archive the x,y point belongs in
+        args:
+        :index: from get_file_index
+        return: archive containing data
+        """
+        with open(self.CHUNKS) as f:
+            balls = [line.strip() for line in list(f)]
+        ball_index = index // self.CHUNK_SIZE
+        return balls[ball_index]
 
 
-def cat_icao_stations(client=None, pin=True):
-    """ Get a list of station dataframes for all stations that have an icao"""
-    dfs = []
-    session_client = ipfshttpclient.connect() if client is None else client
-    try:
-        for station_id in get_station_ids_with_icao():
-            try:
-                print(station_id)
-                dfs.append(cat_station_csv(station_id, client=client, pin=pin))
-            except Exception as e:
-                print(e)
-                continue
-    finally:
-        if (client is None):
-            session_client.close()
-    return dfs
+class SimpleGriddedDataset(GriddedDataset):
+    """
+    Abstract class for all other gridded datasets
+    """
+    SIG_DIGITS = 3
+
+    @property
+    def zero_padding(self):
+        """
+        Constant for how file names are formatted
+        """
+        return None
+
+    def get_file_names(self):
+        """
+        Uses formatting and lat,lon to determine file name containing data
+        return: dict with names for tar and gz versions of file
+        """
+        if self.zero_padding:
+            lat_portion = f"{self.snapped_lat:0{self.zero_padding}.{self.SIG_DIGITS}f}"
+            lon_portion = f"{self.snapped_lon:0{self.zero_padding}.{self.SIG_DIGITS}f}"
+        else:
+            lat_portion = f"{self.snapped_lat:.{self.SIG_DIGITS}f}"
+            lon_portion = f"{self.snapped_lon:.{self.SIG_DIGITS}f}"
+        return {
+            "tar": f"{lat_portion}.tar",
+            "gz": f"{lat_portion}_{lon_portion}.gz"
+        }
+
+    def get_data(self, lat, lon):
+        """
+        General method for gridded datasets getting data
+        args:
+        :lat: float of latitude from which to get data
+        :lon: float of longitude from which to get data
+        return: tuple of lat/lon snapped to dataset grid, and weather data, is pd.Series with datetime or date index
+        and str values corresponding to weather observations
+        """
+        super().get_data()
+        first_metadata = self.get_metadata(self.head)
+        if "cpcc" in self.dataset or "era5" in self.dataset:
+            lat, lon = conventional_lat_lon_to_cpc(float(lat), float(lon))
+        self.snapped_lat, self.snapped_lon = self.snap_to_grid(float(lat), float(lon), first_metadata)
+        self.tar_name = self.get_file_names()["tar"]
+        self.gzip_name = self.get_file_names()["gz"]
+        ret_dict = {}
+        for i, h in enumerate(self.get_hashes()):
+            date_range = self.get_date_range_from_metadata(h)
+            weather_dict = self.get_weather_dict(date_range, h, i == 0)
+            ret_dict = {**ret_dict, **weather_dict}
+        ret_lat, ret_lon = cpc_lat_lon_to_conventional(self.snapped_lat, self.snapped_lon)
+        return (float(ret_lat), float(ret_lon)), pd.Series(ret_dict)
+
+class Era5LandWind(SimpleGriddedDataset):
+    """
+    Abstract class from which ERA5 Land Wind datasets inherit. Sets formatting that these datasets use
+    """
+    @property
+    def zero_padding(self):
+        return 8
+
+class StationDataset(IpfsDataset):
+    """
+    Instantiable class used for pulling in "ghcnd" or "ghcnd-imputed-daily" station data
+    """
+    @property
+    def dataset(self):
+        return self._dataset
+
+    def __init__(self, dataset, ipfs_timeout=None):
+        super().__init__(ipfs_timeout=ipfs_timeout)
+        self._dataset = dataset
+
+    def get_data(self, station):
+        super().get_data()
+        file_name = f"{self.head}/{station}.csv.gz"
+        with gzip.open(self.get_file_object(file_name)) as gz:
+            return gz.read().decode('utf-8')
+
+class YieldDatasets(IpfsDataset):
+    """
+    Instantiable class used for pulling in sco and rma transitional yield data
+    """
+    @property
+    def dataset(self):
+        return self._dataset
+
+    def __init__(self, dataset, ipfs_timeout=None):
+        if dataset not in {
+            "sco-yearly",
+            "rmasco_imputed-yearly",
+            "rma_t_yield-single-value",
+            "rma_t_yield_imputed-single-value"
+        }:
+            raise ValueError("Invalid yield dataset")
+        super().__init__(ipfs_timeout=ipfs_timeout)
+        self._dataset = dataset
+
+    def get_data(self, commodity, state, county):
+        super().get_data()
+        if "imputed" in self.dataset:
+            file_name = f"{self.head}/{state}-{county}.csv"
+        else:
+            file_name = f"{self.head}/{commodity}-{state}-{county}.csv"
+        return self.get_file_object(file_name).read().decode("utf-8")
+
+class AemoDataset(IpfsDataset):
+    """
+    Abstract class from which all AEMO datasets inherit
+    """
+    @property
+    @abstractmethod
+    def data_file_name(self):
+        """
+        Name for all data files for dataset
+        """
+        pass
+
+    def get_date_range_from_metadata(self, h):
+        """
+        args:
+        :h: hash for ipfs directory containing metadata
+        return: list of [start_time, end_time]
+        """
+        metadata = self.get_metadata(h)
+        str_dates = (metadata["date_range"][0], metadata["date_range"][1])
+        return [datetime.datetime.fromisoformat(dt) for dt in str_dates]
+
+    def get_data(self):
+        super().get_data()
+        hashes = self.traverse_ll(self.head)
+        ret_dict = {}
+        for h in hashes:
+            date_range = self.get_date_range_from_metadata(h)
+            new_dict = self.extract_data_from_gz(date_range, h)
+            ret_dict = {**ret_dict, **new_dict}
+        return ret_dict
+
+class AemoPowerDataset(AemoDataset):
+    """
+    Instantiable class for AEMO Victoria power data
+    """
+    @property
+    def dataset(self):
+        return "aemo-semihourly"
+
+    @property
+    def data_file_name(self):
+        return "aeomo_update.gz"
+
+    def extract_data_from_gz(self, date_range, ipfs_hash):
+        with gzip.open(self.get_file_object(f"{ipfs_hash}/{self.data_file_name}")) as gz:
+            cell_text = gz.read().decode('utf-8')
+        time_itr = date_range[0]
+        data_dict = {}
+        for year_data in cell_text.split('\n'):
+            for half_hour_data in year_data.split(','):
+                if not half_hour_data:
+                    demand, price = -9999, -9999
+                else:
+                    demand, price = half_hour_data.split("_")
+                data_dict[time_itr] = {"demand": float(demand), "price": float(price)}
+                time_itr = time_itr + datetime.timedelta(minutes=30)
+        return data_dict
+
+
+class AemoGasDataset(AemoDataset):
+    """
+    Instantiable class for AEMO Victoria gas data
+    """
+    @property
+    def dataset(self):
+        return "edd-daily"
+
+    @property
+    def data_file_name(self):
+        return "edd_update.gz"
+
+    def extract_data_from_gz(self, date_range, ipfs_hash):
+        with gzip.open(self.get_file_object(f"{ipfs_hash}/{self.data_file_name}")) as gz:
+            cell_text = gz.read().decode('utf-8')
+        date_itr = date_range[0].date()
+        data_dict = {}
+        for year_data in cell_text.split('\n'):
+            for day_data in year_data.split(','):
+                data_dict[date_itr] = float(day_data)
+                date_itr = date_itr + datetime.timedelta(days=1)
+        return data_dict

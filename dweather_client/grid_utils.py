@@ -1,7 +1,7 @@
 """
 Various utilities associated with the coordinate grid system.
 """
-from dweather_client.http_queries import get_heads, get_metadata
+from dweather_client.http_queries import get_heads, get_metadata, get_stations_metadata
 try:
     import geopandas as gpd
 except:
@@ -10,8 +10,7 @@ from geopy.distance import geodesic
 from heapq import heappush, heappushpop
 import pandas as pd
 import numpy as np
-import datetime, math
-
+import datetime
 
 def get_polygon_df(shapefile_path, dataset, polygon_names, bounding_box, encoding='UTF-8'):
     """
@@ -90,7 +89,6 @@ def haversine_vectorize(lon1, lat1, lon2, lat2):
     km = 6367 * dist
     return km
 
-
 def nearby_storms(df, c_lat, c_lon, radius): 
     """
     return:
@@ -109,7 +107,7 @@ def get_n_closest_station_ids(lat, lon, n, metadata=None):
     Requires metadata of ghcnd to get station coordinates.
     """
     if metadata == None:
-        metadata = get_metadata(get_heads()['ghcnd'])
+        metadata = get_stations_metadata(get_heads()["ghcnd"])
     pq = []
     for feature in metadata["stations"]["features"]:
         s_lat = float(feature["geometry"]["coordinates"][0])

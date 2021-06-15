@@ -18,6 +18,14 @@ class DataMalformedError(IPFSError):
     """Raised when a grid cell text file is unable to be parsed according to metadata"""
     pass
 
-class AliasNotFound(IPFSError):
+class AliasNotFoundError(IPFSError):
     """The alias was not found in the lookup"""
+    pass
+
+class StationNotFoundError(IPFSError):
+    """The station was not found in the dataset"""
+    pass
+
+class WeatherVariableNotFoundError(IPFSError):
+    """The weather variable was not found for the station"""
     pass

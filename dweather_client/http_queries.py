@@ -4,7 +4,6 @@ Queries associated with the https protocol option.
 import os, pickle, math, requests, datetime, io, gzip, json, logging, csv, tarfile
 from collections import Counter, deque
 from dweather_client.ipfs_errors import *
-from dweather_client.aliases_and_units import FLASK_DATASETS
 
 GATEWAY_URL = 'https://gateway.arbolmarket.com'
 
@@ -58,6 +57,18 @@ def get_metadata(hash_str, url=GATEWAY_URL):
     """
     metadata_url = "%s/ipfs/%s/metadata.json" % (url, hash_str)
     r = requests.get(metadata_url)
+    r.raise_for_status()
+    return r.json()
+
+def get_stations_metadata(hash_str, url=GATEWAY_URL):
+    """
+    Get the stations file for a given station dataset hash.
+    Args:
+        url (str): the url of the IPFS server
+        hash_str (str): the hash of the ipfs dataset
+    """
+    stations_url = "%s/ipfs/%s/stations.json" % (url, hash_str)
+    r = requests.get(stations_url)
     r.raise_for_status()
     return r.json()
 
@@ -207,22 +218,3 @@ def traverse_ll(head):
             release_itr = prev_release
         else:
             return release_ll
-
-def flask_query(dataset, lat, lon, base_url=GATEWAY_URL):
-    if dataset not in FLASK_DATASETS:
-        raise ValueError(f"Valid flask datasets are {FLASK_DATASETS}")
-
-    url = f"{base_url}/linked-list/{dataset}/{lat}_{lon}"
-    r = requests.get(url)
-    r.raise_for_status()
-    resp = r.json()
-
-    data_dict = {}
-    if "hourly" in dataset:
-        for k, v in resp["data"].items():
-            data_dict[datetime.datetime.fromisoformat(k)] = v
-    elif "daily" in dataset:
-        for k, v in resp["data"].items():
-            data_dict[datetime.datetime.fromisoformat(k).date()] = v
-
-    return ((resp["lat"], resp["lon"]), data_dict)

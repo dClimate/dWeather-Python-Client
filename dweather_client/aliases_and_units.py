@@ -6,34 +6,12 @@ given point.
 In general, all the idiosyncratic reality-based things that one has to 
 deal with.
 """
-from dweather_client.ipfs_errors import AliasNotFound
+from dweather_client.ipfs_errors import AliasNotFoundError
 import zeep
 import os
 from astropy import units as u
 from astropy.units import imperial
 import pandas as pd
-
-FLASK_DATASETS = [
-    "rtma_pcp-hourly",
-    "rtma_wind_u-hourly",
-    "rtma_wind_v-hourly",
-    "rtma_temp-hourly",
-    "chirpsc_final_05-daily",
-    "chirpsc_final_25-daily",
-    "chirpsc_prelim_05-daily",
-    "cpcc_precip_global-daily",
-    "cpcc_precip_us-daily",
-    "cpcc_temp_max-daily",
-    "cpcc_temp_min-daily",
-    "prismc-tmax-daily",
-    "prismc-tmin-daily",
-    "prismc-precip-daily",
-    "era5_land_wind_u-hourly",
-    "era5_land_wind_v-hourly",
-    "era5_land_wind_v-hourly",
-    "era5_wind_100m_u-hourly",
-    "era5_wind_100m_v-hourly"
-]
 
 UNIT_ALIASES = {
     "kg/m**2": u.kg / u.m**2,
@@ -44,6 +22,7 @@ UNIT_ALIASES = {
 }
 
 METRIC_TO_IMPERIAL = {
+    u.m: lambda q: q.to(imperial.inch),
     u.mm: lambda q: q.to(imperial.inch),
     u.deg_C: lambda q: q.to(imperial.deg_F, equivalencies=u.temperature()),
     u.K: lambda q: q.to(imperial.deg_F, equivalencies=u.temperature()),
@@ -100,7 +79,7 @@ def lookup_station_alias(alias):
     for aliases in STATION_ALIASES_TO_COLUMNS:
         if alias in aliases:
             return STATION_ALIASES_TO_COLUMNS[aliases]
-    raise AliasNotFound()
+    raise AliasNotFoundError("Invalid weather variable")
 
 # see ghcnd readme ftp://ftp.ncdc.noaa.gov/pub/data/ghcn/daily/readme.txt
 STATION_UNITS_LOOKUP = {

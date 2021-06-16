@@ -1,5 +1,5 @@
 from dweather_client.client import get_station_history, get_gridcell_history, get_tropical_storms,\
-    get_yield_history, get_power_history, get_gas_history, GRIDDED_DATASETS
+    get_yield_history, get_power_history, get_gas_history, get_alberta_power_history, GRIDDED_DATASETS
 from dweather_client.aliases_and_units import snotel_to_ghcnd
 import numpy as np
 import pandas as pd
@@ -141,6 +141,17 @@ def test_gas():
     date_diff = last_date - first_date
 
     assert date_diff.days + 1 == len(power_dict) 
+
+def test_aeso_power():
+    power_dict = get_alberta_power_history(ipfs_timeout=IPFS_TIMEOUT)
+    dict_length = len(power_dict) 
+    assert dict_length >= 188098
+
+    first_date, last_date = sorted(power_dict)[0], sorted(power_dict)[-1]
+    time_diff = last_date - first_date
+    time_diff_hours = time_diff.days * 24 + time_diff.seconds // 3600
+
+    assert time_diff_hours + 1 == len(power_dict) 
 
 ''' TODO some tests for RTMA behavior to be integrated into the new system
 def test_lat_lon_to_grid():

@@ -412,7 +412,7 @@ class YieldDatasets(IpfsDataset):
             file_name = f"{self.head}/{commodity}-{state}-{county}.csv"
         return self.get_file_object(file_name).read().decode("utf-8")
 
-class AemoDataset(IpfsDataset):
+class PowerDataset(IpfsDataset):
     """
     Abstract class from which all AEMO datasets inherit
     """
@@ -431,7 +431,10 @@ class AemoDataset(IpfsDataset):
         return: list of [start_time, end_time]
         """
         metadata = self.get_metadata(h)
-        str_dates = (metadata["date_range"][0], metadata["date_range"][1])
+        try:
+            str_dates = (metadata["date_range"][0], metadata["date_range"][1])
+        except KeyError:
+             str_dates = (metadata["date range"][0], metadata["date range"][1])
         return [datetime.datetime.fromisoformat(dt) for dt in str_dates]
 
     def get_data(self):
@@ -444,7 +447,7 @@ class AemoDataset(IpfsDataset):
             ret_dict = {**ret_dict, **new_dict}
         return ret_dict
 
-class AemoPowerDataset(AemoDataset):
+class AemoPowerDataset(PowerDataset):
     """
     Instantiable class for AEMO Victoria power data
     """
@@ -472,7 +475,7 @@ class AemoPowerDataset(AemoDataset):
         return data_dict
 
 
-class AemoGasDataset(AemoDataset):
+class AemoGasDataset(PowerDataset):
     """
     Instantiable class for AEMO Victoria gas data
     """
@@ -493,4 +496,31 @@ class AemoGasDataset(AemoDataset):
             for day_data in year_data.split(','):
                 data_dict[date_itr] = float(day_data)
                 date_itr = date_itr + datetime.timedelta(days=1)
+        return data_dict
+
+class AesoPowerDataset(PowerDataset):
+    """
+    Instantiable class for AEMO Victoria gas data
+    """
+    @property
+    def dataset(self):
+        return "alberta_power-hourly"
+
+    @property
+    def data_file_name(self):
+        return "aeso_update.gz"
+
+    def extract_data_from_gz(self, date_range, ipfs_hash):
+        with gzip.open(self.get_file_object(f"{ipfs_hash}/{self.data_file_name}")) as gz:
+            cell_text = gz.read().decode('utf-8')
+        time_itr = date_range[0]
+        data_dict = {}
+        for year_data in cell_text.split('\n'):
+            for hour_data in year_data.split(','):
+                if not hour_data:
+                    price, ravg, demand = -9999, -9999, -9999
+                else:
+                    price, ravg, demand = hour_data.split("_")
+                data_dict[time_itr] = {"price": float(price), "ravg": float(ravg), "demand": float(demand)}
+                time_itr = time_itr + datetime.timedelta(hours=1)
         return data_dict

@@ -22,7 +22,7 @@ def test_get_gridcell_history_units():
                 if res[k] is not None:
                     if "volumetric" in s:
                         assert res[k].unit == u.dimensionless_unscaled
-                    elif use_imperial and ("precip" in s or "chirps" in s or "runoff" in s):
+                    elif use_imperial and ("precip" in s or "chirps" in s or "snowfall" in s or "runoff" in s):
                         assert res[k].unit == imperial.inch
                     elif use_imperial and s == "rtma_pcp-hourly":
                         assert res[k].unit == imperial.pound / imperial.foot**2
@@ -30,7 +30,7 @@ def test_get_gridcell_history_units():
                         assert res[k].unit == imperial.mile / u.hour
                     elif use_imperial:
                         assert res[k].unit == imperial.deg_F
-                    elif s in {"era5_surface_runoff-hourly", "era5_land_precip-hourly"}:
+                    elif s in {"era5_surface_runoff-hourly", "era5_land_precip-hourly", "era5_land_snowfall-hourly"}:
                         assert res[k].unit == u.m
                     elif "precip" in s or "chirps" in s:
                         assert res[k].unit == u.mm

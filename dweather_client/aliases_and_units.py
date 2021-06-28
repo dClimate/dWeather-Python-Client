@@ -18,7 +18,8 @@ UNIT_ALIASES = {
     "mm": u.mm,
     "degC": u.deg_C,
     "m s**-1": u.m / u.s,
-    "degF": imperial.deg_F
+    "degF": imperial.deg_F,
+    "m of water equivalent": u.m 
 }
 
 METRIC_TO_IMPERIAL = {

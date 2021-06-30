@@ -12,7 +12,7 @@ import pandas as pd
 from timezonefinder import TimezoneFinder
 from dweather_client import gridded_datasets
 from dweather_client.storms_datasets import IbtracsDataset, AtcfDataset, SimulatedStormsDataset
-from dweather_client.ipfs_queries import StationDataset, YieldDatasets, AemoPowerDataset, AemoGasDataset
+from dweather_client.ipfs_queries import StationDataset, YieldDatasets, AemoPowerDataset, AemoGasDataset, AesoPowerDataset
 from dweather_client.ipfs_errors import *
 import ipfshttpclient
 
@@ -238,9 +238,20 @@ def get_yield_history(commodity, state, county, dataset="sco-yearly", ipfs_timeo
 def get_power_history(ipfs_timeout=None):
     """
     return:
-        dict with datetime keys and values that are two member dicts with keys 'demand' and 'price'
+        dict with datetime keys and values that are dicts with keys 'demand' and 'price'
     """
     return AemoPowerDataset(ipfs_timeout=ipfs_timeout).get_data()
 
 def get_gas_history(ipfs_timeout=None):
+    """
+    return:
+        dict with date keys and float values
+    """
     return AemoGasDataset(ipfs_timeout=ipfs_timeout).get_data()
+
+def get_alberta_power_history(ipfs_timeout=None):
+    """
+    return:
+        dict with datetime keys and values that are dicts with keys 'price' 'ravg' and 'demand'
+    """
+    return AesoPowerDataset(ipfs_timeout=ipfs_timeout).get_data()

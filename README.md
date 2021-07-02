@@ -8,25 +8,19 @@ Install dweather_client:
     
 Get valid dataset names and associated hashes:
 
-    http_client.get_heads()
+    http_queries.get_heads()
     
 Get the metadata for a given dataset name:
 
-    http_client.get_metadata('chirps_05-daily')
+    http_queries.get_metadata('chirps_05-daily')
     
 Get a rainfall dict for a gridded dataset:
 
-    http_client.get_rainfall_dict(41.175, -75.125, 'chirps_05-daily')
-
-Get a rainfall dataframe:
-
-    df_loader.get_rainfall_df(41.125, -75.125, 'chirps_05-daily')
+    client.get_gridcell_history(41.175, -75.125, 'chirps_05-daily')
     
-Get a station dataframe:
+Get a station variable:
 
-    df_loader.get_station_rainfall_df('USW00024285')
-    df_loader.get_station_temperature_df('USW00024285')
-    df_loader.get_station_snow_df('USW00024285')
+    client.get_station_history('USW00024285', "SNOW")
 
 See further examples in `tests`
 

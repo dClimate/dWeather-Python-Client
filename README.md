@@ -2,39 +2,8 @@
 
 ## Quickstart
 
-Install dweather_client:
-
-    pip3 install dweather_client
-    
-Get valid dataset names and associated hashes:
-
-    http_queries.get_heads()
-    
-Get the metadata for a given dataset name:
-
-    http_queries.get_metadata('chirps_05-daily')
-    
-Get a rainfall dict for a gridded dataset:
-
-    client.get_gridcell_history(41.175, -75.125, 'chirps_05-daily')
-    
-Get a station variable:
-
-    client.get_station_history('USW00024285', "SNOW")
-
-See further examples in `tests`
-
-## Development
-
-    cd dweather-python-client
-    python3 -m venv .
-    bin/pip3 install -r requirements.txt
-    bin/python3 -m pytest dweather_clieht/tests
-
-Some dweather_client features require an ipfs daemon to work.
-
-### Download Go-IPFS version 0.6.0
-See Assets list at the bottom of this page: https://github.com/ipfs/go-ipfs/releases/tag/v0.6.0
+### Download Go-IPFS version 0.7.0
+See Assets list at the bottom of this page: https://github.com/ipfs/go-ipfs/releases/tag/v0.7.0
 Download the build appropriate for your machine, or just download the source tar if you're not sure.
 
 ### Install go-IPFS
@@ -61,7 +30,7 @@ Add the dWeather server as a peer.
 
     ipfs bootstrap add  "/ip4/198.211.104.50/tcp/4001/p2p/QmWsAFSDajELyneR7LkMsgfaRk2ib1y3SEU7nQuXSNPsQV"
 
-### Make sure go-IPFS it works
+### Make sure go-IPFS works
 
 Start the IPFS daemon. You will need to have the daemon running to use some functionality of the dWeather client.
 
@@ -74,6 +43,37 @@ In a new window, confirm that you can pull content.
 Confirm that the dWeather server is a peer.
 
     ipfs swarm peers
+
+Install dweather_client:
+
+    pip3 install dweather_client
+    
+Get valid dataset names and associated hashes:
+
+    http_queries.get_heads()
+    
+Get the metadata for a given dataset name:
+
+    http_queries.get_metadata(http_queries.get_heads()['cpcc_temp_max-daily'])
+    
+Get a rainfall dict for a gridded dataset:
+
+    client.get_gridcell_history(41.175, -75.125, 'cpcc_temp_max-daily') # with ipfs daemon running
+    
+Get a station variable:
+
+    client.get_station_history('USW00024285', "SNOW") # with ipfs daemon running
+
+See further examples in `tests`
+
+## Development
+
+    cd dweather-python-client
+    python3 -m venv .
+    bin/pip3 install -r requirements.txt
+    bin/python3 -m pytest dweather_clieht/tests
+
+Some dweather_client features require an ipfs daemon to work.
 
 ### Install the Python dWeather Client
 
@@ -103,3 +103,4 @@ If you just want to remove everything, delete ~/.ipfs and rerun the installation
 ## Further documentation
 
 See `tests` directory for example usage. Documented examples of usage should appear in a docs repository or in product-dev-notebook.
+

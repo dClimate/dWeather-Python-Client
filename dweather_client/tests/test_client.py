@@ -30,6 +30,8 @@ def test_get_gridcell_history_units(mocker):
                         assert res[k].unit == imperial.pound / imperial.foot**2
                     elif use_imperial and "wind" in s:
                         assert res[k].unit == imperial.mile / u.hour
+                    elif use_imperial and "solar_radiation" in s:
+                        assert res[k].unit == u.J / u.m ** 2
                     elif use_imperial:
                         assert res[k].unit == imperial.deg_F
                     elif s in {"era5_surface_runoff-hourly", "era5_land_precip-hourly", "era5_land_snowfall-hourly"}:
@@ -40,6 +42,8 @@ def test_get_gridcell_history_units(mocker):
                         assert res[k].unit == u.kg / u.m**2
                     elif "wind" in s:
                         assert res[k].unit == u.m / u.s
+                    elif "solar_radiation" in s:
+                        assert res[k].unit == u.J / u.m ** 2
                     else:
                         assert res[k].unit in (u.deg_C, u.K)
 

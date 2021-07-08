@@ -56,6 +56,9 @@ class Era5Land2mTempHourly(SimpleGriddedDataset):
 class Era5LandPrecipHourly(SimpleGriddedDataset):
     dataset = "era5_land_precip-hourly"
 
+class Era5LandSurfaceSolarRadiationDownwardsHourly(SimpleGriddedDataset):
+    dataset = "era5_land_surface_solar_radiation_downwards-hourly"
+
 class Era5LandSnowfallHourly(SimpleGriddedDataset):
     dataset = "era5_land_snowfall-hourly"
 

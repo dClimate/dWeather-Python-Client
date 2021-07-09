@@ -85,14 +85,19 @@ class SimulatedStormsDataset(IpfsDataset):
         
         if basin not in {'EP', 'NA', 'NI', 'SI', 'SP', 'WP'}:
             raise ValueError("Invalid basin ID")
+
         metadata  = self.get_metadata(self.head)
+        dfs = []
+        for f in metadata["files"]:
+            if basin in f:
+                file_obj = self.get_file_object(f"{self.head}/{f}")
+                df = pd.read_csv(file_obj, header=None, compression="gzip")[range(10)]
+                columns = ['year', 'month', 'tc_num', 'time_step', 'basin', 'lat', 'lon', 'min_press', 'max_wind', 'rmw']
+                df.columns = columns
+                df["sim"] = f[-8]
+                dfs.append(df)
 
-        files = [self.get_file_object(f"{self.head}/{f}") for f in metadata['files'] if basin in f]
-        dfs = [pd.read_csv(f, header=None, compression="gzip")[range(10)] for f in files]
+        big_df = pd.concat(dfs).reset_index(drop=True)
+        big_df.loc[big_df.lon > 180, 'lon'] = big_df.lon - 360
 
-        df = pd.concat(dfs).reset_index(drop=True)
-        columns = ['year', 'month', 'tc_num', 'time_step', 'basin', 'lat', 'lon', 'min_press', 'max_wind', 'rmw']
-        df.columns = columns
-        df.loc[df.lon > 180, 'lon'] = df.lon - 360
-
-        return process_df(df, **kwargs)
+        return process_df(big_df, **kwargs)

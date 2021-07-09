@@ -2,7 +2,6 @@ from dweather_client.tests.mock_fixtures import get_patched_datasets
 from dweather_client.client import get_station_history, get_gridcell_history, get_tropical_storms,\
     get_yield_history, get_power_history, get_gas_history, get_alberta_power_history, GRIDDED_DATASETS
 from dweather_client.aliases_and_units import snotel_to_ghcnd
-import numpy as np
 import pandas as pd
 from io import StringIO
 import datetime
@@ -90,7 +89,7 @@ def test_simulated_storms():
     df_subset_circle_ni = get_tropical_storms('simulated', 'NI', radius=500, lat=21, lon=65, ipfs_timeout=IPFS_TIMEOUT)
     df_subset_box_ni = get_tropical_storms('simulated', 'NI', min_lat=21, max_lat=22, min_lon=65, max_lon=66, ipfs_timeout=IPFS_TIMEOUT)
 
-    assert len(df_all_ni.columns) == len(df_subset_circle_ni.columns) == len(df_subset_box_ni.columns) == 10
+    assert len(df_all_ni.columns) == len(df_subset_circle_ni.columns) == len(df_subset_box_ni.columns) == 11
     assert len(df_subset_circle_ni) < len(df_all_ni)
     assert len(df_subset_box_ni) < len(df_all_ni)
 

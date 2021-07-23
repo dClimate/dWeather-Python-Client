@@ -412,6 +412,17 @@ class YieldDatasets(IpfsDataset):
             file_name = f"{self.head}/{commodity}-{state}-{county}.csv"
         return self.get_file_object(file_name).read().decode("utf-8")
 
+class FsaIrrigationDataset(IpfsDataset):
+    """
+    Instantiable class for pulling in FSA irrigation data
+    """
+    dataset = "fsa_irrigation_splits"
+
+    def get_data(self, commodity):
+        super().get_data()
+        file_name = f"{self.head}/fsa_commodity_{commodity}.csv"
+        return self.get_file_object(file_name).read().decode("utf-8")
+
 class PowerDataset(IpfsDataset):
     """
     Abstract class from which all AEMO datasets inherit

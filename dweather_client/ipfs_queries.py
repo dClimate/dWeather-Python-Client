@@ -28,7 +28,7 @@ class IpfsDataset(ABC):
         """
         pass
 
-    def __init__(self, ipfs_timeout=None):
+    def __init__(self, as_of=None, ipfs_timeout=None):
         """
         args:
         :ipfs_timeout: Time IPFS should wait for response before throwing exception. If None, will assume that
@@ -36,6 +36,8 @@ class IpfsDataset(ABC):
         """
         self.on_gateway = not ipfs_timeout
         self.ipfs = ipfshttpclient.connect(timeout=ipfs_timeout)
+        self.as_of = as_of
+
 
     def get_metadata(self, h):
         """
@@ -60,7 +62,7 @@ class IpfsDataset(ABC):
             self.ipfs._client.request('/swarm/connect', (GATEWAY_IPFS_ID,))
         return BytesIO(self.ipfs.cat(f))
 
-    def traverse_ll(self, head):
+    def traverse_ll(self, head, as_of=None):
         """
         Iterates through a linked list of metadata files
         args:
@@ -70,9 +72,15 @@ class IpfsDataset(ABC):
         release_itr = head
         release_ll = deque()
         while True:
-            release_ll.appendleft(release_itr)
+            metadata = self.get_metadata(release_itr)
+            if as_of:
+                date_generated = datetime.datetime.fromisoformat(metadata["time generated"])
+                if date_generated <= as_of:
+                    release_ll.appendleft(release_itr)
+            else:
+                release_ll.appendleft(release_itr)
             try:
-                prev_release = self.get_metadata(release_itr)['previous hash']
+                prev_release = metadata['previous hash']
             except KeyError:
                 return release_ll
             if prev_release is not None:
@@ -115,7 +123,7 @@ class GriddedDataset(IpfsDataset):
         """
         return: list of all hashes in dataset
         """
-        hashes = self.traverse_ll(self.head)
+        hashes = self.traverse_ll(self.head, self.as_of)
         return list(hashes)
 
     def get_date_range_from_metadata(self, h):

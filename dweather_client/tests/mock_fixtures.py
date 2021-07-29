@@ -2,7 +2,7 @@ from dweather_client.client import GRIDDED_DATASETS
 import pickle
 import os
 
-def constructor(self, ipfs_timeout):
+def constructor(self, as_of, ipfs_timeout):
     pass
 
 def get_data(self, lat, lon):

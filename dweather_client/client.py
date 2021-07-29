@@ -30,6 +30,7 @@ def get_gridcell_history(
         also_return_metadata=False,
         use_imperial_units=True,
         convert_to_local_time=True,
+        as_of=None,
         ipfs_timeout=None):
     """
     Get the historical timeseries data for a gridded dataset in a dictionary
@@ -64,7 +65,7 @@ def get_gridcell_history(
     missing_value = metadata["missing value"]
 
     try:
-        dataset_obj = GRIDDED_DATASETS[dataset](ipfs_timeout=ipfs_timeout)
+        dataset_obj = GRIDDED_DATASETS[dataset](as_of=as_of, ipfs_timeout=ipfs_timeout)
     except KeyError:
         raise DatasetError("No such dataset in dClimate")
 
@@ -99,6 +100,7 @@ def get_gridcell_history(
     if also_return_snapped_coordinates:
         result = tupleify(result) + ({"snapped to": (lat, lon)},)
     return result
+
 
 def get_tropical_storms(
         source,

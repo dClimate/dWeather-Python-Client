@@ -69,6 +69,14 @@ def test_get_gridcell_nans(mocker):
     tz = next(iter(rtma_r)).tzinfo
     assert rtma_r[datetime.datetime(2011, 1, 29, 17, tzinfo=tz)] is None
 
+def test_gridcell_as_of():
+    prism_small = get_gridcell_history(31.083, -120, "prismc-precip-daily", as_of=datetime.datetime(2021, 4, 30), ipfs_timeout=IPFS_TIMEOUT)
+    first_date, last_date = sorted(prism_small)[0], sorted(prism_small)[-1]
+    diff = last_date - first_date
+    assert diff.days == len(prism_small) - 1
+    prism_full = get_gridcell_history(31.083, -120, "prismc-precip-daily", ipfs_timeout=IPFS_TIMEOUT)
+    assert len(prism_small) < len(prism_full)
+
 def test_station():
     get_station_history('USW00014820', 'SNOW', ipfs_timeout=IPFS_TIMEOUT)
     get_station_history(snotel_to_ghcnd(838, 'CO'), 'snow water equivalent', ipfs_timeout=IPFS_TIMEOUT)

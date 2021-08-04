@@ -13,6 +13,7 @@ from timezonefinder import TimezoneFinder
 from dweather_client import gridded_datasets
 from dweather_client.storms_datasets import IbtracsDataset, AtcfDataset, SimulatedStormsDataset
 from dweather_client.ipfs_queries import StationDataset, YieldDatasets, FsaIrrigationDataset, AemoPowerDataset, AemoGasDataset, AesoPowerDataset
+from dweather_client.slice_utils import DateRangeRetriever, has_changed
 from dweather_client.ipfs_errors import *
 import ipfshttpclient
 
@@ -269,3 +270,10 @@ def get_alberta_power_history(ipfs_timeout=None):
         dict with datetime keys and values that are dicts with keys 'price' 'ravg' and 'demand'
     """
     return AesoPowerDataset(ipfs_timeout=ipfs_timeout).get_data()
+
+def has_dataset_updated(dataset, slices, as_of, ipfs_timeout=None):
+    """
+    Determine whether any dataset updates generated after `as_of` affect any `slices` of date ranges.
+    """
+    ranges = DateRangeRetriever(dataset, ipfs_timeout=ipfs_timeout).get_data(as_of)
+    return has_changed(slices, ranges)

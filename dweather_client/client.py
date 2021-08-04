@@ -272,5 +272,8 @@ def get_alberta_power_history(ipfs_timeout=None):
     return AesoPowerDataset(ipfs_timeout=ipfs_timeout).get_data()
 
 def has_dataset_updated(dataset, slices, as_of, ipfs_timeout=None):
-    ranges = DateRangeRetriever(dataset, ipfs_timeout=ipfs_timeout).get_data()
-    return has_changed(slices, ranges, as_of)
+    """
+    Determine whether any dataset updates generated after `as_of` affect any `slices` of date ranges.
+    """
+    ranges = DateRangeRetriever(dataset, ipfs_timeout=ipfs_timeout).get_data(as_of)
+    return has_changed(slices, ranges)

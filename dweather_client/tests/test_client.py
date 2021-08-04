@@ -1,6 +1,7 @@
+from numpy import not_equal
 from dweather_client.tests.mock_fixtures import get_patched_datasets
 from dweather_client.client import get_station_history, get_gridcell_history, get_tropical_storms,\
-    get_yield_history, get_irrigation_data, get_power_history, get_gas_history, get_alberta_power_history, GRIDDED_DATASETS
+    get_yield_history, get_irrigation_data, get_power_history, get_gas_history, get_alberta_power_history, GRIDDED_DATASETS, has_dataset_updated
 from dweather_client.aliases_and_units import snotel_to_ghcnd
 import pandas as pd
 from io import StringIO
@@ -160,3 +161,19 @@ def test_aeso_power():
     time_diff_hours = time_diff.days * 24 + time_diff.seconds // 3600
 
     assert time_diff_hours + 1 == len(power_dict) 
+
+def test_has_dataset_updated_true():
+    assert has_dataset_updated(
+        "era5_wind_100m_u-hourly", 
+        [[datetime.datetime(2021, 4, 3), datetime.datetime(2021, 5, 3)]],
+        datetime.datetime(2021, 7, 25), 
+        ipfs_timeout=10
+    )
+
+def test_has_dataset_updated_false():
+    assert not has_dataset_updated(
+        "era5_wind_100m_u-hourly", 
+        [[datetime.datetime(1990, 4, 3), datetime.datetime(2000, 5, 3)]],
+        datetime.datetime(2021, 7, 25), 
+        ipfs_timeout=10
+    )

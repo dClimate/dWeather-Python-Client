@@ -1,8 +1,9 @@
-from dweather_client.ipfs_queries import SimpleGriddedDataset, RtmaGriddedDataset, Era5LandWind, PrismGriddedDataset
+from dweather_client.ipfs_queries import SimpleGriddedDataset, RtmaGriddedDataset, Era5LandWind, PrismGriddedDataset, Vhi
 
 """
 Module containing the leaf classes for the gridded dataset inheritance chain.
 Do not add non-leaf classes to this file, as it will cause the dict built from this module to break
+"Unused" `Vhi` import is intentional and necessary, as list of gridded datasets is built from all classes in this file!
 """
 
 class PrismcTmaxDaily(PrismGriddedDataset):

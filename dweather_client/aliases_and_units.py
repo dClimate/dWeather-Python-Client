@@ -19,7 +19,8 @@ UNIT_ALIASES = {
     "degC": u.deg_C,
     "m s**-1": u.m / u.s,
     "degF": imperial.deg_F,
-    "m of water equivalent": u.m 
+    "m of water equivalent": u.m,
+    "vegetative health score": u.dimensionless_unscaled
 }
 
 METRIC_TO_IMPERIAL = {

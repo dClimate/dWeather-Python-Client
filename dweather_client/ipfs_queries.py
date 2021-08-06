@@ -367,6 +367,7 @@ class SimpleGriddedDataset(GriddedDataset):
         ret_lat, ret_lon = cpc_lat_lon_to_conventional(self.snapped_lat, self.snapped_lon)
         return (float(ret_lat), float(ret_lon)), pd.Series(ret_dict)
 
+
 class Era5LandWind(SimpleGriddedDataset):
     """
     Abstract class from which ERA5 Land Wind datasets inherit. Sets formatting that these datasets use
@@ -374,6 +375,84 @@ class Era5LandWind(SimpleGriddedDataset):
     @property
     def zero_padding(self):
         return 8
+
+class Vhi(IpfsDataset):
+    """
+    Instantiable gridded vegetative health dataset. Due to some metadata differences with other sets, doesn't
+    inherit from GriddedDataset
+    """
+    dataset = "vhi"
+    NUM_NAS_AT_START_OF_DATA = 34
+
+    def get_data(self, lat, lon):
+        super().get_data()
+        first_metadata = self.get_metadata(self.head)
+        snapped_lat, snapped_lon = self.snap_to_grid(float(lat), float(lon), first_metadata)
+        self.zip_file_name = f"{snapped_lat:.3f}.zip"
+        self.gzip_name = f"{snapped_lat:.3f}_{snapped_lon:.3f}.gz"
+        hashes = self.traverse_ll(self.head)
+
+        ret_dict = {}
+        for h in hashes:
+            date_range = self.get_date_range_from_metadata(h)
+            weather_dict = self.get_weather_dict(date_range, h)
+            ret_dict = {**ret_dict, **weather_dict}
+
+        return (snapped_lat, snapped_lon), pd.Series(ret_dict).iloc[self.NUM_NAS_AT_START_OF_DATA:]
+
+    def get_weather_dict(self, date_range, ipfs_hash):
+        """
+        Uses a weekly time span, so logic is a little different from other datasets
+        """
+        with zipfile.ZipFile(self.get_file_object(f"{ipfs_hash}/{self.zip_file_name}")) as zi:
+            with gzip.open(zi.open(self.gzip_name)) as gz:
+                cell_text = gz.read().decode('utf-8')
+        vhi_dict = {}
+        year = date_range[0].year
+        for year_data in cell_text.split('\n'):
+            if year == date_range[0].year:
+                date_itr = date_range[0]
+            else:
+                date_itr = datetime.date(year, 1, 1)
+            for week_data in year_data.split(','):
+                vhi_dict[date_itr] = "-999" if week_data == "-999.00" else week_data
+                date_itr += datetime.timedelta(days=7)
+            year += 1
+        return vhi_dict
+
+    @classmethod
+    def snap_to_grid(cls, lat, lon, metadata):
+        """
+        Find the nearest (lat,lon) on IPFS for a VHI metadata file.
+        args:
+        :lat: = -90 < lat < 90, float
+        :lon: = -180 < lon < 180, float
+        :metadata: a dWeather metadata file
+        return: lat, lon
+        Necessary to rewrite because the files' coordinates correspond to the center of each gridcell, not the northwest corner
+        """
+
+        # metadata measures from center, not left edge
+        resolution = metadata['resolution']
+        min_lat = metadata['latitude range'][0] + resolution / 2  # start [lat, lon]
+        min_lon = metadata['longitude range'][0] + resolution / 2  # end [lat, lon]
+
+        # check that the lat lon is in the bounding box
+        snap_lat = round(round((lat - min_lat) / resolution) * resolution + min_lat, 3)
+        snap_lon = round(round((lon - min_lon) / resolution) * resolution + min_lon, 3)
+        return snap_lat, snap_lon
+
+    def get_date_range_from_metadata(self, h):
+        """
+        args:
+        :h: hash for ipfs directory containing metadata
+        return: list of [start_time, end_time]
+        """
+        metadata = self.get_metadata(h)
+        # first year is filled with -999s, so have to start from 1981-01-01
+        start_date = "1981-01-01" if metadata["date range"][0] == "1981-08-28" else metadata["date range"][0]
+        end_date = metadata["date range"][1]
+        return [datetime.date.fromisoformat(dt) for dt in [start_date, end_date]]
 
 class StationDataset(IpfsDataset):
     """

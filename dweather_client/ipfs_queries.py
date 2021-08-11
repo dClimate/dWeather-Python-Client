@@ -522,6 +522,7 @@ class PowerDataset(IpfsDataset):
         """
         pass
 
+
     def get_date_range_from_metadata(self, h):
         """
         args:
@@ -565,10 +566,10 @@ class AemoPowerDataset(PowerDataset):
         for year_data in cell_text.split('\n'):
             for half_hour_data in year_data.split(','):
                 if not half_hour_data:
-                    demand, price = -9999, -9999
+                    demand, price = None, None
                 else:
-                    demand, price = half_hour_data.split("_")
-                data_dict[time_itr] = {"demand": float(demand), "price": float(price)}
+                    demand, price = [float(d) for d in half_hour_data.split("_")]
+                data_dict[time_itr] = {"demand": demand, "price": price}
                 time_itr = time_itr + datetime.timedelta(minutes=30)
         return data_dict
 
@@ -616,9 +617,9 @@ class AesoPowerDataset(PowerDataset):
         for year_data in cell_text.split('\n'):
             for hour_data in year_data.split(','):
                 if not hour_data:
-                    price, ravg, demand = -9999, -9999, -9999
+                    price, ravg, demand = None, None, None
                 else:
-                    price, ravg, demand = hour_data.split("_")
-                data_dict[time_itr] = {"price": float(price), "ravg": float(ravg), "demand": float(demand)}
+                    price, ravg, demand = [float(d) for d in hour_data.split("_")]
+                data_dict[time_itr] = {"price": price, "ravg": ravg, "demand": demand}
                 time_itr = time_itr + datetime.timedelta(hours=1)
         return data_dict

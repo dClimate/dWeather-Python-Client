@@ -20,7 +20,10 @@ UNIT_ALIASES = {
     "m s**-1": u.m / u.s,
     "degF": imperial.deg_F,
     "m of water equivalent": u.m,
-    "vegetative health score": u.dimensionless_unscaled
+    "vegetative health score": u.dimensionless_unscaled,
+    "fraction": u.dimensionless_unscaled,
+    "percentage": u.pct
+
 }
 
 METRIC_TO_IMPERIAL = {
@@ -76,6 +79,19 @@ STATION_ALIASES_TO_COLUMNS = {
      'rain',
      'rainfall'): 'PRCP'
 }
+
+def get_unit_converter(str_u, use_imperial_units):
+    with u.imperial.enable():
+        dweather_unit = UNIT_ALIASES[str_u] if str_u in UNIT_ALIASES else u.Unit(str_u)
+    converter = None
+    # if imperial is desired and dweather_unit is metric
+    if use_imperial_units and (dweather_unit in METRIC_TO_IMPERIAL):
+        converter = METRIC_TO_IMPERIAL[dweather_unit]
+    # if metric is desired and dweather_unit is imperial
+    elif (not use_imperial_units) and (dweather_unit in IMPERIAL_TO_METRIC):
+        converter = IMPERIAL_TO_METRIC[dweather_unit]
+    return converter, dweather_unit
+
 
 def lookup_station_alias(alias):
     for aliases in STATION_ALIASES_TO_COLUMNS:

@@ -137,8 +137,9 @@ def get_forecast(
     missing_value = ""
     resp_series = resp_series.replace(missing_value, np.NaN).astype(float)
     resp_series = resp_series * dweather_unit
+
     if converter is not None:
-        resp_series = pd.Series(converter(resp_series.values), resp_series.index)
+        resp_series = pd.Series(converter(resp_series.values).round(4), resp_series.index)
     result = {"data": {k: convert_nans_to_none(v) for k, v in resp_series.to_dict().items()}}
     if also_return_metadata:
         result = {**result, "metadata": metadata}

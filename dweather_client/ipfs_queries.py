@@ -224,12 +224,12 @@ class GfsDataset(GriddedDataset):
         cur_metadata = self.get_metadata(cur_hash)
         cur_date_range = [datetime.date.fromisoformat(d) for d in cur_metadata["date range"]]
         if forecast_date > cur_date_range[1]:
-            raise ValueError("Forecast date is later than available data")
+            raise DateOutOfRangeError("Forecast date is later than available data")
 
         while forecast_date < cur_date_range[0]:
             prev_hash = cur_metadata['previous hash']
             if prev_hash is None:
-                raise ValueError("Forecast date is earlier than available data")
+                raise DateOutOfRangeError("Forecast date is earlier than available data")
             else:
                 cur_hash = prev_hash
                 cur_metadata = self.get_metadata(cur_hash)
@@ -238,7 +238,7 @@ class GfsDataset(GriddedDataset):
         if forecast_date <= cur_date_range[1]:
             return cur_hash
         else:
-            raise ValueError("Forecast date not available due to gaps in data")
+            raise DateOutOfRangeError("Forecast date not available due to gaps in data")
 
 
 class PrismGriddedDataset(GriddedDataset):

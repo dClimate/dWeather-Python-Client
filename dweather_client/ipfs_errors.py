@@ -29,3 +29,7 @@ class StationNotFoundError(IPFSError):
 class WeatherVariableNotFoundError(IPFSError):
     """The weather variable was not found for the station"""
     pass
+
+class DateOutOfRangeError(IPFSError):
+    """The forecast date is outside of the range of available forecasts"""
+    pass

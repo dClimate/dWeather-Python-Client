@@ -1,7 +1,7 @@
-from numpy import not_equal
 from dweather_client.tests.mock_fixtures import get_patched_datasets
 from dweather_client.client import get_station_history, get_gridcell_history, get_tropical_storms,\
-    get_yield_history, get_irrigation_data, get_power_history, get_gas_history, get_alberta_power_history, GRIDDED_DATASETS, has_dataset_updated
+    get_yield_history, get_irrigation_data, get_power_history, get_gas_history, get_alberta_power_history, GRIDDED_DATASETS, has_dataset_updated,\
+    get_forecast_datasets, get_forecast
 from dweather_client.aliases_and_units import snotel_to_ghcnd
 import pandas as pd
 from io import StringIO
@@ -47,6 +47,27 @@ def test_get_gridcell_history_units(mocker):
                     else:
                         assert res[k].unit in (u.deg_C, u.K)
 
+def test_get_forecast_units():
+    for s in get_forecast_datasets():
+        for use_imperial in [True, False]:
+            res = get_forecast(37, -83, datetime.date(2021, 8, 20), s, use_imperial_units=use_imperial, ipfs_timeout=IPFS_TIMEOUT)["data"]
+            for k in res:
+                if res[k] is not None:
+                    if "volumetric" in s:
+                        assert res[k].unit == u.dimensionless_unscaled
+                    elif "humidity" in s:
+                        assert res[k].unit == u.pct
+                    elif "pcp_rate" in s:
+                        assert res[k].unit == u.kg / (u.m **2 ) / u.s
+                    elif use_imperial and "wind" in s:
+                        assert res[k].unit == imperial.mile / u.hour
+                    elif use_imperial:
+                        assert res[k].unit == imperial.deg_F
+                    elif "wind" in s:
+                        assert res[k].unit == u.m / u.s
+                    else:
+                        assert res[k].unit == u.K
+
 def test_get_gridcell_history_date_range(mocker):
     mocker.patch("dweather_client.client.GRIDDED_DATASETS", get_patched_datasets())
     for s in DAILY_DATASETS:
@@ -60,6 +81,14 @@ def test_get_gridcell_history_date_range(mocker):
         time_diff = last_date - first_date
         time_diff_hours = time_diff.days * 24 + time_diff.seconds // 3600
         assert time_diff_hours + 1 == len(res)
+
+def test_get_forecast_date_range():
+    for s in get_forecast_datasets():
+        res = get_forecast(37, -83, datetime.date(2021, 8, 20), s, ipfs_timeout=IPFS_TIMEOUT)["data"]
+        first_date, last_date = sorted(res)[0], sorted(res)[-1]
+        time_diff = last_date - first_date
+        time_diff_hours = time_diff.days * 24 + time_diff.seconds // 3600
+        assert time_diff_hours + 1 == len(res) == 16 * 24
 
 def test_get_gridcell_nans(mocker):
     mocker.patch("dweather_client.client.GRIDDED_DATASETS", get_patched_datasets())

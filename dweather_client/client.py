@@ -3,16 +3,15 @@ Use these functions to get historical climate data.
 """
 from dweather_client.http_queries import get_metadata, get_heads
 from dweather_client.aliases_and_units import \
-    lookup_station_alias, STATION_UNITS_LOOKUP as SUL, METRIC_TO_IMPERIAL as M2I, IMPERIAL_TO_METRIC as I2M, UNIT_ALIASES
+    lookup_station_alias, STATION_UNITS_LOOKUP as SUL, get_unit_converter
 from dweather_client.struct_utils import tupleify, convert_nans_to_none
 import datetime, pytz, csv, inspect
-from astropy import units as u
 import numpy as np
 import pandas as pd
 from timezonefinder import TimezoneFinder
 from dweather_client import gridded_datasets
 from dweather_client.storms_datasets import IbtracsDataset, AtcfDataset, SimulatedStormsDataset
-from dweather_client.ipfs_queries import StationDataset, YieldDatasets, FsaIrrigationDataset, AemoPowerDataset, AemoGasDataset, AesoPowerDataset
+from dweather_client.ipfs_queries import StationDataset, YieldDatasets, FsaIrrigationDataset, AemoPowerDataset, AemoGasDataset, AesoPowerDataset, GfsDataset
 from dweather_client.slice_utils import DateRangeRetriever, has_changed
 from dweather_client.ipfs_errors import *
 import ipfshttpclient
@@ -22,6 +21,10 @@ GRIDDED_DATASETS = {
     obj.dataset: obj for obj in vars(gridded_datasets).values()
     if inspect.isclass(obj) and type(obj.dataset) == str
 }
+
+def get_forecast_datasets():
+    heads = get_heads()
+    return [k for k in heads if "gfs" in k]
 
 def get_gridcell_history(
         lat,
@@ -51,20 +54,10 @@ def get_gridcell_history(
         raise DatasetError("No such dataset in dClimate")
 
     # set up units
-    str_u = metadata['unit of measurement']
-    with u.imperial.enable():
-        dweather_unit = UNIT_ALIASES[str_u] if str_u in UNIT_ALIASES else u.Unit(str_u)
-    converter = None
-    # if imperial is desired and dweather_unit is metric
-    if use_imperial_units and (dweather_unit in M2I):
-        converter = M2I[dweather_unit]
-    # if metric is desired and dweather_unit is imperial
-    elif (not use_imperial_units) and (dweather_unit in I2M):
-        converter = I2M[dweather_unit]
+    converter, dweather_unit = get_unit_converter(metadata["unit of measurement"], use_imperial_units)
 
     # get dataset-specific "no observation" value
     missing_value = metadata["missing value"]
-
     try:
         dataset_obj = GRIDDED_DATASETS[dataset](as_of=as_of, ipfs_timeout=ipfs_timeout)
     except KeyError:
@@ -102,6 +95,57 @@ def get_gridcell_history(
         result = tupleify(result) + ({"snapped to": (lat, lon)},)
     return result
 
+def get_forecast(
+        lat,
+        lon,
+        forecast_date,
+        dataset,
+        also_return_snapped_coordinates=False,
+        also_return_metadata=False,
+        use_imperial_units=True,
+        convert_to_local_time=True,
+        ipfs_timeout=None):
+
+    if not isinstance(forecast_date, datetime.date):
+        raise TypeError("Forecast date must be datetime.date")
+
+    try:
+        metadata = get_metadata(get_heads()[dataset])
+    except KeyError:
+        raise DatasetError("No such dataset in dClimate")
+
+    # set up units
+    converter, dweather_unit = get_unit_converter(metadata["unit of measurement"], use_imperial_units)
+
+    try:
+        dataset_obj = GfsDataset(dataset, ipfs_timeout=ipfs_timeout)
+    except KeyError:
+        raise DatasetError("No such dataset in dClimate")
+    try:
+        (lat, lon), resp_series = dataset_obj.get_data(lat, lon, forecast_date)
+    except (ipfshttpclient.exceptions.ErrorResponse, ipfshttpclient.exceptions.TimeoutError, KeyError, FileNotFoundError) as e:
+        raise CoordinateNotFoundError("Invalid coordinate for dataset")
+
+    if convert_to_local_time:
+        try:
+            tf = TimezoneFinder()
+            local_tz = pytz.timezone(tf.timezone_at(lng=lon, lat=lat))
+            resp_series = resp_series.tz_localize("UTC").tz_convert(local_tz)
+        except (AttributeError, TypeError):  # datetime.date (daily sets) doesn't work with this, only datetime.datetime (hourly sets)
+            pass
+
+    missing_value = ""
+    resp_series = resp_series.replace(missing_value, np.NaN).astype(float)
+    resp_series = resp_series * dweather_unit
+
+    if converter is not None:
+        resp_series = pd.Series(converter(resp_series.values).round(4), resp_series.index)
+    result = {"data": {k: convert_nans_to_none(v) for k, v in resp_series.to_dict().items()}}
+    if also_return_metadata:
+        result = {**result, "metadata": metadata}
+    if also_return_snapped_coordinates:
+        result = {**result, "snapped to": [lat, lon]}
+    return result
 
 def get_tropical_storms(
         source,

@@ -9,10 +9,7 @@ except ImportError:
 
 def load_requirements(fname):
     reqs = parse_requirements(fname, session="test")
-    try:
-        return [str(ir.requirement) for ir in reqs]
-    except AttributeError:
-        return [str(ir.req) for ir in reqs]
+    return [str(ir.req) for ir in reqs]
 
 with open("README.md", "r") as fh:
     long_description = fh.read()

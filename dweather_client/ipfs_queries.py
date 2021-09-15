@@ -539,6 +539,19 @@ class StationDataset(IpfsDataset):
         with gzip.open(self.get_file_object(file_name)) as gz:
             return gz.read().decode('utf-8')
 
+class CmeStationsDataset(IpfsDataset):
+    """
+    Instantiable class used for pulling in "ghcnd" or "ghcnd-imputed-daily" station data
+    """
+    dataset = "cme_temperature_stations-daily"
+
+    def __init__(self, ipfs_timeout=None):
+        super().__init__(ipfs_timeout=ipfs_timeout)
+
+    def get_data(self, station):
+        super().get_data()
+        file_name = f"{self.head}/{station}.csv"
+        return self.get_file_object(file_name).read().decode("utf-8")
 class YieldDatasets(IpfsDataset):
     """
     Instantiable class used for pulling in sco and rma transitional yield data

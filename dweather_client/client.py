@@ -11,7 +11,7 @@ import pandas as pd
 from timezonefinder import TimezoneFinder
 from dweather_client import gridded_datasets
 from dweather_client.storms_datasets import IbtracsDataset, AtcfDataset, SimulatedStormsDataset
-from dweather_client.ipfs_queries import StationDataset, YieldDatasets, FsaIrrigationDataset, AemoPowerDataset, AemoGasDataset, AesoPowerDataset, GfsDataset
+from dweather_client.ipfs_queries import CmeStationsDataset, StationDataset, YieldDatasets, FsaIrrigationDataset, AemoPowerDataset, AemoGasDataset, AesoPowerDataset, GfsDataset
 from dweather_client.slice_utils import DateRangeRetriever, has_changed
 from dweather_client.ipfs_errors import *
 import ipfshttpclient
@@ -261,6 +261,36 @@ def get_station_history(
             datapoint = SUL[column]['imperialize'](datapoint)
         history[datetime.datetime.strptime(row[date_col], "%Y-%m-%d").date()] = datapoint
 
+    return history
+
+def get_cme_station_history(station_id, weather_variable, use_imperial_units=True, ipfs_timeout=None):
+    try:
+        csv_text = CmeStationsDataset(ipfs_timeout=ipfs_timeout).get_data(station_id)
+    except KeyError:
+        raise DatasetError("No such dataset in dClimate")
+    except ipfshttpclient.exceptions.ErrorResponse:
+        raise StationNotFoundError("Invalid station ID for dataset")
+    metadata = get_metadata(get_heads()["cme_temperature_stations-daily"])
+    unit = metadata["stations"][station_id]
+    converter, dweather_unit = get_unit_converter(unit, use_imperial_units)
+    history = {}
+    reader = csv.reader(csv_text.split('\n'))
+    headers = next(reader)
+    date_col = headers.index('DATE')
+    try:
+        data_col = headers.index(weather_variable)
+    except ValueError:
+        raise WeatherVariableNotFoundError("Invalid weather variable for this station")
+    for row in reader:
+        try:
+            if row[data_col] == '':
+                continue
+        except IndexError:
+            continue
+        datapoint = float(row[data_col]) * dweather_unit
+        if converter:
+            datapoint = converter(datapoint).round(2)
+        history[datetime.datetime.strptime(row[date_col], "%Y-%m-%d").date()] = datapoint
     return history
 
 def get_yield_history(commodity, state, county, dataset="sco-yearly", ipfs_timeout=None):

@@ -37,13 +37,13 @@ def get_gridcell_history(
         as_of=None,
         ipfs_timeout=None):
     """
-    Get the historical timeseries data for a gridded dataset in a dictionary
+    Get the historical timeseries data for a gridded dataset in a pd.Series
 
-    This is a dictionary of dates/datetimes: climate values for a given dataset and
-    lat, lon.
+    This is a dict with a key `data` pointing to a series with an index of 
+    dates/datetimes and climate values for a given dataset and lat, lon.
 
     also_return_metadata is set to False by default, but if set to True,
-    returns the metadata next to the dict within a tuple.
+    returns the metadata as another key in the dict
 
     use_imperial_units is set to True by default, but if set to False,
     will get the appropriate metric unit from aliases_and_units
@@ -87,12 +87,13 @@ def get_gridcell_history(
     resp_series = resp_series * dweather_unit
     if converter is not None:
         resp_series = pd.Series(converter(resp_series.values), resp_series.index)
-    result = {k: convert_nans_to_none(v) for k, v in resp_series.to_dict().items()}
     
+    result = {"data": resp_series}
+
     if also_return_metadata:
-        result = tupleify(result) + ({"metadata": metadata},)
+        result["metadata"] = metadata
     if also_return_snapped_coordinates:
-        result = tupleify(result) + ({"snapped to": (lat, lon)},)
+        result["snapped to"] = [lat, lon]
     return result
 
 def get_forecast(
@@ -140,11 +141,11 @@ def get_forecast(
 
     if converter is not None:
         resp_series = pd.Series(converter(resp_series.values).round(4), resp_series.index)
-    result = {"data": {k: convert_nans_to_none(v) for k, v in resp_series.to_dict().items()}}
+    result = {"data": resp_series}
     if also_return_metadata:
-        result = {**result, "metadata": metadata}
+        result["metadata"] = metadata
     if also_return_snapped_coordinates:
-        result = {**result, "snapped to": [lat, lon]}
+        result["snapped to"] = [lat, lon]
     return result
 
 def get_tropical_storms(

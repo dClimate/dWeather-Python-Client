@@ -4,6 +4,7 @@ from dweather_client.client import get_station_history, get_gridcell_history, ge
     get_forecast_datasets, get_forecast, get_cme_station_history
 from dweather_client.aliases_and_units import snotel_to_ghcnd
 import pandas as pd
+import numpy as np
 from io import StringIO
 import datetime
 from astropy import units as u
@@ -19,7 +20,7 @@ def test_get_gridcell_history_units(mocker):
     mocker.patch("dweather_client.client.GRIDDED_DATASETS", get_patched_datasets())
     for s in DAILY_DATASETS + HOURLY_DATASETS:
         for use_imperial in [True, False]:
-            res = get_gridcell_history(37, -83, s, use_imperial_units=use_imperial, ipfs_timeout=IPFS_TIMEOUT)
+            res = get_gridcell_history(37, -83, s, use_imperial_units=use_imperial, ipfs_timeout=IPFS_TIMEOUT)["data"].to_dict()
             for k in res:
                 if res[k] is not None:
                     if "volumetric" in s:
@@ -50,7 +51,7 @@ def test_get_gridcell_history_units(mocker):
 def test_get_forecast_units():
     for s in get_forecast_datasets():
         for use_imperial in [True, False]:
-            res = get_forecast(37, -83, datetime.date(2021, 8, 20), s, use_imperial_units=use_imperial, ipfs_timeout=IPFS_TIMEOUT)["data"]
+            res = get_forecast(37, -83, datetime.date(2021, 8, 20), s, use_imperial_units=use_imperial, ipfs_timeout=IPFS_TIMEOUT)["data"].to_dict()
             for k in res:
                 if res[k] is not None:
                     if "volumetric" in s:
@@ -71,12 +72,12 @@ def test_get_forecast_units():
 def test_get_gridcell_history_date_range(mocker):
     mocker.patch("dweather_client.client.GRIDDED_DATASETS", get_patched_datasets())
     for s in DAILY_DATASETS:
-        res = get_gridcell_history(37, -83, s, ipfs_timeout=IPFS_TIMEOUT)
+        res = get_gridcell_history(37, -83, s, ipfs_timeout=IPFS_TIMEOUT)["data"].to_dict()
         first_date, last_date = sorted(res)[0], sorted(res)[-1]
         diff = last_date - first_date
         assert diff.days == len(res) - 1
     for s in HOURLY_DATASETS:
-        res = get_gridcell_history(37, -83, s, ipfs_timeout=IPFS_TIMEOUT)
+        res = get_gridcell_history(37, -83, s, ipfs_timeout=IPFS_TIMEOUT)["data"].to_dict()
         first_date, last_date = sorted(res)[0], sorted(res)[-1]
         time_diff = last_date - first_date
         time_diff_hours = time_diff.days * 24 + time_diff.seconds // 3600
@@ -84,7 +85,7 @@ def test_get_gridcell_history_date_range(mocker):
 
 def test_get_forecast_date_range():
     for s in get_forecast_datasets():
-        res = get_forecast(37, -83, datetime.date(2021, 8, 20), s, ipfs_timeout=IPFS_TIMEOUT)["data"]
+        res = get_forecast(37, -83, datetime.date(2021, 8, 20), s, ipfs_timeout=IPFS_TIMEOUT)["data"].to_dict()
         first_date, last_date = sorted(res)[0], sorted(res)[-1]
         time_diff = last_date - first_date
         time_diff_hours = time_diff.days * 24 + time_diff.seconds // 3600
@@ -92,19 +93,19 @@ def test_get_forecast_date_range():
 
 def test_get_gridcell_nans(mocker):
     mocker.patch("dweather_client.client.GRIDDED_DATASETS", get_patched_datasets())
-    prism_r = get_gridcell_history(31.083, -120, "prismc-precip-daily", ipfs_timeout=IPFS_TIMEOUT)
-    assert prism_r[datetime.date(1981, 8, 29)] is None
+    prism_r = get_gridcell_history(31.083, -120, "prismc-precip-daily", ipfs_timeout=IPFS_TIMEOUT)["data"].to_dict()
+    assert np.isnan(prism_r[datetime.date(1981, 8, 29)].value)
 
-    rtma_r = get_gridcell_history(40.694754071664825, -73.93445989160746, "rtma_pcp-hourly", ipfs_timeout=IPFS_TIMEOUT)
+    rtma_r = get_gridcell_history(40.694754071664825, -73.93445989160746, "rtma_pcp-hourly", ipfs_timeout=IPFS_TIMEOUT)["data"].to_dict()
     tz = next(iter(rtma_r)).tzinfo
-    assert rtma_r[datetime.datetime(2011, 1, 29, 17, tzinfo=tz)] is None
+    assert np.isnan(rtma_r[datetime.datetime(2011, 1, 29, 17, tzinfo=tz)])
 
 def test_gridcell_as_of():
-    prism_small = get_gridcell_history(31.083, -120, "prismc-precip-daily", as_of=datetime.datetime(2021, 4, 30), ipfs_timeout=IPFS_TIMEOUT)
+    prism_small = get_gridcell_history(31.083, -120, "prismc-precip-daily", as_of=datetime.datetime(2021, 4, 30), ipfs_timeout=IPFS_TIMEOUT)["data"].to_dict()
     first_date, last_date = sorted(prism_small)[0], sorted(prism_small)[-1]
     diff = last_date - first_date
     assert diff.days == len(prism_small) - 1
-    prism_full = get_gridcell_history(31.083, -120, "prismc-precip-daily", ipfs_timeout=IPFS_TIMEOUT)
+    prism_full = get_gridcell_history(31.083, -120, "prismc-precip-daily", ipfs_timeout=IPFS_TIMEOUT)["data"].to_dict()
     assert len(prism_small) < len(prism_full)
 
 def test_station():

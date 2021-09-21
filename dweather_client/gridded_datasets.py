@@ -18,6 +18,9 @@ class PrismcPrecipDaily(PrismGriddedDataset):
 class RtmaDewPointHourly(RtmaGriddedDataset):
     dataset = "rtma_dew_point-hourly"
 
+class RtmaGustHourly(RtmaGriddedDataset):
+    dataset = "rtma_gust-hourly"
+
 class RtmaPcpHourly(RtmaGriddedDataset):
     dataset = "rtma_pcp-hourly"
 

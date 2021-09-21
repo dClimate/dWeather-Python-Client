@@ -552,6 +552,7 @@ class CmeStationsDataset(IpfsDataset):
         super().get_data()
         file_name = f"{self.head}/{station}.csv"
         return self.get_file_object(file_name).read().decode("utf-8")
+
 class YieldDatasets(IpfsDataset):
     """
     Instantiable class used for pulling in sco and rma transitional yield data

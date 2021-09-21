@@ -28,7 +28,7 @@ def test_get_gridcell_history_units(mocker):
                         assert res[k].unit == imperial.inch
                     elif use_imperial and s == "rtma_pcp-hourly":
                         assert res[k].unit == imperial.pound / imperial.foot**2
-                    elif use_imperial and "wind" in s:
+                    elif use_imperial and ("wind" in s or "gust" in s):
                         assert res[k].unit == imperial.mile / u.hour
                     elif use_imperial and "solar_radiation" in s:
                         assert res[k].unit == u.J / u.m ** 2
@@ -40,7 +40,7 @@ def test_get_gridcell_history_units(mocker):
                         assert res[k].unit == u.mm
                     elif s == "rtma_pcp-hourly":
                         assert res[k].unit == u.kg / u.m**2
-                    elif "wind" in s:
+                    elif "wind" in s or "gust" in s:
                         assert res[k].unit == u.m / u.s
                     elif "solar_radiation" in s:
                         assert res[k].unit == u.J / u.m ** 2

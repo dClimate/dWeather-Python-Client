@@ -11,7 +11,7 @@ import pandas as pd
 from timezonefinder import TimezoneFinder
 from dweather_client import gridded_datasets
 from dweather_client.storms_datasets import IbtracsDataset, AtcfDataset, SimulatedStormsDataset
-from dweather_client.ipfs_queries import CmeStationsDataset, StationDataset, YieldDatasets, FsaIrrigationDataset, AemoPowerDataset, AemoGasDataset, AesoPowerDataset, GfsDataset
+from dweather_client.ipfs_queries import CmeStationsDataset, DutchStationsDataset, StationDataset, YieldDatasets, FsaIrrigationDataset, AemoPowerDataset, AemoGasDataset, AesoPowerDataset, GfsDataset
 from dweather_client.slice_utils import DateRangeRetriever, has_changed
 from dweather_client.ipfs_errors import *
 import ipfshttpclient
@@ -288,6 +288,43 @@ def get_cme_station_history(station_id, weather_variable, use_imperial_units=Tru
         except IndexError:
             continue
         datapoint = float(row[data_col]) * dweather_unit
+        if converter:
+            datapoint = converter(datapoint).round(2)
+        history[datetime.datetime.strptime(row[date_col], "%Y-%m-%d").date()] = datapoint
+    return history
+
+def get_dutch_station_history(station_id, weather_variable, use_imperial_units=True, ipfs_timeout=None):
+    try:
+        csv_text = DutchStationsDataset(ipfs_timeout=ipfs_timeout).get_data(station_id)
+    except KeyError:
+        raise DatasetError("No such dataset in dClimate")
+    except ipfshttpclient.exceptions.ErrorResponse:
+        raise StationNotFoundError("Invalid station ID for dataset")
+    metadata = get_metadata(get_heads()["dutch_stations-daily"])
+
+    station_metadata = metadata["station_metadata"][station_id]
+    try:
+        weather_var_index = [i for i in range(len(station_metadata)) if station_metadata[i]["name"] == weather_variable][0]
+    except IndexError:
+        raise WeatherVariableNotFoundError("Invalid weather variable for this station")
+    unit = station_metadata[weather_var_index]["unit"]
+    multiplier = station_metadata[weather_var_index]["multiplier"]
+    converter, dweather_unit = get_unit_converter(unit, use_imperial_units)
+    history = {}
+    reader = csv.reader(csv_text.split('\n'))
+    headers = next(reader)
+    date_col = headers.index('DATE')
+    try:
+        data_col = headers.index(weather_variable)
+    except ValueError:
+        raise WeatherVariableNotFoundError("Invalid weather variable for this station")
+    for row in reader:
+        try:
+            if row[data_col] == '':
+                continue
+        except IndexError:
+            continue
+        datapoint = (float(row[data_col]) * multiplier) * dweather_unit
         if converter:
             datapoint = converter(datapoint).round(2)
         history[datetime.datetime.strptime(row[date_col], "%Y-%m-%d").date()] = datapoint

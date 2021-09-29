@@ -11,7 +11,7 @@ import pandas as pd
 from timezonefinder import TimezoneFinder
 from dweather_client import gridded_datasets
 from dweather_client.storms_datasets import IbtracsDataset, AtcfDataset, SimulatedStormsDataset
-from dweather_client.ipfs_queries import CmeStationsDataset, DutchStationsDataset, StationDataset, YieldDatasets, FsaIrrigationDataset, AemoPowerDataset, AemoGasDataset, AesoPowerDataset, GfsDataset
+from dweather_client.ipfs_queries import CmeStationsDataset, DutchStationsDataset, DwdStationsDataset, StationDataset, YieldDatasets, FsaIrrigationDataset, AemoPowerDataset, AemoGasDataset, AesoPowerDataset, GfsDataset
 from dweather_client.slice_utils import DateRangeRetriever, has_changed
 from dweather_client.ipfs_errors import *
 import ipfshttpclient
@@ -293,14 +293,19 @@ def get_cme_station_history(station_id, weather_variable, use_imperial_units=Tru
         history[datetime.datetime.strptime(row[date_col], "%Y-%m-%d").date()] = datapoint
     return history
 
-def get_dutch_station_history(station_id, weather_variable, use_imperial_units=True, ipfs_timeout=None):
+def get_european_station_history(dataset, station_id, weather_variable, use_imperial_units=True, ipfs_timeout=None):
     try:
-        csv_text = DutchStationsDataset(ipfs_timeout=ipfs_timeout).get_data(station_id)
+        if dataset == "dwd_stations-daily":
+            csv_text = DwdStationsDataset(ipfs_timeout=ipfs_timeout).get_data(station_id)
+        elif dataset == "dutch_stations-daily":
+            csv_text = DutchStationsDataset(ipfs_timeout=ipfs_timeout).get_data(station_id)
+        else:
+            raise ValueError("invalid european dataset")
     except KeyError:
         raise DatasetError("No such dataset in dClimate")
     except ipfshttpclient.exceptions.ErrorResponse:
         raise StationNotFoundError("Invalid station ID for dataset")
-    metadata = get_metadata(get_heads()["dutch_stations-daily"])
+    metadata = get_metadata(get_heads()[dataset])
 
     station_metadata = metadata["station_metadata"][station_id]
     try:

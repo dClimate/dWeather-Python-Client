@@ -1,7 +1,7 @@
 from dweather_client.tests.mock_fixtures import get_patched_datasets
 from dweather_client.client import get_station_history, get_gridcell_history, get_tropical_storms,\
     get_yield_history, get_irrigation_data, get_power_history, get_gas_history, get_alberta_power_history, GRIDDED_DATASETS, has_dataset_updated,\
-    get_forecast_datasets, get_forecast, get_cme_station_history, get_dutch_station_history
+    get_forecast_datasets, get_forecast, get_cme_station_history, get_european_station_history
 from dweather_client.aliases_and_units import snotel_to_ghcnd
 import pandas as pd
 from io import StringIO
@@ -120,9 +120,14 @@ def test_cme_station():
     assert cme[datetime.date(1962, 8, 2)].unit == imperial.deg_F
 
 def test_dutch_station():
-    dutch = get_dutch_station_history('215', 'TMIN', use_imperial_units=True, ipfs_timeout=IPFS_TIMEOUT)
+    dutch = get_european_station_history('dutch_stations-daily', '215', 'TMIN', use_imperial_units=True, ipfs_timeout=IPFS_TIMEOUT)
     assert len(dutch) >= 2626
     assert dutch[datetime.date(2017, 3, 29)].unit == imperial.deg_F
+
+def test_german_station():
+    german = get_european_station_history('dwd_stations-daily', '13670', 'TMIN', use_imperial_units=True, ipfs_timeout=IPFS_TIMEOUT)
+    assert len(german) >= 5234
+    assert german[datetime.date(2017, 3, 29)].unit == imperial.deg_F
 
 def test_storms_bad_args():
     with pytest.raises(ValueError):

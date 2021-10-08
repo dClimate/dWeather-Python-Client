@@ -8,6 +8,7 @@ from dweather_client.struct_utils import tupleify, convert_nans_to_none
 import datetime, pytz, csv, inspect
 import numpy as np
 import pandas as pd
+from astropy import units as u
 from timezonefinder import TimezoneFinder
 from dweather_client import gridded_datasets
 from dweather_client.storms_datasets import IbtracsDataset, AtcfDataset, SimulatedStormsDataset
@@ -33,6 +34,7 @@ def get_gridcell_history(
         also_return_snapped_coordinates=False,
         also_return_metadata=False,
         use_imperial_units=True,
+        desired_units=None,
         convert_to_local_time=True,
         as_of=None,
         ipfs_timeout=None):
@@ -45,6 +47,9 @@ def get_gridcell_history(
     also_return_metadata is set to False by default, but if set to True,
     returns the metadata next to the dict within a tuple.
 
+    desired_units will override use_imperial_units and attempt to convert the result into 
+    the specified str unit
+
     use_imperial_units is set to True by default, but if set to False,
     will get the appropriate metric unit from aliases_and_units
     """
@@ -54,7 +59,17 @@ def get_gridcell_history(
         raise DatasetError("No such dataset in dClimate")
 
     # set up units
-    converter, dweather_unit = get_unit_converter(metadata["unit of measurement"], use_imperial_units)
+    if not desired_units:
+        converter, dweather_unit = get_unit_converter(metadata["unit of measurement"], use_imperial_units)
+    else:
+        with u.imperial.enable():
+            dweather_unit = u.Unit(metadata["unit of measurement"])
+            try:
+                to_unit = u.Unit(desired_units)
+            except ValueError:
+                raise UnitError("Specified unit not recognized")
+            converter = lambda q: q.to(to_unit)
+
 
     # get dataset-specific "no observation" value
     missing_value = metadata["missing value"]
@@ -86,7 +101,10 @@ def get_gridcell_history(
     
     resp_series = resp_series * dweather_unit
     if converter is not None:
-        resp_series = pd.Series(converter(resp_series.values), resp_series.index)
+        try:
+            resp_series = pd.Series(converter(resp_series.values), resp_series.index)
+        except ValueError:
+            raise UnitError("Specified unit is incompatible with original")
     result = {k: convert_nans_to_none(v) for k, v in resp_series.to_dict().items()}
     
     if also_return_metadata:

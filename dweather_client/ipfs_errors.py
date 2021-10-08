@@ -33,3 +33,7 @@ class WeatherVariableNotFoundError(IPFSError):
 class DateOutOfRangeError(IPFSError):
     """The forecast date is outside of the range of available forecasts"""
     pass
+
+class UnitError(IPFSError):
+    """Unrecognized unit, or specified unit incompatible with original"""
+    pass

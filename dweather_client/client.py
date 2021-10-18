@@ -121,6 +121,7 @@ def get_forecast(
         also_return_snapped_coordinates=False,
         also_return_metadata=False,
         use_imperial_units=True,
+        desired_units=None,
         convert_to_local_time=True,
         ipfs_timeout=None):
 
@@ -133,7 +134,16 @@ def get_forecast(
         raise DatasetError("No such dataset in dClimate")
 
     # set up units
-    converter, dweather_unit = get_unit_converter(metadata["unit of measurement"], use_imperial_units)
+    if not desired_units:
+        converter, dweather_unit = get_unit_converter(metadata["unit of measurement"], use_imperial_units)
+    else:
+        with u.imperial.enable():
+            dweather_unit = u.Unit(metadata["unit of measurement"])
+            try:
+                to_unit = u.Unit(desired_units)
+            except ValueError:
+                raise UnitError("Specified unit not recognized")
+            converter = lambda q: q.to(to_unit)
 
     try:
         dataset_obj = GfsDataset(dataset, ipfs_timeout=ipfs_timeout)
@@ -157,7 +167,11 @@ def get_forecast(
     resp_series = resp_series * dweather_unit
 
     if converter is not None:
-        resp_series = pd.Series(converter(resp_series.values).round(4), resp_series.index)
+        try:
+            resp_series = pd.Series(converter(resp_series.values).round(4), resp_series.index)
+        except ValueError:
+            raise UnitError("Specified unit is incompatible with original")
+    
     result = {"data": {k: convert_nans_to_none(v) for k, v in resp_series.to_dict().items()}}
     if also_return_metadata:
         result = {**result, "metadata": metadata}

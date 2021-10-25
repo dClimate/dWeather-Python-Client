@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 from astropy import units as u
 from timezonefinder import TimezoneFinder
+from math import floor, log10
 from dweather_client import gridded_datasets
 from dweather_client.storms_datasets import IbtracsDataset, AtcfDataset, SimulatedStormsDataset
 from dweather_client.ipfs_queries import CmeStationsDataset, DutchStationsDataset, DwdStationsDataset, StationDataset, YieldDatasets, FsaIrrigationDataset, AemoPowerDataset, AemoGasDataset, AesoPowerDataset, GfsDataset
@@ -26,6 +27,29 @@ GRIDDED_DATASETS = {
 def get_forecast_datasets():
     heads = get_heads()
     return [k for k in heads if "gfs" in k]
+
+def rounding_formula(str_val, original_val, converted_val, forced_precision=None):
+    if forced_precision:
+        precision = forced_precision
+    else:
+        try:
+            decimal = str_val.split('.')[1]
+            precision = len(decimal)
+        except IndexError:
+            # No decimal
+            precision = 0
+    try:
+        conversion_factor = converted_val / original_val
+        exponent = -floor(log10(conversion_factor))
+    except ValueError:
+        # values are NaN
+        return np.nan
+    except ZeroDivisionError:
+        return 0
+
+    rounding_value = precision + exponent
+
+    return round(converted_val, rounding_value)
 
 def get_gridcell_history(
         lat,
@@ -79,7 +103,7 @@ def get_gridcell_history(
         raise DatasetError("No such dataset in dClimate")
 
     try:
-        (lat, lon), resp_series = dataset_obj.get_data(lat, lon)
+        (lat, lon), str_resp_series = dataset_obj.get_data(lat, lon)
 
     except (ipfshttpclient.exceptions.ErrorResponse, ipfshttpclient.exceptions.TimeoutError, KeyError, FileNotFoundError) as e:
         raise CoordinateNotFoundError("Invalid coordinate for dataset")
@@ -89,23 +113,31 @@ def get_gridcell_history(
         try:
             tf = TimezoneFinder()
             local_tz = pytz.timezone(tf.timezone_at(lng=lon, lat=lat))
-            resp_series = resp_series.tz_localize("UTC").tz_convert(local_tz)
+            str_resp_series = str_resp_series.tz_localize("UTC").tz_convert(local_tz)
         except (AttributeError, TypeError):  # datetime.date (daily sets) doesn't work with this, only datetime.datetime (hourly sets)
             pass
 
     if type(missing_value) == str:
-        resp_series = resp_series.replace(missing_value, np.NaN).astype(float)
+        resp_series = str_resp_series.replace(missing_value, np.NaN).astype(float)
     else:
-        resp_series.loc[resp_series.astype(float) == missing_value] = np.NaN
-        resp_series = resp_series.astype(float)
-    
+        str_resp_series.loc[str_resp_series.astype(float) == missing_value] = np.NaN
+        resp_series = str_resp_series.astype(float)
+
     resp_series = resp_series * dweather_unit
     if converter is not None:
         try:
-            resp_series = pd.Series(converter(resp_series.values), resp_series.index)
+            converted_resp_series = pd.Series(converter(resp_series.values), resp_series.index)
         except ValueError:
             raise UnitError("Specified unit is incompatible with original")
-    result = {k: convert_nans_to_none(v) for k, v in resp_series.to_dict().items()}
+        if desired_units is not None:
+            rounded_resp_array = np.vectorize(rounding_formula)(str_resp_series, resp_series, converted_resp_series)
+            final_resp_series = pd.Series(rounded_resp_array * converted_resp_series.values.unit, index=resp_series.index)
+        else:
+            final_resp_series = converted_resp_series
+    else:
+        final_resp_series = resp_series
+
+    result = {k: convert_nans_to_none(v) for k, v in final_resp_series.to_dict().items()}
     
     if also_return_metadata:
         result = tupleify(result) + ({"metadata": metadata},)

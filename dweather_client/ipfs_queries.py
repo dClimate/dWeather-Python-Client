@@ -593,6 +593,7 @@ class YieldDatasets(IpfsDataset):
     def __init__(self, dataset, ipfs_timeout=None):
         if dataset not in {
             "sco-yearly",
+            "sco_vhi_imputed-yearly",
             "rmasco_imputed-yearly",
             "rma_t_yield-single-value",
             "rma_t_yield_imputed-single-value"
@@ -603,7 +604,7 @@ class YieldDatasets(IpfsDataset):
 
     def get_data(self, commodity, state, county):
         super().get_data()
-        if "imputed" in self.dataset:
+        if "rmasco_imputed" in self.dataset:
             file_name = f"{self.head}/{state}-{county}.csv"
         else:
             file_name = f"{self.head}/{commodity}-{state}-{county}.csv"

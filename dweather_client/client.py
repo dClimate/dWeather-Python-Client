@@ -347,8 +347,8 @@ def get_yield_history(commodity, state, county, dataset="sco-yearly", ipfs_timeo
         You can look up code values at:
         https://webapp.rma.usda.gov/apps/RIRS/AreaPlanHistoricalYields.aspx
     """
-    if "imputed" in dataset and commodity != "0081":
-        raise ValueError("Imputed currently only available for soybeans (commodity code 0081)")
+    if "rmasco_imputed" in dataset and commodity != "0081":
+        raise ValueError("RMASCO imputed currently only available for soybeans (commodity code 0081)")
     try:
         return YieldDatasets(dataset, ipfs_timeout=ipfs_timeout).get_data(commodity, state, county)
     except ipfshttpclient.exceptions.ErrorResponse:

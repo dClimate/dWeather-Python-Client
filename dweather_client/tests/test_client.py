@@ -103,11 +103,11 @@ def test_get_forecast_specified_units():
         if res[k] is not None:
             assert res[k].unit == u.km / u.h
 
-def test_get_forecast_specified_imperial():
-    res = get_forecast(37, -83, datetime.date(2021, 8, 20), "gfs_10m_wind_u-hourly", desired_units=ALTERNATE_METRIC_WIND_UNITS)["data"]
+def test_get_forecast_specified_units_imperial():
+    res = get_forecast(37, -83, datetime.date(2021, 8, 20), "gfs_10m_wind_u-hourly", desired_units=ALTERNATE_IMPERIAL_WIND_UNITS)["data"]
     for k in res:
         if res[k] is not None:
-            assert res[k].unit == u.km / u.h
+            assert res[k].unit == imperial.mile / u.h
 
 def test_get_forecast_specified_units_incompatible():
     with pytest.raises(UnitError):

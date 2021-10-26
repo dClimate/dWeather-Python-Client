@@ -11,7 +11,9 @@ import zeep
 import os
 from astropy import units as u
 from astropy.units import imperial
+from math import floor, log10
 import pandas as pd
+import numpy as np
 
 UNIT_ALIASES = {
     "kg/m**2": u.kg / u.m**2,
@@ -79,6 +81,29 @@ STATION_ALIASES_TO_COLUMNS = {
      'rain',
      'rainfall'): 'PRCP'
 }
+
+def rounding_formula(str_val, original_val, converted_val, forced_precision=None):
+    if forced_precision is not None:
+        precision = forced_precision
+    else:
+        try:
+            decimal = str_val.split('.')[1]
+            precision = len(decimal)
+        except IndexError:
+            # No decimal
+            precision = 0
+    try:
+        conversion_factor = converted_val / original_val
+        exponent = -floor(log10(conversion_factor))
+    except ValueError:
+        # values are NaN
+        return np.nan
+    except ZeroDivisionError:
+        return 0
+
+    rounding_value = precision + exponent
+
+    return round(converted_val, rounding_value)
 
 def get_unit_converter(str_u, use_imperial_units):
     with u.imperial.enable():

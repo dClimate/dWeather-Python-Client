@@ -3,14 +3,13 @@ Use these functions to get historical climate data.
 """
 from dweather_client.http_queries import get_metadata, get_heads
 from dweather_client.aliases_and_units import \
-    lookup_station_alias, STATION_UNITS_LOOKUP as SUL, get_unit_converter
+    lookup_station_alias, STATION_UNITS_LOOKUP as SUL, get_unit_converter, rounding_formula
 from dweather_client.struct_utils import tupleify, convert_nans_to_none
 import datetime, pytz, csv, inspect
 import numpy as np
 import pandas as pd
 from astropy import units as u
 from timezonefinder import TimezoneFinder
-from math import floor, log10
 from dweather_client import gridded_datasets
 from dweather_client.storms_datasets import IbtracsDataset, AtcfDataset, SimulatedStormsDataset
 from dweather_client.ipfs_queries import CmeStationsDataset, DutchStationsDataset, DwdStationsDataset, StationDataset, YieldDatasets, FsaIrrigationDataset, AemoPowerDataset, AemoGasDataset, AesoPowerDataset, GfsDataset
@@ -27,29 +26,6 @@ GRIDDED_DATASETS = {
 def get_forecast_datasets():
     heads = get_heads()
     return [k for k in heads if "gfs" in k]
-
-def rounding_formula(str_val, original_val, converted_val, forced_precision=None):
-    if forced_precision:
-        precision = forced_precision
-    else:
-        try:
-            decimal = str_val.split('.')[1]
-            precision = len(decimal)
-        except IndexError:
-            # No decimal
-            precision = 0
-    try:
-        conversion_factor = converted_val / original_val
-        exponent = -floor(log10(conversion_factor))
-    except ValueError:
-        # values are NaN
-        return np.nan
-    except ZeroDivisionError:
-        return 0
-
-    rounding_value = precision + exponent
-
-    return round(converted_val, rounding_value)
 
 def get_gridcell_history(
         lat,

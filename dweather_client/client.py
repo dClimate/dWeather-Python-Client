@@ -11,7 +11,7 @@ import pandas as pd
 from timezonefinder import TimezoneFinder
 from dweather_client import gridded_datasets
 from dweather_client.storms_datasets import IbtracsDataset, AtcfDataset, SimulatedStormsDataset
-from dweather_client.ipfs_queries import CmeStationsDataset, DutchStationsDataset, DwdStationsDataset, StationDataset, YieldDatasets, FsaIrrigationDataset, AemoPowerDataset, AemoGasDataset, AesoPowerDataset, GfsDataset
+from dweather_client.ipfs_queries import CmeStationsDataset, DutchStationsDataset, DwdStationsDataset, StationDataset, YieldDatasets, FsaIrrigationDataset, AemoPowerDataset, AemoGasDataset, AesoPowerDataset, GfsDataset, DroughtMonitor
 from dweather_client.slice_utils import DateRangeRetriever, has_changed
 from dweather_client.ipfs_errors import *
 import ipfshttpclient
@@ -386,6 +386,13 @@ def get_alberta_power_history(ipfs_timeout=None):
         dict with datetime keys and values that are dicts with keys 'price' 'ravg' and 'demand'
     """
     return AesoPowerDataset(ipfs_timeout=ipfs_timeout).get_data()
+
+def get_drought_monitor_history(state, county, ipfs_timeout=None):
+    try:
+        return DroughtMonitor(ipfs_timeout=ipfs_timeout).get_data(state, county)
+    except ipfshttpclient.exceptions.ErrorResponse:
+        raise ValueError("Invalid state/county combo")
+
 
 def has_dataset_updated(dataset, slices, as_of, ipfs_timeout=None):
     """

@@ -766,13 +766,13 @@ class DroughtMonitor(IpfsDataset):
         return ret_dict
     
     def extract_data_from_text(self, date_range, ipfs_hash, state, county):
-        time_itr = date_range[0]
+        time_itr = date_range[0].date()
         data_dict = {}
         bytes_io = self.get_file_object(f"{ipfs_hash}/{state}-{county}.txt")
         for week_data in bytes_io.read().decode("utf-8").split(","):
             data_dict[time_itr] = {}
             split_week_data = week_data.split("_")
             for i, field in enumerate(self.FIELDS):
-                data_dict[time_itr][field] = split_week_data[i]
+                data_dict[time_itr][field] = float(split_week_data[i])
             time_itr += datetime.timedelta(days=7)
         return data_dict

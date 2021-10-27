@@ -66,6 +66,13 @@ def test_get_gridcell_history_specified_units_imperial(mocker):
         if res[k] is not None:
             assert res[k].unit == imperial.mile / u.h
 
+def test_get_gridcell_history_specified_temperature(mocker):
+    mocker.patch("dweather_client.client.GRIDDED_DATASETS", get_patched_datasets())
+    res = get_gridcell_history(37, -83, "rtma_temp-hourly", desired_units="deg_F")
+    for k in res:
+        if res[k] is not None:
+            assert res[k].unit == imperial.deg_F
+
 def test_get_gridcell_history_specified_units_incompatible(mocker):
     mocker.patch("dweather_client.client.GRIDDED_DATASETS", get_patched_datasets())
     with pytest.raises(UnitError):
@@ -98,16 +105,22 @@ def test_get_forecast_units():
                         assert res[k].unit == u.K
 
 def test_get_forecast_specified_units():
-    res = get_forecast(37, -83, datetime.date(2021, 8, 20), "gfs_10m_wind_u-hourly", desired_units=ALTERNATE_METRIC_WIND_UNITS)["data"]
+    res = get_forecast(37, -83, datetime.date(2021, 8, 20), "gfs_10m_wind_u-hourly", desired_units=ALTERNATE_METRIC_WIND_UNITS, ipfs_timeout=IPFS_TIMEOUT)["data"]
     for k in res:
         if res[k] is not None:
             assert res[k].unit == u.km / u.h
 
 def test_get_forecast_specified_units_imperial():
-    res = get_forecast(37, -83, datetime.date(2021, 8, 20), "gfs_10m_wind_u-hourly", desired_units=ALTERNATE_IMPERIAL_WIND_UNITS)["data"]
+    res = get_forecast(37, -83, datetime.date(2021, 8, 20), "gfs_10m_wind_u-hourly", desired_units=ALTERNATE_IMPERIAL_WIND_UNITS, ipfs_timeout=IPFS_TIMEOUT)["data"]
     for k in res:
         if res[k] is not None:
             assert res[k].unit == imperial.mile / u.h
+
+def test_get_forecast_specified_temperature():
+    res = get_forecast(37, -83, datetime.date(2021, 8, 20), "gfs_tmax-hourly", desired_units="deg_F", ipfs_timeout=IPFS_TIMEOUT)["data"]
+    for k in res:
+        if res[k] is not None:
+            assert res[k].unit == imperial.deg_F
 
 def test_get_forecast_specified_units_incompatible():
     with pytest.raises(UnitError):
@@ -163,10 +176,27 @@ def test_station():
     get_station_history('USW00014820', 'TMIN', dataset='ghcnd-imputed-daily', ipfs_timeout=IPFS_TIMEOUT)
     get_station_history(snotel_to_ghcnd(602, 'CO'), 'WESD', ipfs_timeout=IPFS_TIMEOUT)
 
+def test_station_desired_units():
+    res = get_station_history('USW00014820', 'TMAX', desired_units="K", ipfs_timeout=IPFS_TIMEOUT)
+    for k in res:
+        assert res[k].unit == u.K
+
+def test_station_bad_units():
+    with pytest.raises(UnitError):
+       get_station_history('USW00014820', 'TMAX', desired_units="blah", ipfs_timeout=IPFS_TIMEOUT)
+
+def test_station_incompatible_units():
+    with pytest.raises(UnitError):
+       get_station_history('USW00014820', 'TMAX', desired_units="m", ipfs_timeout=IPFS_TIMEOUT)
+    
 def test_cme_station():
     cme = get_cme_station_history('47662', 'TMAX', use_imperial_units=True, ipfs_timeout=IPFS_TIMEOUT)
     assert len(cme) >= 22171
     assert cme[datetime.date(1962, 8, 2)].unit == imperial.deg_F
+
+def test_cme_station_desired_units():
+    cme = get_cme_station_history('47662', 'TMAX', desired_units="K", ipfs_timeout=IPFS_TIMEOUT)
+    assert cme[datetime.date(1962, 8, 2)].unit == u.K
 
 def test_dutch_station():
     dutch = get_european_station_history('dutch_stations-daily', '215', 'TMIN', use_imperial_units=True, ipfs_timeout=IPFS_TIMEOUT)
@@ -177,6 +207,10 @@ def test_german_station():
     german = get_european_station_history('dwd_stations-daily', '13670', 'TMIN', use_imperial_units=True, ipfs_timeout=IPFS_TIMEOUT)
     assert len(german) >= 5234
     assert german[datetime.date(2017, 3, 29)].unit == imperial.deg_F
+
+def test_european_station_desired_units():
+    german = get_european_station_history('dwd_stations-daily', '13670', 'TMIN', desired_units="K", ipfs_timeout=IPFS_TIMEOUT)
+    assert german[datetime.date(2017, 3, 29)].unit == u.K
 
 def test_storms_bad_args():
     with pytest.raises(ValueError):

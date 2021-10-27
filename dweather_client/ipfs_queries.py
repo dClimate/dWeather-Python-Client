@@ -733,3 +733,44 @@ class AesoPowerDataset(PowerDataset):
                 data_dict[time_itr] = {"price": price, "ravg": ravg, "demand": demand}
                 time_itr = time_itr + datetime.timedelta(hours=1)
         return data_dict
+
+class DroughtMonitor(IpfsDataset):
+    """
+    Instantiable class for AEMO Victoria gas data
+    """
+    FIELDS = ["None", "D0", "D1", "D2", "D3", "D4"]
+
+    @property
+    def dataset(self):
+        return "drought_monitor"
+
+    def get_date_range_from_metadata(self, h):
+        """
+        args:
+        :h: hash for ipfs directory containing metadata
+        return: list of [start_time, end_time]
+        """
+        metadata = self.get_metadata(h)
+        str_dates = (metadata["date range"][0], metadata["date range"][1])
+        return [datetime.datetime.fromisoformat(dt) for dt in str_dates]
+    
+    def get_data(self, state, county):
+        super().get_data()
+        hashes = self.traverse_ll(self.head)
+        ret_dict = {}
+        for h in hashes:
+            date_range = self.get_date_range_from_metadata(h)
+            new_dict = self.extract_data_from_text(date_range, h, state, county)
+            ret_dict = {**ret_dict, **new_dict}
+        return ret_dict
+    
+    def extract_data_from_text(self, date_range, ipfs_hash, state, county):
+        with open(self.get_file_object(f"{ipfs_hash}/{state}-{county}.txt"), "rb") as f:
+            time_itr = date_range[0]
+            data_dict = {}
+            for week_data in f.read().decode("utf-8").split(","):
+                data_dict[time_itr] = {}
+                split_week_data = week_data.split("_")
+                for i, field in enumerate(self.FIELDS):
+                    data_dict[time_itr][field] = split_week_data[i]
+                time_itr += datetime.timedelta(days=7)

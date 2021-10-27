@@ -6,11 +6,11 @@ given point.
 In general, all the idiosyncratic reality-based things that one has to 
 deal with.
 """
-from dweather_client.ipfs_errors import AliasNotFoundError
+from dweather_client.ipfs_errors import AliasNotFoundError, UnitError
 import zeep
 import os
 from astropy import units as u
-from astropy.units import imperial
+from astropy.units import equivalencies, imperial
 from math import floor, log10
 import pandas as pd
 import numpy as np
@@ -104,6 +104,45 @@ def rounding_formula(str_val, original_val, converted_val, forced_precision=None
     rounding_value = precision + exponent
 
     return round(converted_val, rounding_value)
+
+def rounding_formula_temperature(str_val, converted_val, forced_precision=None):
+    """
+    Keep precision constant for temperature
+    """
+    if forced_precision is not None:
+        precision = forced_precision
+    else:
+        try:
+            decimal = str_val.split('.')[1]
+            precision = len(decimal)
+        except IndexError:
+            # No decimal
+            precision = 0
+
+    return round(converted_val, precision)
+
+def get_unit_converter_no_aliases(original_units, desired_units):
+    degF = u.def_unit("degF", imperial.deg_F)
+    degC = u.def_unit("degC", u.deg_C)
+    with u.imperial.enable(), u.add_enabled_units([degF, degC]):
+        dweather_unit = u.Unit(original_units)
+        try:
+            to_unit = u.Unit(desired_units)
+        except ValueError:
+            raise UnitError("Specified unit not recognized")
+        if to_unit.physical_type == "temperature":
+            converter = lambda q: q.to(to_unit, equivalencies=u.temperature())
+        else:
+            converter = lambda q: q.to(to_unit)
+    return converter, dweather_unit
+
+def get_to_units(desired_units):
+    with u.imperial.enable():
+        try:
+            to_unit = u.Unit(desired_units)
+        except ValueError:
+            raise UnitError("Specified unit not recognized")
+    return to_unit
 
 def get_unit_converter(str_u, use_imperial_units):
     with u.imperial.enable():

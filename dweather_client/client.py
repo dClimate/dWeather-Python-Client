@@ -1,9 +1,10 @@
 """
 Use these functions to get historical climate data.
 """
+from astropy.units import equivalencies
 from dweather_client.http_queries import get_metadata, get_heads
 from dweather_client.aliases_and_units import \
-    lookup_station_alias, STATION_UNITS_LOOKUP as SUL, get_unit_converter, rounding_formula
+    get_to_units, lookup_station_alias, STATION_UNITS_LOOKUP as SUL, get_unit_converter, get_unit_converter_no_aliases, rounding_formula, rounding_formula_temperature
 from dweather_client.struct_utils import tupleify, convert_nans_to_none
 import datetime, pytz, csv, inspect
 import numpy as np
@@ -62,14 +63,7 @@ def get_gridcell_history(
     if not desired_units:
         converter, dweather_unit = get_unit_converter(metadata["unit of measurement"], use_imperial_units)
     else:
-        with u.imperial.enable():
-            dweather_unit = u.Unit(metadata["unit of measurement"])
-            try:
-                to_unit = u.Unit(desired_units)
-            except ValueError:
-                raise UnitError("Specified unit not recognized")
-            converter = lambda q: q.to(to_unit)
-
+        converter, dweather_unit = get_unit_converter_no_aliases(metadata["unit of measurement"], desired_units)
 
     # get dataset-specific "no observation" value
     missing_value = metadata["missing value"]
@@ -106,7 +100,10 @@ def get_gridcell_history(
         except ValueError:
             raise UnitError("Specified unit is incompatible with original")
         if desired_units is not None:
-            rounded_resp_array = np.vectorize(rounding_formula)(str_resp_series, resp_series, converted_resp_series)
+            if converted_resp_series.values.unit.physical_type == "temperature":
+                rounded_resp_array = np.vectorize(rounding_formula_temperature)(str_resp_series, converted_resp_series)
+            else:
+                rounded_resp_array = np.vectorize(rounding_formula)(str_resp_series, resp_series, converted_resp_series)
             final_resp_series = pd.Series(rounded_resp_array * converted_resp_series.values.unit, index=resp_series.index)
         else:
             final_resp_series = converted_resp_series
@@ -145,13 +142,7 @@ def get_forecast(
     if not desired_units:
         converter, dweather_unit = get_unit_converter(metadata["unit of measurement"], use_imperial_units)
     else:
-        with u.imperial.enable():
-            dweather_unit = u.Unit(metadata["unit of measurement"])
-            try:
-                to_unit = u.Unit(desired_units)
-            except ValueError:
-                raise UnitError("Specified unit not recognized")
-            converter = lambda q: q.to(to_unit)
+        converter, dweather_unit = get_unit_converter_no_aliases(metadata["unit of measurement"], desired_units)
 
     try:
         dataset_obj = GfsDataset(dataset, ipfs_timeout=ipfs_timeout)
@@ -246,6 +237,7 @@ def get_station_history(
         station_id,
         weather_variable,
         use_imperial_units=True,
+        desired_units=None,
         dataset='ghcnd',     
         ipfs_timeout=None):
     """
@@ -275,6 +267,8 @@ def get_station_history(
     aliases.
 
     """
+    if desired_units:
+        to_unit = get_to_units(desired_units)
     try:
         csv_text = StationDataset(dataset, ipfs_timeout=ipfs_timeout).get_data(station_id)
     except KeyError:
@@ -297,13 +291,24 @@ def get_station_history(
         except IndexError:
             continue
         datapoint = SUL[column]['vectorize'](float(row[data_col]))
-        if use_imperial_units:
-            datapoint = SUL[column]['imperialize'](datapoint)
-        history[datetime.datetime.strptime(row[date_col], "%Y-%m-%d").date()] = datapoint
 
+        if desired_units:
+            try:
+                if to_unit.physical_type == "temperature":
+                    converted = datapoint.to(to_unit, equivalencies=u.temperature())
+                    datapoint = rounding_formula_temperature(row[data_col], converted.value) * to_unit
+                else:
+                    converted = datapoint.to(to_unit)
+                    datapoint = rounding_formula(row[data_col], datapoint.value, converted.value) * to_unit
+            except ValueError:
+                raise UnitError("Specified unit is incompatible with original")
+        elif use_imperial_units:
+            datapoint = SUL[column]['imperialize'](datapoint)
+        
+        history[datetime.datetime.strptime(row[date_col], "%Y-%m-%d").date()] = datapoint
     return history
 
-def get_cme_station_history(station_id, weather_variable, use_imperial_units=True, ipfs_timeout=None):
+def get_cme_station_history(station_id, weather_variable, use_imperial_units=True, desired_units=None, ipfs_timeout=None):
     try:
         csv_text = CmeStationsDataset(ipfs_timeout=ipfs_timeout).get_data(station_id)
     except KeyError:
@@ -312,7 +317,10 @@ def get_cme_station_history(station_id, weather_variable, use_imperial_units=Tru
         raise StationNotFoundError("Invalid station ID for dataset")
     metadata = get_metadata(get_heads()["cme_temperature_stations-daily"])
     unit = metadata["stations"][station_id]
-    converter, dweather_unit = get_unit_converter(unit, use_imperial_units)
+    if desired_units:
+        converter, dweather_unit = get_unit_converter_no_aliases(unit, desired_units)
+    else:
+        converter, dweather_unit = get_unit_converter(unit, use_imperial_units)
     history = {}
     reader = csv.reader(csv_text.split('\n'))
     headers = next(reader)
@@ -329,11 +337,14 @@ def get_cme_station_history(station_id, weather_variable, use_imperial_units=Tru
             continue
         datapoint = float(row[data_col]) * dweather_unit
         if converter:
-            datapoint = converter(datapoint).round(2)
+            try:
+                datapoint = converter(datapoint).round(2)
+            except ValueError:
+                raise UnitError("Specified unit is incompatible with original")
         history[datetime.datetime.strptime(row[date_col], "%Y-%m-%d").date()] = datapoint
     return history
 
-def get_european_station_history(dataset, station_id, weather_variable, use_imperial_units=True, ipfs_timeout=None):
+def get_european_station_history(dataset, station_id, weather_variable, use_imperial_units=True, desired_units=None, ipfs_timeout=None):
     try:
         if dataset == "dwd_stations-daily":
             csv_text = DwdStationsDataset(ipfs_timeout=ipfs_timeout).get_data(station_id)
@@ -354,7 +365,10 @@ def get_european_station_history(dataset, station_id, weather_variable, use_impe
         raise WeatherVariableNotFoundError("Invalid weather variable for this station")
     unit = station_metadata[weather_var_index]["unit"]
     multiplier = station_metadata[weather_var_index]["multiplier"]
-    converter, dweather_unit = get_unit_converter(unit, use_imperial_units)
+    if desired_units:
+        converter, dweather_unit = get_unit_converter_no_aliases(unit, desired_units)
+    else:
+        converter, dweather_unit = get_unit_converter(unit, use_imperial_units)
     history = {}
     reader = csv.reader(csv_text.split('\n'))
     headers = next(reader)
@@ -371,7 +385,10 @@ def get_european_station_history(dataset, station_id, weather_variable, use_impe
             continue
         datapoint = (float(row[data_col]) * multiplier) * dweather_unit
         if converter:
-            datapoint = converter(datapoint).round(2)
+            try:
+                datapoint = converter(datapoint).round(2)
+            except ValueError:
+                raise UnitError("Specified unit is incompatible with original")
         history[datetime.datetime.strptime(row[date_col], "%Y-%m-%d").date()] = datapoint
     return history
 

@@ -92,6 +92,9 @@ def rounding_formula(str_val, original_val, converted_val, forced_precision=None
     Returns:
         converted value rounded to an appropriate number of decimals (float)
     """
+    if converted_val == 0:
+        return 0.0
+
     if forced_precision is not None:
         precision = forced_precision
     else:
@@ -107,8 +110,6 @@ def rounding_formula(str_val, original_val, converted_val, forced_precision=None
     except ValueError:
         # values are NaN
         return np.nan
-    except ZeroDivisionError:
-        return 0
 
     rounding_value = precision + exponent
 

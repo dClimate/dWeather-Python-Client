@@ -349,12 +349,15 @@ def get_cme_station_history(station_id, weather_variable, use_imperial_units=Tru
         if converter:
             try:
                 converted = converter(datapoint)
+            except ValueError:
+                raise UnitError("Specified unit is incompatible with original")
+            if desired_units:
                 if dweather_unit.physical_type == "temperature":
                     final_datapoint = rounding_formula_temperature(row[data_col], converted.value) * converted.unit
                 else:
                     final_datapoint = rounding_formula(row[data_col], datapoint.value, converted.value) * converted.unit
-            except ValueError:
-                raise UnitError("Specified unit is incompatible with original")
+            else:
+                final_datapoint = converted.round(2)
         else:
             final_datapoint = datapoint
         history[datetime.datetime.strptime(row[date_col], "%Y-%m-%d").date()] = final_datapoint
@@ -403,12 +406,15 @@ def get_european_station_history(dataset, station_id, weather_variable, use_impe
         if converter:
             try:
                 converted = converter(datapoint)
+            except ValueError:
+                raise UnitError("Specified unit is incompatible with original")
+            if desired_units:
                 if dweather_unit.physical_type == "temperature":
                     final_datapoint = rounding_formula_temperature(row[data_col], converted.value) * converted.unit
                 else:
                     final_datapoint = rounding_formula(row[data_col], datapoint.value, converted.value) * converted.unit
-            except ValueError:
-                raise UnitError("Specified unit is incompatible with original")
+            else:
+                final_datapoint = converted.round(2)
         else:
             final_datapoint = datapoint
         history[datetime.datetime.strptime(row[date_col], "%Y-%m-%d").date()] = final_datapoint

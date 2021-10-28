@@ -52,33 +52,33 @@ def test_get_gridcell_history_units(mocker):
                     else:
                         assert res[k].unit in (u.deg_C, u.K)
 
-def test_get_gridcell_history_specified_units(mocker):
+def test_get_gridcell_history_desired_units(mocker):
     mocker.patch("dweather_client.client.GRIDDED_DATASETS", get_patched_datasets())
     res = get_gridcell_history(37, -83, "rtma_gust-hourly", desired_units=ALTERNATE_METRIC_WIND_UNITS)
     for k in res:
         if res[k] is not None:
             assert res[k].unit == u.km / u.h
 
-def test_get_gridcell_history_specified_units_imperial(mocker):
+def test_get_gridcell_history_desired_units_imperial(mocker):
     mocker.patch("dweather_client.client.GRIDDED_DATASETS", get_patched_datasets())
     res = get_gridcell_history(37, -83, "rtma_gust-hourly", desired_units=ALTERNATE_IMPERIAL_WIND_UNITS)
     for k in res:
         if res[k] is not None:
             assert res[k].unit == imperial.mile / u.h
 
-def test_get_gridcell_history_specified_temperature(mocker):
+def test_get_gridcell_history_desired_temperature(mocker):
     mocker.patch("dweather_client.client.GRIDDED_DATASETS", get_patched_datasets())
     res = get_gridcell_history(37, -83, "rtma_temp-hourly", desired_units="deg_F")
     for k in res:
         if res[k] is not None:
             assert res[k].unit == imperial.deg_F
 
-def test_get_gridcell_history_specified_units_incompatible(mocker):
+def test_get_gridcell_history_desired_units_incompatible(mocker):
     mocker.patch("dweather_client.client.GRIDDED_DATASETS", get_patched_datasets())
     with pytest.raises(UnitError):
         get_gridcell_history(37, -83, "rtma_gust-hourly", desired_units=PRECIP_UNITS)
 
-def test_get_gridcell_history_specified_unit_not_found(mocker):
+def test_get_gridcell_history_desired_unit_not_found(mocker):
     mocker.patch("dweather_client.client.GRIDDED_DATASETS", get_patched_datasets())
     with pytest.raises(UnitError):
         get_gridcell_history(37, -83, "rtma_gust-hourly", desired_units=BAD_UNIT)
@@ -104,29 +104,29 @@ def test_get_forecast_units():
                     else:
                         assert res[k].unit == u.K
 
-def test_get_forecast_specified_units():
+def test_get_forecast_desired_units():
     res = get_forecast(37, -83, datetime.date(2021, 8, 20), "gfs_10m_wind_u-hourly", desired_units=ALTERNATE_METRIC_WIND_UNITS, ipfs_timeout=IPFS_TIMEOUT)["data"]
     for k in res:
         if res[k] is not None:
             assert res[k].unit == u.km / u.h
 
-def test_get_forecast_specified_units_imperial():
+def test_get_forecast_desired_units_imperial():
     res = get_forecast(37, -83, datetime.date(2021, 8, 20), "gfs_10m_wind_u-hourly", desired_units=ALTERNATE_IMPERIAL_WIND_UNITS, ipfs_timeout=IPFS_TIMEOUT)["data"]
     for k in res:
         if res[k] is not None:
             assert res[k].unit == imperial.mile / u.h
 
-def test_get_forecast_specified_temperature():
+def test_get_forecast_desired_temperature():
     res = get_forecast(37, -83, datetime.date(2021, 8, 20), "gfs_tmax-hourly", desired_units="deg_F", ipfs_timeout=IPFS_TIMEOUT)["data"]
     for k in res:
         if res[k] is not None:
             assert res[k].unit == imperial.deg_F
 
-def test_get_forecast_specified_units_incompatible():
+def test_get_forecast_desired_units_incompatible():
     with pytest.raises(UnitError):
         get_forecast(37, -83, datetime.date(2021, 8, 20), "gfs_10m_wind_u-hourly", desired_units=PRECIP_UNITS)
 
-def test_get_forecast_specified_unit_not_found():
+def test_get_forecast_desired_unit_not_found():
     with pytest.raises(UnitError):
         get_forecast(37, -83, datetime.date(2021, 8, 20), "gfs_10m_wind_u-hourly", desired_units=BAD_UNIT)
 

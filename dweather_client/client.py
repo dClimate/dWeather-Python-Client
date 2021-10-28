@@ -149,7 +149,7 @@ def get_forecast(
     except KeyError:
         raise DatasetError("No such dataset in dClimate")
     try:
-        (lat, lon), resp_series = dataset_obj.get_data(lat, lon, forecast_date)
+        (lat, lon), str_resp_series = dataset_obj.get_data(lat, lon, forecast_date)
     except (ipfshttpclient.exceptions.ErrorResponse, ipfshttpclient.exceptions.TimeoutError, KeyError, FileNotFoundError) as e:
         raise CoordinateNotFoundError("Invalid coordinate for dataset")
 
@@ -157,21 +157,31 @@ def get_forecast(
         try:
             tf = TimezoneFinder()
             local_tz = pytz.timezone(tf.timezone_at(lng=lon, lat=lat))
-            resp_series = resp_series.tz_localize("UTC").tz_convert(local_tz)
+            str_resp_series = str_resp_series.tz_localize("UTC").tz_convert(local_tz)
         except (AttributeError, TypeError):  # datetime.date (daily sets) doesn't work with this, only datetime.datetime (hourly sets)
             pass
 
     missing_value = ""
-    resp_series = resp_series.replace(missing_value, np.NaN).astype(float)
+    resp_series = str_resp_series.replace(missing_value, np.NaN).astype(float)
     resp_series = resp_series * dweather_unit
 
     if converter is not None:
         try:
-            resp_series = pd.Series(converter(resp_series.values).round(4), resp_series.index)
+            converted_resp_series = pd.Series(converter(resp_series.values), resp_series.index)
         except ValueError:
             raise UnitError("Specified unit is incompatible with original")
+        if desired_units is not None:
+            if converted_resp_series.values.unit.physical_type == "temperature":
+                rounded_resp_array = np.vectorize(rounding_formula_temperature)(str_resp_series, converted_resp_series)
+            else:
+                rounded_resp_array = np.vectorize(rounding_formula)(str_resp_series, resp_series, converted_resp_series)
+            final_resp_series = pd.Series(rounded_resp_array * converted_resp_series.values.unit, index=resp_series.index)
+        else:
+            final_resp_series = converted_resp_series
+    else:
+        final_resp_series = resp_series
     
-    result = {"data": {k: convert_nans_to_none(v) for k, v in resp_series.to_dict().items()}}
+    result = {"data": {k: convert_nans_to_none(v) for k, v in final_resp_series.to_dict().items()}}
     if also_return_metadata:
         result = {**result, "metadata": metadata}
     if also_return_snapped_coordinates:
@@ -338,10 +348,14 @@ def get_cme_station_history(station_id, weather_variable, use_imperial_units=Tru
         datapoint = float(row[data_col]) * dweather_unit
         if converter:
             try:
-                datapoint = converter(datapoint).round(2)
+                converted = converter(datapoint)
+                if dweather_unit.physical_type == "temperature":
+                    final_datapoint = rounding_formula_temperature(row[data_col], converted.value) * converted.unit
+                else:
+                    final_datapoint = rounding_formula(row[data_col], datapoint.value, converted.value) * converted.unit
             except ValueError:
                 raise UnitError("Specified unit is incompatible with original")
-        history[datetime.datetime.strptime(row[date_col], "%Y-%m-%d").date()] = datapoint
+        history[datetime.datetime.strptime(row[date_col], "%Y-%m-%d").date()] = final_datapoint
     return history
 
 def get_european_station_history(dataset, station_id, weather_variable, use_imperial_units=True, desired_units=None, ipfs_timeout=None):
@@ -386,10 +400,14 @@ def get_european_station_history(dataset, station_id, weather_variable, use_impe
         datapoint = (float(row[data_col]) * multiplier) * dweather_unit
         if converter:
             try:
-                datapoint = converter(datapoint).round(2)
+                converted = converter(datapoint)
+                if dweather_unit.physical_type == "temperature":
+                    final_datapoint = rounding_formula_temperature(row[data_col], converted.value) * converted.unit
+                else:
+                    final_datapoint = rounding_formula(row[data_col], datapoint.value, converted.value) * converted.unit
             except ValueError:
                 raise UnitError("Specified unit is incompatible with original")
-        history[datetime.datetime.strptime(row[date_col], "%Y-%m-%d").date()] = datapoint
+        history[datetime.datetime.strptime(row[date_col], "%Y-%m-%d").date()] = final_datapoint
     return history
 
 def get_yield_history(commodity, state, county, dataset="sco-yearly", ipfs_timeout=None):

@@ -6,12 +6,14 @@ given point.
 In general, all the idiosyncratic reality-based things that one has to 
 deal with.
 """
-from dweather_client.ipfs_errors import AliasNotFoundError
+from dweather_client.ipfs_errors import AliasNotFoundError, UnitError
 import zeep
 import os
 from astropy import units as u
-from astropy.units import imperial
+from astropy.units import equivalencies, imperial
+from math import floor, log10
 import pandas as pd
+import numpy as np
 
 UNIT_ALIASES = {
     "kg/m**2": u.kg / u.m**2,
@@ -79,6 +81,86 @@ STATION_ALIASES_TO_COLUMNS = {
      'rain',
      'rainfall'): 'PRCP'
 }
+
+def rounding_formula(str_val, original_val, converted_val, forced_precision=None):
+    """
+    Formula for determining how to round after a unit conversion. Can be vectorized to handle series/ndarrays
+    Args:
+        `str_val` (str) the original value as a string, with no rounding applied
+        `original_val` (float) the original value converted to a float
+        `converted_val` (float) the value after unit conversion has been applied
+    Returns:
+        converted value rounded to an appropriate number of decimals (float)
+    """
+    if converted_val == 0:
+        return 0.0
+
+    if forced_precision is not None:
+        precision = forced_precision
+    else:
+        try:
+            decimal = str_val.split('.')[1]
+            precision = len(decimal)
+        except IndexError:
+            # No decimal
+            precision = 0
+    try:
+        conversion_factor = converted_val / original_val
+        exponent = -floor(log10(conversion_factor))
+    except ValueError:
+        # values are NaN
+        return np.nan
+
+    rounding_value = precision + exponent
+
+    return round(converted_val, rounding_value)
+
+def rounding_formula_temperature(str_val, converted_val, forced_precision=None):
+    """
+    Similar to `rounding_formula`, but use original precision instead of calculating
+    """
+    if forced_precision is not None:
+        precision = forced_precision
+    else:
+        try:
+            decimal = str_val.split('.')[1]
+            precision = len(decimal)
+        except IndexError:
+            # No decimal
+            precision = 0
+
+    return round(converted_val, precision)
+
+def get_unit_converter_no_aliases(original_units, desired_units):
+    """
+    Get an astropy Unit corresponding to `original_units` (str) and a converter (function) to convert to
+    `desired_units` (str) Raises `UnitError` when unable to parse `desired_units` as Unit
+    """
+    degF = u.def_unit("degF", imperial.deg_F)
+    degC = u.def_unit("degC", u.deg_C)
+    with u.imperial.enable(), u.add_enabled_units([degF, degC]):
+        dweather_unit = u.Unit(original_units)
+        try:
+            to_unit = u.Unit(desired_units)
+        except ValueError:
+            raise UnitError("Specified unit not recognized")
+        if to_unit.physical_type == "temperature":
+            converter = lambda q: q.to(to_unit, equivalencies=u.temperature())
+        else:
+            converter = lambda q: q.to(to_unit)
+    return converter, dweather_unit
+
+def get_to_units(desired_units):
+    """
+    Get the astropy Unit corresponding to `desired_units`. Raises `UnitError` when unable to parse
+    `desired_units` as Unit
+    """
+    with u.imperial.enable():
+        try:
+            to_unit = u.Unit(desired_units)
+        except ValueError:
+            raise UnitError("Specified unit not recognized")
+    return to_unit
 
 def get_unit_converter(str_u, use_imperial_units):
     with u.imperial.enable():

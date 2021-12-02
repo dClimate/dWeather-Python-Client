@@ -16,6 +16,10 @@ from io import BytesIO
 METADATA_FILE = "metadata.json"
 GATEWAY_IPFS_ID = "/ip4/134.122.126.13/tcp/4001/p2p/12D3KooWM8nN6VbUka1NeuKnu9xcKC56D17ApAVRDyfYNytzUsqG"
 
+def is_date_range_valid(possible_date_range):
+    return type(possible_date_range) == list and len(possible_date_range) == 2 \
+        and type(possible_date_range[0]) == datetime.datetime and type(possible_date_range[1]) == datetime.datetime
+
 class IpfsDataset(ABC):
     """
     Base class for handling requests for all IPFS datasets
@@ -28,7 +32,7 @@ class IpfsDataset(ABC):
         """
         pass
 
-    def __init__(self, as_of=None, ipfs_timeout=None):
+    def __init__(self, as_of=None, ipfs_timeout=None, date_range=None):
         """
         args:
         :ipfs_timeout: Time IPFS should wait for response before throwing exception. If None, will assume that
@@ -37,6 +41,7 @@ class IpfsDataset(ABC):
         self.on_gateway = not ipfs_timeout
         self.ipfs = ipfshttpclient.connect(timeout=ipfs_timeout)
         self.as_of = as_of
+        self.date_range = date_range
 
 
     def get_metadata(self, h):
@@ -62,7 +67,7 @@ class IpfsDataset(ABC):
             self.ipfs._client.request('/swarm/connect', (GATEWAY_IPFS_ID,))
         return BytesIO(self.ipfs.cat(f))
 
-    def traverse_ll(self, head, as_of=None):
+    def traverse_ll(self, head, as_of=None, date_range=None):
         """
         Iterates through a linked list of metadata files
         args:
@@ -71,22 +76,33 @@ class IpfsDataset(ABC):
         """
         release_itr = head
         release_ll = deque()
+        if date_range is not None and not is_date_range_valid(date_range):
+            raise TypeError("Date range must be a list of two datetimes or be None")
         while True:
             metadata = self.get_metadata(release_itr)
+            if date_range:
+                date_range_of_hash = [datetime.datetime.fromisoformat(dt) for dt in metadata["date range"]]
+                # import ipdb; ipdb.set_trace()
+                in_range = date_range_of_hash[0] <= date_range[0] <= date_range_of_hash[1] or date_range_of_hash[0] <= date_range[1] <= date_range_of_hash[1]
+            else:
+                in_range = True
             if as_of:
                 date_generated = datetime.datetime.fromisoformat(metadata["time generated"])
-                if date_generated <= as_of:
+                if date_generated <= as_of and in_range:
                     release_ll.appendleft(release_itr)
-            else:
+            elif in_range:
                 release_ll.appendleft(release_itr)
             try:
                 prev_release = metadata['previous hash']
             except KeyError:
+                self.has_root = in_range
                 return release_ll
             if prev_release is not None:
                 release_itr = prev_release
             else:
+                self.has_root = in_range
                 return release_ll
+        
 
     @abstractmethod
     def get_data(self, *args, **kwargs):
@@ -123,7 +139,7 @@ class GriddedDataset(IpfsDataset):
         """
         return: list of all hashes in dataset
         """
-        hashes = self.traverse_ll(self.head, self.as_of)
+        hashes = self.traverse_ll(self.head, self.as_of, date_range=self.date_range)
         return list(hashes)
 
     def get_date_range_from_metadata(self, h):
@@ -145,7 +161,7 @@ class GriddedDataset(IpfsDataset):
         :is_root: bool indicating whether this is the root node in the linked list
         return: pd.Series with date or datetime index and weather values
         """
-        if not is_root:
+        if not is_root or not self.has_root:
             try:
                 with tarfile.open(fileobj=self.get_file_object(f"{ipfs_hash}/{self.tar_name}")) as tar:
                     member = tar.getmember(self.gzip_name)

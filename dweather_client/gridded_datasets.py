@@ -72,6 +72,12 @@ class Era5LandWindUHourly(Era5LandWind):
 class Era5LandWindVHourly(Era5LandWind):
     dataset = "era5_land_wind_v-hourly"
 
+class Era5LandDewpoint2mTempHourly(SimpleGriddedDataset):
+    dataset = "era5_land_dewpoint_temp_2m-hourly"
+
+class Era5Instantaneous10mWindGustHourly(SimpleGriddedDataset):
+    dataset = "era5_instantaneous_10m_wind_gust-hourly"
+
 class Era5SurfaceRunoffHourly(SimpleGriddedDataset):
     dataset = "era5_surface_runoff-hourly"
 

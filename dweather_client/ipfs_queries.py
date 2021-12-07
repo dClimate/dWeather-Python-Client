@@ -799,7 +799,7 @@ class CedaBiomass(IpfsDataset):
         super().get_data()
 
         ns_string = f"S{abs(lat):02}" if lat < 0 else f"N{lat:02}"
-        ew_string = f"W{abs(lon):03}" if lat < 0 else f"E{lon:03}"
+        ew_string = f"W{abs(lon):03}" if lon < 0 else f"E{lon:03}"
 
         if "-" in year:
             qual = "SD" if "SD" in unit else "QF"

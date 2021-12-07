@@ -737,7 +737,7 @@ class AesoPowerDataset(PowerDataset):
 
 class DroughtMonitor(IpfsDataset):
     """
-    Instantiable class for AEMO Victoria gas data
+    Instantiable class for drought data
     """
     FIELDS = ["None", "D0", "D1", "D2", "D3", "D4"]
 
@@ -776,3 +776,35 @@ class DroughtMonitor(IpfsDataset):
                 data_dict[time_itr][field] = float(split_week_data[i])
             time_itr += datetime.timedelta(days=7)
         return data_dict
+
+class CedaBiomass(IpfsDataset):
+    """
+    Instantiable class to pull CEDA biomass data
+    """
+
+    @property
+    def dataset(self):
+        return "ceda_biomass"
+
+    def get_data(self, year, lat, lon, unit):
+        """
+        args:
+            :year: (str) One of '2010', '2017', '2018', '2018-2010', 2018-2017'
+            :lat: (float) Ranges from -40 to 80: latitude of northwest corner of desired square
+            :lon: (float) Ranges from -180 to 180: longitude of northwest corner of desired square
+            :unit: (str) 'AGB' (above-ground biomass) or 'AGB_SD' (above-ground biomass + standing dead)
+        returns:
+            BytesIO representing relevant GeoTiff File
+        """
+        super().get_data()
+
+        ns_string = f"S{abs(lat):02}" if lat < 0 else f"N{lat:02}"
+        ew_string = f"W{abs(lon):03}" if lat < 0 else f"E{lon:03}"
+
+        if "-" in year:
+            qual = "SD" if "SD" in unit else "QF"
+            file_name = f"{ns_string}{ew_string}_ESACCI-BIOMASS-L4-AGB-MERGED-DIFF_{qual}-100m-{year}-fv3.0.tif"
+        else:
+            file_name = f"{ns_string}{ew_string}_ESACCI-BIOMASS-L4-{unit}-MERGED-100m-{year}-fv3.0.tif"
+
+        return self.get_file_object(f"{self.head}/{file_name}")

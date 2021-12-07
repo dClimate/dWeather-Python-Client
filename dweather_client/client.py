@@ -13,7 +13,7 @@ from astropy import units as u
 from timezonefinder import TimezoneFinder
 from dweather_client import gridded_datasets
 from dweather_client.storms_datasets import IbtracsDataset, AtcfDataset, SimulatedStormsDataset
-from dweather_client.ipfs_queries import CmeStationsDataset, DutchStationsDataset, DwdStationsDataset, StationDataset, YieldDatasets, FsaIrrigationDataset, AemoPowerDataset, AemoGasDataset, AesoPowerDataset, GfsDataset, DroughtMonitor
+from dweather_client.ipfs_queries import CedaBiomass, CmeStationsDataset, DutchStationsDataset, DwdStationsDataset, StationDataset, YieldDatasets, FsaIrrigationDataset, AemoPowerDataset, AemoGasDataset, AesoPowerDataset, GfsDataset, DroughtMonitor
 from dweather_client.slice_utils import DateRangeRetriever, has_changed
 from dweather_client.ipfs_errors import *
 import ipfshttpclient
@@ -478,6 +478,20 @@ def get_drought_monitor_history(state, county, ipfs_timeout=None):
     except ipfshttpclient.exceptions.ErrorResponse:
         raise ValueError("Invalid state/county combo")
 
+def get_ceda_biomass(year, lat, lon, unit, ipfs_timeout=None):
+    """
+    args:
+        :year: (str) One of '2010', '2017', '2018', '2018-2010', 2018-2017'
+        :lat: (float) Ranges from -40 to 80: latitude of northwest corner of desired square
+        :lon: (float) Ranges from -180 to 180: longitude of northwest corner of desired square
+        :unit: (str) 'AGB' (above-ground biomass) or 'AGB_SD' (above-ground biomass + standing dead)
+    returns:
+        BytesIO representing relevant GeoTiff File
+    """
+    try:
+        return CedaBiomass(ipfs_timeout=ipfs_timeout).get_data(year, lat, lon, unit)
+    except ipfshttpclient.exceptions.ErrorResponse:
+        raise ValueError("Invalid paramaters with which to get biomass data")
 
 def has_dataset_updated(dataset, slices, as_of, ipfs_timeout=None):
     """

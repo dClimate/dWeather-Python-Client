@@ -2,7 +2,7 @@ from dweather_client.ipfs_errors import *
 from dweather_client.tests.mock_fixtures import get_patched_datasets
 from dweather_client.client import get_station_history, get_gridcell_history, get_tropical_storms,\
     get_yield_history, get_irrigation_data, get_power_history, get_gas_history, get_alberta_power_history, GRIDDED_DATASETS, has_dataset_updated,\
-    get_forecast_datasets, get_forecast, get_cme_station_history, get_european_station_history, get_drought_monitor_history
+    get_forecast_datasets, get_forecast, get_cme_station_history, get_european_station_history, get_drought_monitor_history, get_japan_station_history
 from dweather_client.aliases_and_units import snotel_to_ghcnd
 import pandas as pd
 from io import StringIO
@@ -256,6 +256,16 @@ def test_irrigation():
     df = pd.read_csv(StringIO(get_irrigation_data("0041", ipfs_timeout=IPFS_TIMEOUT)))
     assert len(df.columns) == 4
     assert len(df) > 0
+
+def test_japan():
+    data = get_japan_station_history("Tokyo", ipfs_timeout=IPFS_TIMEOUT)
+    assert len(data) == (sorted(data)[-1] - sorted(data)[0]).days + 1
+    assert data[sorted(data)[0]].unit == u.deg_C
+
+def test_japan_units():
+    data = get_japan_station_history("Fukuoka", desired_units="K", ipfs_timeout=IPFS_TIMEOUT)
+    assert len(data) > 19000
+    assert data[sorted(data)[0]].unit == u.K
 
 def test_power():
     power_dict = get_power_history(ipfs_timeout=IPFS_TIMEOUT)

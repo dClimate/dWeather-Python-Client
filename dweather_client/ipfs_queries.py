@@ -38,7 +38,6 @@ class IpfsDataset(ABC):
         self.ipfs = ipfshttpclient.connect(timeout=ipfs_timeout)
         self.as_of = as_of
 
-
     def get_metadata(self, h):
         """
         args:
@@ -733,6 +732,46 @@ class AesoPowerDataset(PowerDataset):
                     price, ravg, demand = [float(d) for d in hour_data.split("_")]
                 data_dict[time_itr] = {"price": price, "ravg": ravg, "demand": demand}
                 time_itr = time_itr + datetime.timedelta(hours=1)
+        return data_dict
+
+class JapanStations(GriddedDataset):
+    """
+    Instantiable class for Japan Meteorological Station Data
+    """
+    @property
+    def dataset(self):
+        return "japan_meteo-daily"
+
+    @property
+    def data_file_format(self):
+        return "japan_meteo_{}_{}.txt"
+
+    def get_block_number(self, station_name, h):
+        metadata = self.get_metadata(h)
+        try:
+            return metadata["station_metadata"][station_name][1]
+        except KeyError:
+            raise ValueError("Invalid station name")
+
+    def get_data(self, station_name):
+        super().get_data()
+        hashes = self.get_hashes()
+        block_number = self.get_block_number(station_name, hashes[0])
+        ret_dict = {}
+        for h in hashes:
+            date_range = self.get_date_range_from_metadata(h)
+            new_dict = self.extract_data_from_text(date_range, h, block_number, station_name)
+            ret_dict = {**ret_dict, **new_dict}
+        return pd.Series(ret_dict)
+
+    def extract_data_from_text(self, date_range, ipfs_hash, block_number, station_name):
+        byte_obj = self.get_file_object(f"{ipfs_hash}/{self.data_file_format.format(block_number, station_name)}")
+        data = byte_obj.read().decode("utf-8").split(",")
+        day_itr = date_range[0].date()
+        data_dict = {}
+        for point in data:
+            data_dict[day_itr] = point
+            day_itr += datetime.timedelta(days=1)
         return data_dict
 
 class DroughtMonitor(IpfsDataset):

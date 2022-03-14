@@ -13,7 +13,7 @@ from astropy import units as u
 from timezonefinder import TimezoneFinder
 from dweather_client import gridded_datasets
 from dweather_client.storms_datasets import IbtracsDataset, AtcfDataset, SimulatedStormsDataset
-from dweather_client.ipfs_queries import CedaBiomass, CmeStationsDataset, DutchStationsDataset, DwdStationsDataset, StationDataset, YieldDatasets, FsaIrrigationDataset, AemoPowerDataset, AemoGasDataset, AesoPowerDataset, GfsDataset, DroughtMonitor
+from dweather_client.ipfs_queries import CedaBiomass, CmeStationsDataset, DutchStationsDataset, DwdStationsDataset, JapanStations, StationDataset, YieldDatasets, FsaIrrigationDataset, AemoPowerDataset, AemoGasDataset, AesoPowerDataset, GfsDataset, DroughtMonitor
 from dweather_client.slice_utils import DateRangeRetriever, has_changed
 from dweather_client.ipfs_errors import *
 import ipfshttpclient
@@ -450,6 +450,25 @@ def get_irrigation_data(commodity, ipfs_timeout=None):
         return FsaIrrigationDataset(ipfs_timeout=ipfs_timeout).get_data(commodity)
     except ipfshttpclient.exceptions.ErrorResponse:
         raise ValueError("Invalid commodity code")
+
+def get_japan_station_history(station_name, desired_units=None, as_of=None, ipfs_timeout=None):
+    """
+    return:
+        dict with datetime keys and temperature Quantities as values
+    """
+    metadata = get_metadata(get_heads()["japan_meteo-daily"])
+    str_resp_series = JapanStations(ipfs_timeout=ipfs_timeout, as_of=as_of).get_data(station_name)
+    resp_series = str_resp_series.astype(float)
+    if desired_units:
+        unit = metadata["unit of measurement"]
+        converter, dweather_unit = get_unit_converter_no_aliases(unit, desired_units)
+        resp_series = resp_series * dweather_unit
+        converted_resp_series = pd.Series(converter(resp_series.values), resp_series.index)
+        rounded_resp_array = np.vectorize(rounding_formula_temperature)(str_resp_series, converted_resp_series)
+        final_resp_series = pd.Series(rounded_resp_array * converted_resp_series.values.unit, index=resp_series.index)
+        return final_resp_series.to_dict()
+    else:
+        return (resp_series * u.Unit("deg_C")).to_dict()
 
 def get_power_history(ipfs_timeout=None):
     """

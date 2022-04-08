@@ -2,7 +2,8 @@ from dweather_client.ipfs_errors import *
 from dweather_client.tests.mock_fixtures import get_patched_datasets
 from dweather_client.client import get_station_history, get_gridcell_history, get_tropical_storms,\
     get_yield_history, get_irrigation_data, get_power_history, get_gas_history, get_alberta_power_history, GRIDDED_DATASETS, has_dataset_updated,\
-    get_forecast_datasets, get_forecast, get_cme_station_history, get_european_station_history, get_drought_monitor_history, get_japan_station_history
+    get_forecast_datasets, get_forecast, get_cme_station_history, get_european_station_history, get_drought_monitor_history, get_japan_station_history,\
+    get_afr_history
 from dweather_client.aliases_and_units import snotel_to_ghcnd
 import pandas as pd
 from io import StringIO
@@ -298,6 +299,10 @@ def test_aeso_power():
     time_diff_hours = time_diff.days * 24 + time_diff.seconds // 3600
 
     assert time_diff_hours + 1 == len(power_dict) 
+
+def test_afr():
+    afr_dict = get_afr_history()
+    assert len(afr_dict) >= 32
 
 def test_drought_monitor():
     drought_dict = get_drought_monitor_history("48", "071", ipfs_timeout=IPFS_TIMEOUT)

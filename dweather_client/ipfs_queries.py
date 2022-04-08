@@ -816,6 +816,20 @@ class DroughtMonitor(IpfsDataset):
             time_itr += datetime.timedelta(days=7)
         return data_dict
 
+class AfrDataset(IpfsDataset):
+    @property
+    def dataset(self):
+        return "afr-monthly"
+
+    def get_data(self):
+        super().get_data()
+        hashes = self.traverse_ll(self.head)
+        ret_dict = {}
+        for h in hashes:
+            f = self.get_file_object(f"{h}/afr.json")
+            ret_dict = {**ret_dict, **json.load(f)}
+        return ret_dict
+
 class CedaBiomass(IpfsDataset):
     """
     Instantiable class to pull CEDA biomass data

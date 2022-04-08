@@ -13,7 +13,7 @@ from astropy import units as u
 from timezonefinder import TimezoneFinder
 from dweather_client import gridded_datasets
 from dweather_client.storms_datasets import IbtracsDataset, AtcfDataset, SimulatedStormsDataset
-from dweather_client.ipfs_queries import CedaBiomass, CmeStationsDataset, DutchStationsDataset, DwdStationsDataset, JapanStations, StationDataset, YieldDatasets, FsaIrrigationDataset, AemoPowerDataset, AemoGasDataset, AesoPowerDataset, GfsDataset, DroughtMonitor
+from dweather_client.ipfs_queries import CedaBiomass, CmeStationsDataset, DutchStationsDataset, DwdStationsDataset, JapanStations, StationDataset, YieldDatasets, FsaIrrigationDataset, AemoPowerDataset, AemoGasDataset, AesoPowerDataset, GfsDataset, AfrDataset, DroughtMonitor
 from dweather_client.slice_utils import DateRangeRetriever, has_changed
 from dweather_client.ipfs_errors import *
 import ipfshttpclient
@@ -511,6 +511,9 @@ def get_ceda_biomass(year, lat, lon, unit, ipfs_timeout=None):
         return CedaBiomass(ipfs_timeout=ipfs_timeout).get_data(year, lat, lon, unit)
     except ipfshttpclient.exceptions.ErrorResponse:
         raise ValueError("Invalid paramaters with which to get biomass data")
+
+def get_afr_history(ipfs_timeout=None):
+    return AfrDataset(ipfs_timeout=ipfs_timeout).get_data()
 
 def has_dataset_updated(dataset, slices, as_of, ipfs_timeout=None):
     """

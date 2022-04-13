@@ -774,6 +774,57 @@ class JapanStations(GriddedDataset):
             day_itr += datetime.timedelta(days=1)
         return data_dict
 
+class AustraliaBomStations(GriddedDataset):
+    """
+    Instantiable class for Australia BOM Data
+    """
+
+    FIELDS = ["TMAX", "TMIN", "PRCP", "GUSTDIR", "GUSTSPEED"]
+    DATA_FILE_FORMAT = "bom_{}.txt"
+
+    @property
+    def dataset(self):
+        return "bom_australia_stations-daily"
+
+    def get_file_name(self, station_name, h):
+        metadata = self.get_metadata(h)
+        try:
+            station_id = metadata["station_metadata"][station_name.replace(" ", "_")]
+        except KeyError:
+            raise StationNotFoundError("Invalid station name")
+        return self.DATA_FILE_FORMAT.format(station_id)
+
+    def get_data(self, station_name):
+        super().get_data()
+        hashes = self.get_hashes()
+        file_name = self.get_file_name(station_name, hashes[0])
+        ret_list = []
+        for h in hashes:
+            date_range = self.get_date_range_from_metadata(h)
+            new_list = self.extract_data_from_text(date_range, h, file_name)
+            ret_list = [*ret_list, *new_list]
+        return pd.DataFrame(ret_list).set_index("date")
+
+    def extract_data_from_text(self, date_range, ipfs_hash, file_name):
+        byte_obj = self.get_file_object(f"{ipfs_hash}/{file_name}")
+        data = byte_obj.read().decode("utf-8").split(",")
+        day_itr = date_range[0].date()
+        ret_list = []
+        for point in data:
+            if point:
+                new_point = []
+                for val in point.split("_"):
+                    try:
+                        new_val = float(val)
+                    except ValueError:
+                        new_val = val
+                    new_point.append(new_val)
+                ret_list.append({"date": day_itr, **dict(zip(self.FIELDS, point.split("_")))})
+            else:
+                ret_list.append({"date": day_itr, **{k: "" for k in self.FIELDS}})
+            day_itr += datetime.timedelta(days=1)
+        return ret_list
+
 class DroughtMonitor(IpfsDataset):
     """
     Instantiable class for drought data

@@ -4,7 +4,7 @@ Use these functions to get historical climate data.
 from astropy.units import equivalencies
 from dweather_client.http_queries import get_metadata, get_heads
 from dweather_client.aliases_and_units import \
-    get_to_units, lookup_station_alias, STATION_UNITS_LOOKUP as SUL, get_unit_converter, get_unit_converter_no_aliases, rounding_formula, rounding_formula_temperature
+    get_to_units, lookup_station_alias, STATION_UNITS_LOOKUP as SUL, get_unit_converter, get_unit_converter_no_aliases, rounding_formula, rounding_formula_temperature, BOM_UNITS
 from dweather_client.struct_utils import tupleify, convert_nans_to_none
 import datetime, pytz, csv, inspect
 import numpy as np
@@ -13,7 +13,7 @@ from astropy import units as u
 from timezonefinder import TimezoneFinder
 from dweather_client import gridded_datasets
 from dweather_client.storms_datasets import IbtracsDataset, AtcfDataset, SimulatedStormsDataset
-from dweather_client.ipfs_queries import CedaBiomass, CmeStationsDataset, DutchStationsDataset, DwdStationsDataset, JapanStations, StationDataset, YieldDatasets, FsaIrrigationDataset, AemoPowerDataset, AemoGasDataset, AesoPowerDataset, GfsDataset, AfrDataset, DroughtMonitor
+from dweather_client.ipfs_queries import AustraliaBomStations, CedaBiomass, CmeStationsDataset, DutchStationsDataset, DwdStationsDataset, JapanStations, StationDataset, YieldDatasets, FsaIrrigationDataset, AemoPowerDataset, AemoGasDataset, AesoPowerDataset, GfsDataset, AfrDataset, DroughtMonitor
 from dweather_client.slice_utils import DateRangeRetriever, has_changed
 from dweather_client.ipfs_errors import *
 import ipfshttpclient
@@ -469,6 +469,29 @@ def get_japan_station_history(station_name, desired_units=None, as_of=None, ipfs
         return final_resp_series.to_dict()
     else:
         return (resp_series * u.Unit("deg_C")).to_dict()
+
+def get_australia_station_history(station_name, weather_variable, desired_units=None, as_of=None, ipfs_timeout=None):
+    """
+    return:
+        dict with datetime keys and temperature Quantities as values
+    """
+    try:
+        unit = BOM_UNITS[weather_variable]
+    except KeyError:
+        raise WeatherVariableNotFoundError("Invalid weather variable for Australia station")
+    str_resp_series = AustraliaBomStations(ipfs_timeout=ipfs_timeout, as_of=as_of).get_data(station_name)[weather_variable]
+    if weather_variable == "GUSTDIR":
+        return str_resp_series
+    resp_series = str_resp_series.replace("", np.nan).astype(float)
+    if desired_units:
+        converter, dweather_unit = get_unit_converter_no_aliases(unit, desired_units)
+        resp_series = resp_series * dweather_unit
+        converted_resp_series = pd.Series(converter(resp_series.values), resp_series.index)
+        rounded_resp_array = np.vectorize(rounding_formula_temperature)(str_resp_series, converted_resp_series)
+        final_resp_series = pd.Series(rounded_resp_array * converted_resp_series.values.unit, index=resp_series.index)
+        return final_resp_series.to_dict()
+    else:
+        return (resp_series * u.Unit(unit)).to_dict()
 
 def get_power_history(ipfs_timeout=None):
     """

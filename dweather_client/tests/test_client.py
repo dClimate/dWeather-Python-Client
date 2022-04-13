@@ -1,6 +1,6 @@
 from dweather_client.ipfs_errors import *
 from dweather_client.tests.mock_fixtures import get_patched_datasets
-from dweather_client.client import get_station_history, get_gridcell_history, get_tropical_storms,\
+from dweather_client.client import get_australia_station_history, get_station_history, get_gridcell_history, get_tropical_storms,\
     get_yield_history, get_irrigation_data, get_power_history, get_gas_history, get_alberta_power_history, GRIDDED_DATASETS, has_dataset_updated,\
     get_forecast_datasets, get_forecast, get_cme_station_history, get_european_station_history, get_drought_monitor_history, get_japan_station_history,\
     get_afr_history
@@ -266,6 +266,16 @@ def test_japan():
 def test_japan_units():
     data = get_japan_station_history("Fukuoka", desired_units="K", ipfs_timeout=IPFS_TIMEOUT)
     assert len(data) > 19000
+    assert data[sorted(data)[0]].unit == u.K
+
+def test_australia():
+    data = get_australia_station_history("Adelaide Airport", weather_variable="TMAX", ipfs_timeout=IPFS_TIMEOUT)
+    assert len(data) == (sorted(data)[-1] - sorted(data)[0]).days + 1
+    assert data[sorted(data)[0]].unit == u.deg_C
+
+def test_australia_units():
+    data = get_australia_station_history("Adelaide Airport", weather_variable="TMAX", desired_units="K", ipfs_timeout=IPFS_TIMEOUT)
+    assert len(data) >= 435
     assert data[sorted(data)[0]].unit == u.K
 
 def test_power():

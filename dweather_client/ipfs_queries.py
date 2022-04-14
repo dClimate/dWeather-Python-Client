@@ -812,13 +812,6 @@ class AustraliaBomStations(GriddedDataset):
         ret_list = []
         for point in data:
             if point:
-                new_point = []
-                for val in point.split("_"):
-                    try:
-                        new_val = float(val)
-                    except ValueError:
-                        new_val = val
-                    new_point.append(new_val)
                 ret_list.append({"date": day_itr, **dict(zip(self.FIELDS, point.split("_")))})
             else:
                 ret_list.append({"date": day_itr, **{k: "" for k in self.FIELDS}})

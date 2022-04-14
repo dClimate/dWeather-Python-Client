@@ -473,7 +473,7 @@ def get_japan_station_history(station_name, desired_units=None, as_of=None, ipfs
 def get_australia_station_history(station_name, weather_variable, desired_units=None, as_of=None, ipfs_timeout=None):
     """
     return:
-        dict with datetime keys and temperature Quantities as values
+        dict with datetime.date keys and weather variable Quantities (or strs in the case of GUSTDIR) as values
     """
     try:
         unit = BOM_UNITS[weather_variable]
@@ -481,7 +481,7 @@ def get_australia_station_history(station_name, weather_variable, desired_units=
         raise WeatherVariableNotFoundError("Invalid weather variable for Australia station")
     str_resp_series = AustraliaBomStations(ipfs_timeout=ipfs_timeout, as_of=as_of).get_data(station_name)[weather_variable]
     if weather_variable == "GUSTDIR":
-        return str_resp_series
+        return str_resp_series.replace("", np.nan).to_dict()
     resp_series = str_resp_series.replace("", np.nan).astype(float)
     if desired_units:
         converter, dweather_unit = get_unit_converter_no_aliases(unit, desired_units)

@@ -13,7 +13,7 @@ from astropy import units as u
 from timezonefinder import TimezoneFinder
 from dweather_client import gridded_datasets
 from dweather_client.storms_datasets import IbtracsDataset, AtcfDataset, SimulatedStormsDataset
-from dweather_client.ipfs_queries import CedaBiomass, CmeStationsDataset, DutchStationsDataset, DwdStationsDataset, JapanStations, StationDataset, YieldDatasets, FsaIrrigationDataset, AemoPowerDataset, AemoGasDataset, AesoPowerDataset, GfsDataset, DroughtMonitor
+from dweather_client.ipfs_queries import CedaBiomass, CmeStationsDataset, DutchStationsDataset, DwdStationsDataset, JapanStations, StationDataset, YieldDatasets, FsaIrrigationDataset, AemoPowerDataset, AemoGasDataset, AesoPowerDataset, GfsDataset, DroughtMonitor, EcmwfDataset
 from dweather_client.slice_utils import DateRangeRetriever, has_changed
 from dweather_client.ipfs_errors import *
 import ipfshttpclient
@@ -116,6 +116,76 @@ def get_gridcell_history(
         result = tupleify(result) + ({"metadata": metadata},)
     if also_return_snapped_coordinates:
         result = tupleify(result) + ({"snapped to": (lat, lon)},)
+    return result
+
+def get_forecast_ecmwf(
+        lat,
+        lon,
+        forecast_date,
+        dataset,
+        also_return_snapped_coordinates=False,
+        also_return_metadata=False,
+        desired_units=None,
+        convert_to_local_time=True,
+        ipfs_timeout=None):
+
+    if not isinstance(forecast_date, datetime.date):
+        raise TypeError("Forecast date must be datetime.date")
+
+    try:
+        metadata = get_metadata(get_heads()[dataset])
+    except KeyError:
+        raise DatasetError("No such dataset in dClimate")
+
+    # set up units
+    if desired_units:
+        converter, dweather_unit = get_unit_converter_no_aliases(metadata["unit of measurement"][0], desired_units)
+    else:
+        converter = None
+        dweather_unit = u.Unit(metadata["unit of measurement"][0])
+
+    try:
+        dataset_obj = EcmwfDataset(dataset, ipfs_timeout=ipfs_timeout)
+    except KeyError:
+        raise DatasetError("No such dataset in dClimate")
+    try:
+        (lat, lon), str_resp_series = dataset_obj.get_data(lat, lon, forecast_date)
+    except (ipfshttpclient.exceptions.ErrorResponse, ipfshttpclient.exceptions.TimeoutError, KeyError, FileNotFoundError) as e:
+        raise CoordinateNotFoundError("Invalid coordinate for dataset")
+
+    if convert_to_local_time:
+        try:
+            tf = TimezoneFinder()
+            local_tz = pytz.timezone(tf.timezone_at(lng=lon, lat=lat))
+            str_resp_series = str_resp_series.tz_localize("UTC").tz_convert(local_tz)
+        except (AttributeError, TypeError):  # datetime.date (daily sets) doesn't work with this, only datetime.datetime (hourly sets)
+            pass
+
+    missing_value = ""
+    resp_series = str_resp_series.replace(missing_value, np.NaN).astype(float)
+    resp_series = resp_series * dweather_unit
+
+    if converter is not None:
+        try:
+            converted_resp_series = pd.Series(converter(resp_series.values), resp_series.index)
+        except ValueError:
+            raise UnitError("Specified unit is incompatible with original")
+        if desired_units is not None:
+            if converted_resp_series.values.unit.physical_type == "temperature":
+                rounded_resp_array = np.vectorize(rounding_formula_temperature)(str_resp_series, converted_resp_series)
+            else:
+                rounded_resp_array = np.vectorize(rounding_formula)(str_resp_series, resp_series, converted_resp_series)
+            final_resp_series = pd.Series(rounded_resp_array * converted_resp_series.values.unit, index=resp_series.index)
+        else:
+            final_resp_series = converted_resp_series
+    else:
+        final_resp_series = resp_series
+    
+    result = {"data": {k: convert_nans_to_none(v) for k, v in final_resp_series.to_dict().items()}}
+    if also_return_metadata:
+        result = {**result, "metadata": metadata}
+    if also_return_snapped_coordinates:
+        result = {**result, "snapped to": [lat, lon]}
     return result
 
 def get_forecast(

@@ -82,6 +82,14 @@ STATION_ALIASES_TO_COLUMNS = {
      'rainfall'): 'PRCP'
 }
 
+BOM_UNITS = {
+    "TMAX": "deg_C",
+    "TMIN": "deg_C",
+    "PRCP": "mm",
+    "GUSTSPEED": "km / hour",
+    "GUSTDIR": None
+}
+
 def rounding_formula(str_val, original_val, converted_val, forced_precision=None):
     """
     Formula for determining how to round after a unit conversion. Can be vectorized to handle series/ndarrays

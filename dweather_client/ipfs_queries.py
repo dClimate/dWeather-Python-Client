@@ -779,7 +779,7 @@ class AustraliaBomStations(GriddedDataset):
     Instantiable class for Australia BOM Data
     """
 
-    FIELDS = ["TMAX", "TMIN", "PRCP", "GUSTDIR", "GUSTSPEED"]
+    FIELDS = ["TMIN", "TMAX", "PRCP", "GUSTDIR", "GUSTSPEED"]
     DATA_FILE_FORMAT = "bom_{}.txt"
 
     @property

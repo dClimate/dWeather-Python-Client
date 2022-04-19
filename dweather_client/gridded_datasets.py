@@ -90,14 +90,3 @@ class Era5Wind100mVHourly(SimpleGriddedDataset):
 class Era5VolumetricSoilWater(SimpleGriddedDataset):
     dataset = "era5_volumetric_soil_water_layer_1-hourly"
 
-class EcmwfTotalPrecipitationThreeHourly(SimpleGriddedDataset):
-    dataset = "ecmwf_forecasts_totalprecip-three_hourly"
-
-class EcmwfTemp2mThreeHourly(SimpleGriddedDataset):
-    dataset = "ecmwf_forecasts_temp2m-three_hourly"
-
-class EcmwfWind10uThreeHourly(SimpleGriddedDataset):
-    dataset = "ecmwf_forecasts_windu10m-three_hourly"
-
-class EcmwfWind10vThreeHourly(SimpleGriddedDataset):
-    dataset = "ecmwf_forecasts_windv10m-three_hourly"

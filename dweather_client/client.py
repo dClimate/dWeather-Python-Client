@@ -1,6 +1,7 @@
 """
 Use these functions to get historical climate data.
 """
+from curses import meta
 from astropy.units import equivalencies
 from dweather_client.http_queries import get_metadata, get_heads
 from dweather_client.aliases_and_units import \
@@ -26,7 +27,13 @@ GRIDDED_DATASETS = {
 
 def get_forecast_datasets():
     heads = get_heads()
-    return [k for k in heads if "gfs" in k]
+    potential_sources = ['gfs', 'ecmwf']
+    get_forecast_heads = []
+    for head in heads:
+        for source in potential_sources:
+            if source in head:
+                get_forecast_heads.append(head)
+    return get_forecast_heads
 
 def get_gridcell_history(
         lat,
@@ -118,76 +125,6 @@ def get_gridcell_history(
         result = tupleify(result) + ({"snapped to": (lat, lon)},)
     return result
 
-def get_forecast_ecmwf(
-        lat,
-        lon,
-        forecast_date,
-        dataset,
-        also_return_snapped_coordinates=False,
-        also_return_metadata=False,
-        desired_units=None,
-        convert_to_local_time=True,
-        ipfs_timeout=None):
-
-    if not isinstance(forecast_date, datetime.date):
-        raise TypeError("Forecast date must be datetime.date")
-
-    try:
-        metadata = get_metadata(get_heads()[dataset])
-    except KeyError:
-        raise DatasetError("No such dataset in dClimate")
-
-    # set up units
-    if desired_units:
-        converter, dweather_unit = get_unit_converter_no_aliases(metadata["unit of measurement"][0], desired_units)
-    else:
-        converter = None
-        dweather_unit = u.Unit(metadata["unit of measurement"][0])
-
-    try:
-        dataset_obj = EcmwfDataset(dataset, ipfs_timeout=ipfs_timeout)
-    except KeyError:
-        raise DatasetError("No such dataset in dClimate")
-    try:
-        (lat, lon), str_resp_series = dataset_obj.get_data(lat, lon, forecast_date)
-    except (ipfshttpclient.exceptions.ErrorResponse, ipfshttpclient.exceptions.TimeoutError, KeyError, FileNotFoundError) as e:
-        raise CoordinateNotFoundError("Invalid coordinate for dataset")
-
-    if convert_to_local_time:
-        try:
-            tf = TimezoneFinder()
-            local_tz = pytz.timezone(tf.timezone_at(lng=lon, lat=lat))
-            str_resp_series = str_resp_series.tz_localize("UTC").tz_convert(local_tz)
-        except (AttributeError, TypeError):  # datetime.date (daily sets) doesn't work with this, only datetime.datetime (hourly sets)
-            pass
-
-    missing_value = ""
-    resp_series = str_resp_series.replace(missing_value, np.NaN).astype(float)
-    resp_series = resp_series * dweather_unit
-
-    if converter is not None:
-        try:
-            converted_resp_series = pd.Series(converter(resp_series.values), resp_series.index)
-        except ValueError:
-            raise UnitError("Specified unit is incompatible with original")
-        if desired_units is not None:
-            if converted_resp_series.values.unit.physical_type == "temperature":
-                rounded_resp_array = np.vectorize(rounding_formula_temperature)(str_resp_series, converted_resp_series)
-            else:
-                rounded_resp_array = np.vectorize(rounding_formula)(str_resp_series, resp_series, converted_resp_series)
-            final_resp_series = pd.Series(rounded_resp_array * converted_resp_series.values.unit, index=resp_series.index)
-        else:
-            final_resp_series = converted_resp_series
-    else:
-        final_resp_series = resp_series
-    
-    result = {"data": {k: convert_nans_to_none(v) for k, v in final_resp_series.to_dict().items()}}
-    if also_return_metadata:
-        result = {**result, "metadata": metadata}
-    if also_return_snapped_coordinates:
-        result = {**result, "snapped to": [lat, lon]}
-    return result
-
 def get_forecast(
         lat,
         lon,
@@ -209,15 +146,30 @@ def get_forecast(
         raise DatasetError("No such dataset in dClimate")
 
     # set up units
-    if not desired_units:
-        converter, dweather_unit = get_unit_converter(metadata["unit of measurement"], use_imperial_units)
-    else:
-        converter, dweather_unit = get_unit_converter_no_aliases(metadata["unit of measurement"], desired_units)
+    metadata_unit = metadata["unit of measurement"]
+    if type(metadata_unit) == list:
+        metadata_unit = metadata_unit[0]
 
-    try:
-        dataset_obj = GfsDataset(dataset, ipfs_timeout=ipfs_timeout)
-    except KeyError:
-        raise DatasetError("No such dataset in dClimate")
+    if not desired_units and not use_imperial_units:
+        converter = None
+        dweather_unit = u.Unit(metadata_unit)
+    elif not desired_units:
+        converter, dweather_unit = get_unit_converter(metadata_unit, use_imperial_units)
+    else:
+        converter, dweather_unit = get_unit_converter_no_aliases(metadata_unit, desired_units)
+
+    if 'gfs' in dataset:
+        try:
+            dataset_obj = GfsDataset(dataset, ipfs_timeout=ipfs_timeout)
+        except KeyError:
+            raise DatasetError("No such dataset in dClimate")
+    elif 'ecmwf' in dataset:
+        try:
+            dataset_obj = EcmwfDataset(dataset, ipfs_timeout=ipfs_timeout)
+        except KeyError:
+            raise DatasetError("No such dataset in dClimate")
+
+    
     try:
         (lat, lon), str_resp_series = dataset_obj.get_data(lat, lon, forecast_date)
     except (ipfshttpclient.exceptions.ErrorResponse, ipfshttpclient.exceptions.TimeoutError, KeyError, FileNotFoundError) as e:

@@ -71,7 +71,7 @@ See further examples in `tests`
     cd dweather-python-client
     python3 -m venv .
     bin/pip3 install -r requirements.txt
-    bin/python3 -m pytest dweather_clieht/tests
+    bin/python3 -m pytest dweather_client/tests
 
 Some dweather_client features require an ipfs daemon to work.
 

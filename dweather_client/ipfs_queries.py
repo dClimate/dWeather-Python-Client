@@ -708,6 +708,50 @@ class JapanStations(GriddedDataset):
             day_itr += datetime.timedelta(days=1)
         return data_dict
 
+class AustraliaBomStations(GriddedDataset):
+    """
+    Instantiable class for Australia BOM Data
+    """
+
+    FIELDS = ["TMIN", "TMAX", "PRCP", "GUSTDIR", "GUSTSPEED"]
+    DATA_FILE_FORMAT = "bom_{}.txt"
+
+    @property
+    def dataset(self):
+        return "bom_australia_stations-daily"
+
+    def get_file_name(self, station_name, h):
+        metadata = self.get_metadata(h)
+        try:
+            station_id = metadata["station_metadata"][station_name.replace(" ", "_")]
+        except KeyError:
+            raise StationNotFoundError("Invalid station name")
+        return self.DATA_FILE_FORMAT.format(station_id)
+
+    def get_data(self, station_name):
+        super().get_data()
+        hashes = self.get_hashes()
+        file_name = self.get_file_name(station_name, hashes[0])
+        ret_list = []
+        for h in hashes:
+            date_range = self.get_date_range_from_metadata(h)
+            new_list = self.extract_data_from_text(date_range, h, file_name)
+            ret_list = [*ret_list, *new_list]
+        return pd.DataFrame(ret_list).set_index("date")
+
+    def extract_data_from_text(self, date_range, ipfs_hash, file_name):
+        byte_obj = self.get_file_object(f"{ipfs_hash}/{file_name}")
+        data = byte_obj.read().decode("utf-8").split(",")
+        day_itr = date_range[0].date()
+        ret_list = []
+        for point in data:
+            if point:
+                ret_list.append({"date": day_itr, **dict(zip(self.FIELDS, point.split("_")))})
+            else:
+                ret_list.append({"date": day_itr, **{k: "" for k in self.FIELDS}})
+            day_itr += datetime.timedelta(days=1)
+        return ret_list
+
 class DroughtMonitor(IpfsDataset):
     """
     Instantiable class for drought data
@@ -749,6 +793,20 @@ class DroughtMonitor(IpfsDataset):
                 data_dict[time_itr][field] = float(split_week_data[i])
             time_itr += datetime.timedelta(days=7)
         return data_dict
+
+class AfrDataset(IpfsDataset):
+    @property
+    def dataset(self):
+        return "afr-monthly"
+
+    def get_data(self):
+        super().get_data()
+        hashes = self.traverse_ll(self.head)
+        ret_dict = {}
+        for h in hashes:
+            f = self.get_file_object(f"{h}/afr.json")
+            ret_dict = {**ret_dict, **json.load(f)}
+        return ret_dict
 
 class CedaBiomass(IpfsDataset):
     """

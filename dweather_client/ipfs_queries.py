@@ -841,7 +841,7 @@ class CedaBiomass(IpfsDataset):
         return self.get_file_object(f"{self.head}/{file_name}")
 
 
-class ComplexGriddedDataset(GriddedDataset):
+class ForecastDataset(GriddedDataset):
     """
     Parent class for gridded datasets currently stands at GFS/ECMWF
     """
@@ -849,9 +849,11 @@ class ComplexGriddedDataset(GriddedDataset):
     def dataset(self):
         return self._dataset
 
-    def __init__(self, dataset, ipfs_timeout=None):
+    def __init__(self, dataset, interval, con_to_cpc=None, ipfs_timeout=None):
         super().__init__(ipfs_timeout=ipfs_timeout)
         self._dataset = dataset
+        self._interval = interval
+        self._con_to_cpc = con_to_cpc
 
     def get_relevant_hash(self, forecast_date):
         """
@@ -877,26 +879,6 @@ class ComplexGriddedDataset(GriddedDataset):
         else:
             raise DateOutOfRangeError("Forecast date not available due to gaps in data")
 
-
-
-class EcmwfDataset(ComplexGriddedDataset):
-    """
-    Instantiable class used for pulling in any of the ECMWF datasets
-    """
-    def get_data(self, lat, lon, forecast_date):
-        """
-        return pd.Series with the forecast data corresponding to a lat/lon and forecast_date
-        """
-        super().get_data()
-        first_metadata = self.get_metadata(self.head)
-        lat, lon = float(lat), float(lon)
-        snapped_lat, snapped_lon = self.snap_to_grid(float(lat), float(lon), first_metadata)
-        relevant_hash = self.get_relevant_hash(forecast_date)
-        weather_dict = self.get_weather_dict(forecast_date, relevant_hash, snapped_lat, snapped_lon)
-        ret_lat, ret_lon = snapped_lat, snapped_lon
-        return (float(ret_lat), float(ret_lon)), pd.Series(weather_dict)
-
-
     def get_weather_dict(self, forecast_date, ipfs_hash, lat, lon):
         """
         return dict with the forecast data corresponding to a lat/lon, forecast_date, and ipfs hash
@@ -909,38 +891,26 @@ class EcmwfDataset(ComplexGriddedDataset):
                 vals = f.read().decode("utf-8").split(',')
                 start_datetime = datetime.datetime(forecast_date.year, forecast_date.month, forecast_date.day)
                 for i, val in enumerate(vals):
-                    ret[start_datetime + datetime.timedelta(hours=i*3)] = val
+                    ret[start_datetime + datetime.timedelta(hours=i*self._interval)] = val
         return ret
 
-class GfsDataset(ComplexGriddedDataset):
-    """
-    Instantiable class used for pulling in any of the gfs datasets
-    """
     def get_data(self, lat, lon, forecast_date):
         """
         return pd.Series with the forecast data corresponding to a lat/lon and forecast_date
         """
         super().get_data()
         first_metadata = self.get_metadata(self.head)
-        lat, lon = conventional_lat_lon_to_cpc(float(lat), float(lon))
-        snapped_lat, snapped_lon = self.snap_to_grid(float(lat), float(lon), first_metadata)
-        relevant_hash = self.get_relevant_hash(forecast_date)
-        weather_dict = self.get_weather_dict(forecast_date, relevant_hash, snapped_lat, snapped_lon)
-        ret_lat, ret_lon = cpc_lat_lon_to_conventional(snapped_lat, snapped_lon)
+        if self._con_to_cpc:
+            lat, lon = conventional_lat_lon_to_cpc(float(lat), float(lon))
+            snapped_lat, snapped_lon = self.snap_to_grid(float(lat), float(lon), first_metadata)
+            relevant_hash = self.get_relevant_hash(forecast_date)
+            weather_dict = self.get_weather_dict(forecast_date, relevant_hash, snapped_lat, snapped_lon)
+            ret_lat, ret_lon = cpc_lat_lon_to_conventional(snapped_lat, snapped_lon)
+        else:
+            lat, lon = float(lat), float(lon)
+            snapped_lat, snapped_lon = self.snap_to_grid(float(lat), float(lon), first_metadata)
+            relevant_hash = self.get_relevant_hash(forecast_date)
+            weather_dict = self.get_weather_dict(forecast_date, relevant_hash, snapped_lat, snapped_lon)
+            ret_lat, ret_lon = snapped_lat, snapped_lon
+
         return (float(ret_lat), float(ret_lon)), pd.Series(weather_dict)
-
-
-    def get_weather_dict(self, forecast_date, ipfs_hash, lat, lon):
-        """
-        return dict with the forecast data corresponding to a lat/lon, forecast_date, and ipfs hash
-        """
-        ret = {}
-        zip_file_name = f"{forecast_date.strftime('%Y%m%d')}_{lat:.2f}.zip"
-        with zipfile.ZipFile(self.get_file_object(f"{ipfs_hash}/{zip_file_name}")) as zi:
-            file_name = f"{forecast_date.strftime('%Y%m%d')}_{lat:.2f}_{lon:.2f}"
-            with zi.open(file_name) as f:
-                vals = f.read().decode("utf-8").split(',')
-                start_datetime = datetime.datetime(forecast_date.year, forecast_date.month, forecast_date.day)
-                for i, val in enumerate(vals):
-                    ret[start_datetime + datetime.timedelta(hours=i+1)] = val
-        return ret

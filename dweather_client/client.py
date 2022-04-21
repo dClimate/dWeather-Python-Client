@@ -14,7 +14,7 @@ from astropy import units as u
 from timezonefinder import TimezoneFinder
 from dweather_client import gridded_datasets
 from dweather_client.storms_datasets import IbtracsDataset, AtcfDataset, SimulatedStormsDataset
-from dweather_client.ipfs_queries import AustraliaBomStations, CedaBiomass, CmeStationsDataset, DutchStationsDataset, DwdStationsDataset, JapanStations, StationDataset, YieldDatasets, FsaIrrigationDataset, AemoPowerDataset, AemoGasDataset, AesoPowerDataset, GfsDataset, AfrDataset, DroughtMonitor, EcmwfDataset
+from dweather_client.ipfs_queries import AustraliaBomStations, CedaBiomass, CmeStationsDataset, DutchStationsDataset, DwdStationsDataset, JapanStations, StationDataset, YieldDatasets, FsaIrrigationDataset, AemoPowerDataset, AemoGasDataset, AesoPowerDataset, ForecastDataset, AfrDataset, DroughtMonitor
 from dweather_client.slice_utils import DateRangeRetriever, has_changed
 from dweather_client.ipfs_errors import *
 import ipfshttpclient
@@ -146,26 +146,26 @@ def get_forecast(
         raise DatasetError("No such dataset in dClimate")
 
     # set up units
-    metadata_unit = metadata["unit of measurement"]
-    if type(metadata_unit) == list:
-        metadata_unit = metadata_unit[0]
-
-    if not desired_units and not use_imperial_units:
-        converter = None
-        dweather_unit = u.Unit(metadata_unit)
-    elif not desired_units:
-        converter, dweather_unit = get_unit_converter(metadata_unit, use_imperial_units)
+    # if not desired_units and not use_imperial_units:
+    #     converter = None
+    #     dweather_unit = u.Unit(metadata["unit of measurement"])
+    # elif not desired_units:
+    #     converter, dweather_unit = get_unit_converter(metadata["unit of measurement"], use_imperial_units)
+    # else:
+    #     converter, dweather_unit = get_unit_converter_no_aliases(metadata["unit of measurement"], desired_units)
+    if not desired_units:
+        converter, dweather_unit = get_unit_converter(metadata["unit of measurement"], use_imperial_units)
     else:
-        converter, dweather_unit = get_unit_converter_no_aliases(metadata_unit, desired_units)
+        converter, dweather_unit = get_unit_converter_no_aliases(metadata["unit of measurement"], desired_units)
 
     if 'gfs' in dataset:
         try:
-            dataset_obj = GfsDataset(dataset, ipfs_timeout=ipfs_timeout)
+            dataset_obj = ForecastDataset(dataset, interval=1, con_to_cpc=True, ipfs_timeout=ipfs_timeout)
         except KeyError:
             raise DatasetError("No such dataset in dClimate")
     elif 'ecmwf' in dataset:
         try:
-            dataset_obj = EcmwfDataset(dataset, ipfs_timeout=ipfs_timeout)
+            dataset_obj = ForecastDataset(dataset, interval=3, ipfs_timeout=ipfs_timeout)
         except KeyError:
             raise DatasetError("No such dataset in dClimate")
 

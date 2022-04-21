@@ -93,8 +93,7 @@ def test_get_forecast_units():
                     if "volumetric" in s:
                         assert res[k].unit == u.dimensionless_unscaled
                     elif "humidity" in s:
-                        #assert res[k].unit == u.pct
-                        assert 1 == 1
+                        assert res[k].unit == u.pct
                     elif "pcp_rate" in s:
                         assert res[k].unit == u.kg / (u.m **2 ) / u.s
                     elif use_imperial and "wind" in s:
@@ -105,12 +104,12 @@ def test_get_forecast_units():
                         assert res[k].unit == imperial.inch
                     elif "ecmwf" in s and "precip" in s:
                         assert res[k].unit == u.m
-
-                    # I don't like this catch all defaulting to temperature
-                    elif use_imperial:
+                    elif any(temp_string in s for temp_string in ['tmax', 'tmin', 'temp']) and use_imperial:
                         assert res[k].unit == imperial.deg_F
-                    else:
+                    elif any(temp_string in s for temp_string in ['tmax', 'tmin', 'temp']):
                         assert res[k].unit == u.K
+                    else:
+                        assert res[k].unit == "unknown_unit"
 
 def test_get_forecast_desired_units():
     res = get_forecast(37, -83, datetime.date(2021, 8, 20), "gfs_10m_wind_u-hourly", desired_units=ALTERNATE_METRIC_WIND_UNITS, ipfs_timeout=IPFS_TIMEOUT)["data"]

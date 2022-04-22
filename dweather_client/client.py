@@ -171,7 +171,8 @@ def get_forecast(
 
     
     try:
-        (lat, lon), str_resp_series = dataset_obj.get_data(lat, lon, forecast_date)
+        with ForecastDataset(dataset, interval=3, ipfs_timeout=ipfs_timeout) as dataset_obj:
+            (lat, lon), str_resp_series = dataset_obj.get_data(lat, lon, forecast_date)
     except (ipfshttpclient.exceptions.ErrorResponse, ipfshttpclient.exceptions.TimeoutError, KeyError, FileNotFoundError) as e:
         raise CoordinateNotFoundError("Invalid coordinate for dataset")
 

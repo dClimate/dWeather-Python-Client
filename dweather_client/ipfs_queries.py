@@ -35,7 +35,7 @@ class IpfsDataset(ABC):
         code is running in an environment containing all datasets (such as gateway)
         """
         self.on_gateway = not ipfs_timeout
-        self.ipfs = ipfshttpclient.connect(timeout=ipfs_timeout)
+        self.ipfs = ipfshttpclient.connect(timeout=ipfs_timeout, session=True)
         self.as_of = as_of
 
     def get_metadata(self, h):
@@ -178,7 +178,7 @@ class PrismGriddedDataset(GriddedDataset):
     """
     Abstract class from which all PRISM datasets inherit. Contains logic for overlapping date ranges
     that is unique to PRISM
-    """
+    """ 
     def get_data(self, lat, lon):
         """
         PRISM datasets' method for getting data. Reverses the linked list so as to correctly prioritize displaying
@@ -854,6 +854,17 @@ class ForecastDataset(GriddedDataset):
         self._dataset = dataset
         self._interval = interval
         self._con_to_cpc = con_to_cpc
+
+    def __enter__(self):
+        print('ipfs connection just opened by super().__init__')
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.ipfs.close()
+        print('ipfs connection just closed by __exit__')
+        if isinstance(exc_val, Exception):
+            return False
+        return True
 
     def get_relevant_hash(self, forecast_date):
         """

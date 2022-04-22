@@ -87,7 +87,7 @@ def test_get_gridcell_history_desired_unit_not_found(mocker):
 def test_get_forecast_units():
     for s in get_forecast_datasets():
         for use_imperial in [True, False]:
-            res = get_forecast(37, -83, datetime.date(2021, 8, 20), s, use_imperial_units=use_imperial, ipfs_timeout=IPFS_TIMEOUT)["data"]
+            res = get_forecast(37, -83, datetime.date(2022, 4, 10), s, use_imperial_units=use_imperial, ipfs_timeout=IPFS_TIMEOUT)["data"]
             for k in res:
                 if res[k] is not None:
                     if "volumetric" in s:
@@ -98,12 +98,18 @@ def test_get_forecast_units():
                         assert res[k].unit == u.kg / (u.m **2 ) / u.s
                     elif use_imperial and "wind" in s:
                         assert res[k].unit == imperial.mile / u.hour
-                    elif use_imperial:
-                        assert res[k].unit == imperial.deg_F
                     elif "wind" in s:
                         assert res[k].unit == u.m / u.s
-                    else:
+                    elif "ecmwf" in s and "precip" in s and use_imperial:
+                        assert res[k].unit == imperial.inch
+                    elif "ecmwf" in s and "precip" in s:
+                        assert res[k].unit == u.m
+                    elif any(temp_string in s for temp_string in ['tmax', 'tmin', 'temp']) and use_imperial:
+                        assert res[k].unit == imperial.deg_F
+                    elif any(temp_string in s for temp_string in ['tmax', 'tmin', 'temp']):
                         assert res[k].unit == u.K
+                    else:
+                        assert res[k].unit == "unknown_unit"
 
 def test_get_forecast_desired_units():
     res = get_forecast(37, -83, datetime.date(2021, 8, 20), "gfs_10m_wind_u-hourly", desired_units=ALTERNATE_METRIC_WIND_UNITS, ipfs_timeout=IPFS_TIMEOUT)["data"]
@@ -147,11 +153,15 @@ def test_get_gridcell_history_date_range(mocker):
 
 def test_get_forecast_date_range():
     for s in get_forecast_datasets():
-        res = get_forecast(37, -83, datetime.date(2021, 8, 20), s, ipfs_timeout=IPFS_TIMEOUT)["data"]
+        res = get_forecast(37, -83, datetime.date(2022, 4, 10), s, ipfs_timeout=IPFS_TIMEOUT)["data"]
         first_date, last_date = sorted(res)[0], sorted(res)[-1]
         time_diff = last_date - first_date
         time_diff_hours = time_diff.days * 24 + time_diff.seconds // 3600
-        assert time_diff_hours + 1 == len(res) == 16 * 24
+        if 'gfs' in s:
+            assert time_diff_hours + 1 == len(res) == 16 * 24
+        elif 'ecmwf' in s:
+            # every three hours so this math is different
+            assert (time_diff_hours/3) == len(res) - 1 == 10 * (24/3)
 
 def test_get_gridcell_nans(mocker):
     mocker.patch("dweather_client.client.GRIDDED_DATASETS", get_patched_datasets())

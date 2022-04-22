@@ -1,6 +1,7 @@
 """
 Use these functions to get historical climate data.
 """
+from curses import meta
 from astropy.units import equivalencies
 from dweather_client.http_queries import get_metadata, get_heads
 from dweather_client.aliases_and_units import \
@@ -13,7 +14,7 @@ from astropy import units as u
 from timezonefinder import TimezoneFinder
 from dweather_client import gridded_datasets
 from dweather_client.storms_datasets import IbtracsDataset, AtcfDataset, SimulatedStormsDataset
-from dweather_client.ipfs_queries import AustraliaBomStations, CedaBiomass, CmeStationsDataset, DutchStationsDataset, DwdStationsDataset, JapanStations, StationDataset, YieldDatasets, FsaIrrigationDataset, AemoPowerDataset, AemoGasDataset, AesoPowerDataset, GfsDataset, AfrDataset, DroughtMonitor
+from dweather_client.ipfs_queries import AustraliaBomStations, CedaBiomass, CmeStationsDataset, DutchStationsDataset, DwdStationsDataset, JapanStations, StationDataset, YieldDatasets, FsaIrrigationDataset, AemoPowerDataset, AemoGasDataset, AesoPowerDataset, ForecastDataset, AfrDataset, DroughtMonitor
 from dweather_client.slice_utils import DateRangeRetriever, has_changed
 from dweather_client.ipfs_errors import *
 import ipfshttpclient
@@ -26,7 +27,13 @@ GRIDDED_DATASETS = {
 
 def get_forecast_datasets():
     heads = get_heads()
-    return [k for k in heads if "gfs" in k]
+    potential_sources = ['gfs', 'ecmwf']
+    get_forecast_heads = []
+    for head in heads:
+        for source in potential_sources:
+            if source in head:
+                get_forecast_heads.append(head)
+    return get_forecast_heads
 
 def get_gridcell_history(
         lat,
@@ -139,15 +146,30 @@ def get_forecast(
         raise DatasetError("No such dataset in dClimate")
 
     # set up units
+    # if not desired_units and not use_imperial_units:
+    #     converter = None
+    #     dweather_unit = u.Unit(metadata["unit of measurement"])
+    # elif not desired_units:
+    #     converter, dweather_unit = get_unit_converter(metadata["unit of measurement"], use_imperial_units)
+    # else:
+    #     converter, dweather_unit = get_unit_converter_no_aliases(metadata["unit of measurement"], desired_units)
     if not desired_units:
         converter, dweather_unit = get_unit_converter(metadata["unit of measurement"], use_imperial_units)
     else:
         converter, dweather_unit = get_unit_converter_no_aliases(metadata["unit of measurement"], desired_units)
 
-    try:
-        dataset_obj = GfsDataset(dataset, ipfs_timeout=ipfs_timeout)
-    except KeyError:
-        raise DatasetError("No such dataset in dClimate")
+    if 'gfs' in dataset:
+        try:
+            dataset_obj = ForecastDataset(dataset, interval=1, con_to_cpc=True, ipfs_timeout=ipfs_timeout)
+        except KeyError:
+            raise DatasetError("No such dataset in dClimate")
+    elif 'ecmwf' in dataset:
+        try:
+            dataset_obj = ForecastDataset(dataset, interval=3, ipfs_timeout=ipfs_timeout)
+        except KeyError:
+            raise DatasetError("No such dataset in dClimate")
+
+    
     try:
         (lat, lon), str_resp_series = dataset_obj.get_data(lat, lon, forecast_date)
     except (ipfshttpclient.exceptions.ErrorResponse, ipfshttpclient.exceptions.TimeoutError, KeyError, FileNotFoundError) as e:

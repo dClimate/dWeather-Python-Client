@@ -38,6 +38,17 @@ class IpfsDataset(ABC):
         self.ipfs = ipfshttpclient.connect(timeout=ipfs_timeout, session=True)
         self.as_of = as_of
 
+    def __enter__(self):
+        print('__enter__')
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        print("__exit__")
+        self.ipfs.close()
+        if isinstance(exc_val, Exception):
+            return False
+        return True
+
     def get_metadata(self, h):
         """
         args:
@@ -853,18 +864,7 @@ class ForecastDataset(GriddedDataset):
         super().__init__(ipfs_timeout=ipfs_timeout)
         self._dataset = dataset
         self._interval = interval
-        self._con_to_cpc = con_to_cpc
-
-    def __enter__(self):
-        print('ipfs connection just opened by super().__init__')
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.ipfs.close()
-        print('ipfs connection just closed by __exit__')
-        if isinstance(exc_val, Exception):
-            return False
-        return True
+        self._con_to_cpc = con_to_cpc  
 
     def get_relevant_hash(self, forecast_date):
         """

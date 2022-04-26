@@ -75,15 +75,15 @@ def get_gridcell_history(
     # get dataset-specific "no observation" value
     missing_value = metadata["missing value"]
     try:
-        dataset_obj = GRIDDED_DATASETS[dataset](as_of=as_of, ipfs_timeout=ipfs_timeout)
+        with GRIDDED_DATASETS[dataset](as_of=as_of, ipfs_timeout=ipfs_timeout) as dataset_obj:
+            try:
+                (lat, lon), str_resp_series = dataset_obj.get_data(lat, lon)
+            except (ipfshttpclient.exceptions.ErrorResponse, ipfshttpclient.exceptions.TimeoutError, KeyError, FileNotFoundError) as e:
+                raise CoordinateNotFoundError("Invalid coordinate for dataset")
     except KeyError:
         raise DatasetError("No such dataset in dClimate")
 
-    try:
-        (lat, lon), str_resp_series = dataset_obj.get_data(lat, lon)
-
-    except (ipfshttpclient.exceptions.ErrorResponse, ipfshttpclient.exceptions.TimeoutError, KeyError, FileNotFoundError) as e:
-        raise CoordinateNotFoundError("Invalid coordinate for dataset")
+    
 
     # try a timezone-based transformation on the times in case we're using an hourly set.
     if convert_to_local_time:
@@ -159,20 +159,17 @@ def get_forecast(
         converter, dweather_unit = get_unit_converter_no_aliases(metadata["unit of measurement"], desired_units)
 
     if 'gfs' in dataset:
-        try:
-            dataset_obj = ForecastDataset(dataset, interval=1, con_to_cpc=True, ipfs_timeout=ipfs_timeout)
-        except KeyError:
-            raise DatasetError("No such dataset in dClimate")
+        interval=1
+        con_to_cpc=True
     elif 'ecmwf' in dataset:
-        try:
-            dataset_obj = ForecastDataset(dataset, interval=3, ipfs_timeout=ipfs_timeout)
-        except KeyError:
-            raise DatasetError("No such dataset in dClimate")
-
+        interval=3
+        con_to_cpc=False
     
     try:
-        with ForecastDataset(dataset, interval=3, ipfs_timeout=ipfs_timeout) as dataset_obj:
+        with ForecastDataset(dataset, interval=interval, con_to_cpc=con_to_cpc, ipfs_timeout=ipfs_timeout) as dataset_obj:
             (lat, lon), str_resp_series = dataset_obj.get_data(lat, lon, forecast_date)
+    except KeyError:
+        raise DatasetError("No such dataset in dClimate")
     except (ipfshttpclient.exceptions.ErrorResponse, ipfshttpclient.exceptions.TimeoutError, KeyError, FileNotFoundError) as e:
         raise CoordinateNotFoundError("Invalid coordinate for dataset")
 
@@ -250,21 +247,24 @@ def get_tropical_storms(
     if radius and min_lat:
         raise ValueError("Invalid args")
 
+    # Shift to context manager (cm) approach
+    # Establish cm in first if statement, use it as a context manager in the second
     if source == "atcf":
-        storm_getter = AtcfDataset(ipfs_timeout=ipfs_timeout)
+        cm = AtcfDataset(ipfs_timeout=ipfs_timeout)
     elif source == "historical":
-        storm_getter = IbtracsDataset(ipfs_timeout=ipfs_timeout)
+        cm = IbtracsDataset(ipfs_timeout=ipfs_timeout)
     elif source == "simulated":
-        storm_getter = SimulatedStormsDataset(ipfs_timeout=ipfs_timeout)
+        cm = SimulatedStormsDataset(ipfs_timeout=ipfs_timeout)
     else:
         raise ValueError("Invalid source")
 
-    if radius:
-        return storm_getter.get_data(basin, radius=radius, lat=lat, lon=lon)
-    elif min_lat:
-        return storm_getter.get_data(basin, min_lat=min_lat, min_lon=min_lon, max_lat=max_lat, max_lon=max_lon)
-    else:
-        return storm_getter.get_data(basin)
+    with cm as storm_getter:
+        if radius:
+            return storm_getter.get_data(basin, radius=radius, lat=lat, lon=lon)
+        elif min_lat:
+            return storm_getter.get_data(basin, min_lat=min_lat, min_lon=min_lon, max_lat=max_lat, max_lon=max_lon)
+        else:
+            return storm_getter.get_data(basin)
     
 def get_station_history(
         station_id,
@@ -303,7 +303,8 @@ def get_station_history(
     if desired_units:
         to_unit = get_to_units(desired_units)
     try:
-        csv_text = StationDataset(dataset, ipfs_timeout=ipfs_timeout).get_data(station_id)
+        with StationDataset(dataset, ipfs_timeout=ipfs_timeout) as dataset_obj:
+            csv_text = dataset_obj.get_data(station_id)
     except KeyError:
         raise DatasetError("No such dataset in dClimate")
     except ipfshttpclient.exceptions.ErrorResponse:
@@ -343,7 +344,8 @@ def get_station_history(
 
 def get_cme_station_history(station_id, weather_variable, use_imperial_units=True, desired_units=None, ipfs_timeout=None):
     try:
-        csv_text = CmeStationsDataset(ipfs_timeout=ipfs_timeout).get_data(station_id)
+        with CmeStationsDataset(ipfs_timeout=ipfs_timeout) as dataset_obj:
+            csv_text = dataset_obj.get_data(station_id)
     except KeyError:
         raise DatasetError("No such dataset in dClimate")
     except ipfshttpclient.exceptions.ErrorResponse:
@@ -389,11 +391,14 @@ def get_cme_station_history(station_id, weather_variable, use_imperial_units=Tru
 def get_european_station_history(dataset, station_id, weather_variable, use_imperial_units=True, desired_units=None, ipfs_timeout=None):
     try:
         if dataset == "dwd_stations-daily":
-            csv_text = DwdStationsDataset(ipfs_timeout=ipfs_timeout).get_data(station_id)
+            cm = DwdStationsDataset(ipfs_timeout=ipfs_timeout)
         elif dataset == "dutch_stations-daily":
-            csv_text = DutchStationsDataset(ipfs_timeout=ipfs_timeout).get_data(station_id)
+            cm = DutchStationsDataset(ipfs_timeout=ipfs_timeout)
         else:
             raise ValueError("invalid european dataset")
+
+        with cm as dataset_obj:
+            csv_text = dataset_obj.get_data(station_id)
     except KeyError:
         raise DatasetError("No such dataset in dClimate")
     except ipfshttpclient.exceptions.ErrorResponse:
@@ -458,7 +463,8 @@ def get_yield_history(commodity, state, county, dataset="sco-yearly", ipfs_timeo
     if dataset in ["rmasco_imputed-yearly", "rma_t_yield_imputed-single-value"] and commodity != "0081":
         raise ValueError("Multipliers currently only available for soybeans (commodity code 0081)")
     try:
-        return YieldDatasets(dataset, ipfs_timeout=ipfs_timeout).get_data(commodity, state, county)
+        with YieldDatasets(dataset, ipfs_timeout=ipfs_timeout) as dataset_obj:
+            return dataset_obj.get_data(commodity, state, county)
     except ipfshttpclient.exceptions.ErrorResponse:
         raise ValueError("Invalid commodity/state/county code combination")
 
@@ -470,7 +476,8 @@ def get_irrigation_data(commodity, ipfs_timeout=None):
         commodity (str), 4 digit code
     """
     try:
-        return FsaIrrigationDataset(ipfs_timeout=ipfs_timeout).get_data(commodity)
+        with FsaIrrigationDataset(ipfs_timeout=ipfs_timeout) as dataset_obj:
+            return dataset_obj.get_data(commodity)
     except ipfshttpclient.exceptions.ErrorResponse:
         raise ValueError("Invalid commodity code")
 
@@ -480,7 +487,8 @@ def get_japan_station_history(station_name, desired_units=None, as_of=None, ipfs
         dict with datetime keys and temperature Quantities as values
     """
     metadata = get_metadata(get_heads()["japan_meteo-daily"])
-    str_resp_series = JapanStations(ipfs_timeout=ipfs_timeout, as_of=as_of).get_data(station_name)
+    with JapanStations(ipfs_timeout=ipfs_timeout, as_of=as_of) as dataset_obj:
+        str_resp_series = dataset_obj.get_data(station_name)
     resp_series = str_resp_series.astype(float)
     if desired_units:
         unit = metadata["unit of measurement"]
@@ -502,7 +510,8 @@ def get_australia_station_history(station_name, weather_variable, desired_units=
         unit = BOM_UNITS[weather_variable]
     except KeyError:
         raise WeatherVariableNotFoundError("Invalid weather variable for Australia station")
-    str_resp_series = AustraliaBomStations(ipfs_timeout=ipfs_timeout, as_of=as_of).get_data(station_name)[weather_variable]
+    with AustraliaBomStations(ipfs_timeout=ipfs_timeout, as_of=as_of) as dataset_obj:
+        str_resp_series = dataset_obj.get_data(station_name)[weather_variable]
     if weather_variable == "GUSTDIR":
         return str_resp_series.replace("", np.nan).to_dict()
     resp_series = str_resp_series.replace("", np.nan).astype(float)
@@ -521,25 +530,29 @@ def get_power_history(ipfs_timeout=None):
     return:
         dict with datetime keys and values that are dicts with keys 'demand' and 'price'
     """
-    return AemoPowerDataset(ipfs_timeout=ipfs_timeout).get_data()
+    with AemoPowerDataset(ipfs_timeout=ipfs_timeout) as dataset_obj:
+        return dataset_obj.get_data()
 
 def get_gas_history(ipfs_timeout=None):
     """
     return:
         dict with date keys and float values
     """
-    return AemoGasDataset(ipfs_timeout=ipfs_timeout).get_data()
+    with AemoGasDataset(ipfs_timeout=ipfs_timeout) as dataset_obj:
+        return dataset_obj.get_data()
 
 def get_alberta_power_history(ipfs_timeout=None):
     """
     return:
         dict with datetime keys and values that are dicts with keys 'price' 'ravg' and 'demand'
     """
-    return AesoPowerDataset(ipfs_timeout=ipfs_timeout).get_data()
+    with AesoPowerDataset(ipfs_timeout=ipfs_timeout) as dataset_obj:
+        return dataset_obj.get_data()
 
 def get_drought_monitor_history(state, county, ipfs_timeout=None):
     try:
-        return DroughtMonitor(ipfs_timeout=ipfs_timeout).get_data(state, county)
+        with DroughtMonitor(ipfs_timeout=ipfs_timeout) as dataset_obj:
+            return dataset_obj.get_data(state, county)
     except ipfshttpclient.exceptions.ErrorResponse:
         raise ValueError("Invalid state/county combo")
 
@@ -554,16 +567,19 @@ def get_ceda_biomass(year, lat, lon, unit, ipfs_timeout=None):
         BytesIO representing relevant GeoTiff File
     """
     try:
-        return CedaBiomass(ipfs_timeout=ipfs_timeout).get_data(year, lat, lon, unit)
+        with CedaBiomass(ipfs_timeout=ipfs_timeout) as dataset_obj:
+            return dataset_obj.get_data(year, lat, lon, unit)
     except ipfshttpclient.exceptions.ErrorResponse:
         raise ValueError("Invalid paramaters with which to get biomass data")
 
 def get_afr_history(ipfs_timeout=None):
-    return AfrDataset(ipfs_timeout=ipfs_timeout).get_data()
+    with AfrDataset(ipfs_timeout=ipfs_timeout) as dataset_obj:
+        return dataset_obj.get_data()
 
 def has_dataset_updated(dataset, slices, as_of, ipfs_timeout=None):
     """
     Determine whether any dataset updates generated after `as_of` affect any `slices` of date ranges.
     """
-    ranges = DateRangeRetriever(dataset, ipfs_timeout=ipfs_timeout).get_data(as_of)
+    with DateRangeRetriever(dataset, ipfs_timeout=ipfs_timeout) as dataset_obj:
+        ranges = dataset_obj.get_data(as_of)
     return has_changed(slices, ranges)

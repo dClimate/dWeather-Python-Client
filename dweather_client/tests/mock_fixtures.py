@@ -10,6 +10,16 @@ def get_data(self, lat, lon):
     with open(to_open, "rb") as f:
         return pickle.load(f)
 
+def dummy_enter(self):
+    print('__enter__')
+    return self
+
+def dummy_exit(self, exc_type, exc_val, exc_tb):
+    print("__exit__")
+    if isinstance(exc_val, Exception):
+        return False
+    return True
+
 def get_patched_datasets():
     patched_datasets = {}
     for k in GRIDDED_DATASETS:
@@ -17,6 +27,8 @@ def get_patched_datasets():
         new_class = type(old_class.__name__, (object, ), {
             "dataset": k,
             "__init__": constructor,
+            "__enter__": dummy_enter,
+            "__exit__": dummy_exit,
             "get_data": get_data
         })
         patched_datasets[k] = new_class

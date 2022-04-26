@@ -35,8 +35,17 @@ class IpfsDataset(ABC):
         code is running in an environment containing all datasets (such as gateway)
         """
         self.on_gateway = not ipfs_timeout
-        self.ipfs = ipfshttpclient.connect(timeout=ipfs_timeout)
+        self.ipfs = ipfshttpclient.connect(timeout=ipfs_timeout, session=True)
         self.as_of = as_of
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.ipfs.close()
+        if isinstance(exc_val, Exception):
+            return False
+        return True
 
     def get_metadata(self, h):
         """
@@ -174,77 +183,11 @@ class GriddedDataset(IpfsDataset):
         return weather_dict
 
 
-class GfsDataset(GriddedDataset):
-    """
-    Instantiable class used for pulling in any of the gfs datasets
-    """
-    @property
-    def dataset(self):
-        return self._dataset
-
-    def __init__(self, dataset, ipfs_timeout=None):
-        super().__init__(ipfs_timeout=ipfs_timeout)
-        self._dataset = dataset
-
-    def get_data(self, lat, lon, forecast_date):
-        """
-        return pd.Series with the forecast data corresponding to a lat/lon and forecast_date
-        """
-        super().get_data()
-        first_metadata = self.get_metadata(self.head)
-        lat, lon = conventional_lat_lon_to_cpc(float(lat), float(lon))
-        snapped_lat, snapped_lon = self.snap_to_grid(float(lat), float(lon), first_metadata)
-        relevant_hash = self.get_relevant_hash(forecast_date)
-        weather_dict = self.get_weather_dict(forecast_date, relevant_hash, snapped_lat, snapped_lon)
-        ret_lat, ret_lon = cpc_lat_lon_to_conventional(snapped_lat, snapped_lon)
-        return (float(ret_lat), float(ret_lon)), pd.Series(weather_dict)
-
-
-    def get_weather_dict(self, forecast_date, ipfs_hash, lat, lon):
-        """
-        return dict with the forecast data corresponding to a lat/lon, forecast_date, and ipfs hash
-        """
-        ret = {}
-        zip_file_name = f"{forecast_date.strftime('%Y%m%d')}_{lat:.2f}.zip"
-        with zipfile.ZipFile(self.get_file_object(f"{ipfs_hash}/{zip_file_name}")) as zi:
-            file_name = f"{forecast_date.strftime('%Y%m%d')}_{lat:.2f}_{lon:.2f}"
-            with zi.open(file_name) as f:
-                vals = f.read().decode("utf-8").split(',')
-                start_datetime = datetime.datetime(forecast_date.year, forecast_date.month, forecast_date.day)
-                for i, val in enumerate(vals):
-                    ret[start_datetime + datetime.timedelta(hours=i+1)] = val
-        return ret
-
-    def get_relevant_hash(self, forecast_date):
-        """
-        return the ipfs hash required to pull in data for a forecast date
-        """
-        cur_hash = self.head
-        cur_metadata = self.get_metadata(cur_hash)
-        cur_date_range = [datetime.date.fromisoformat(d) for d in cur_metadata["date range"]]
-        if forecast_date > cur_date_range[1]:
-            raise DateOutOfRangeError("Forecast date is later than available data")
-
-        while forecast_date < cur_date_range[0]:
-            prev_hash = cur_metadata['previous hash']
-            if prev_hash is None:
-                raise DateOutOfRangeError("Forecast date is earlier than available data")
-            else:
-                cur_hash = prev_hash
-                cur_metadata = self.get_metadata(cur_hash)
-                cur_date_range = [datetime.date.fromisoformat(d) for d in cur_metadata["date range"]]
-
-        if forecast_date <= cur_date_range[1]:
-            return cur_hash
-        else:
-            raise DateOutOfRangeError("Forecast date not available due to gaps in data")
-
-
 class PrismGriddedDataset(GriddedDataset):
     """
     Abstract class from which all PRISM datasets inherit. Contains logic for overlapping date ranges
     that is unique to PRISM
-    """
+    """ 
     def get_data(self, lat, lon):
         """
         PRISM datasets' method for getting data. Reverses the linked list so as to correctly prioritize displaying
@@ -905,3 +848,78 @@ class CedaBiomass(IpfsDataset):
             file_name = f"{ns_string}{ew_string}_ESACCI-BIOMASS-L4-{unit}-MERGED-100m-{year}-fv3.0.tif"
 
         return self.get_file_object(f"{self.head}/{file_name}")
+
+
+class ForecastDataset(GriddedDataset):
+    """
+    Parent class for gridded datasets currently stands at GFS/ECMWF
+    """
+    @property
+    def dataset(self):
+        return self._dataset
+
+    def __init__(self, dataset, interval, con_to_cpc=None, ipfs_timeout=None):
+        super().__init__(ipfs_timeout=ipfs_timeout)
+        self._dataset = dataset
+        self._interval = interval
+        self._con_to_cpc = con_to_cpc  
+
+    def get_relevant_hash(self, forecast_date):
+        """
+        return the ipfs hash required to pull in data for a forecast date
+        """
+        cur_hash = self.head
+        cur_metadata = self.get_metadata(cur_hash)
+        cur_date_range = [datetime.date.fromisoformat(d) for d in cur_metadata["date range"]]
+        if forecast_date > cur_date_range[1]:
+            raise DateOutOfRangeError("Forecast date is later than available data")
+
+        while forecast_date < cur_date_range[0]:
+            prev_hash = cur_metadata['previous hash']
+            if prev_hash is None:
+                raise DateOutOfRangeError("Forecast date is earlier than available data")
+            else:
+                cur_hash = prev_hash
+                cur_metadata = self.get_metadata(cur_hash)
+                cur_date_range = [datetime.date.fromisoformat(d) for d in cur_metadata["date range"]]
+
+        if forecast_date <= cur_date_range[1]:
+            return cur_hash
+        else:
+            raise DateOutOfRangeError("Forecast date not available due to gaps in data")
+
+    def get_weather_dict(self, forecast_date, ipfs_hash, lat, lon):
+        """
+        return dict with the forecast data corresponding to a lat/lon, forecast_date, and ipfs hash
+        """
+        ret = {}
+        zip_file_name = f"{forecast_date.strftime('%Y%m%d')}_{lat:.2f}.zip"
+        with zipfile.ZipFile(self.get_file_object(f"{ipfs_hash}/{zip_file_name}")) as zi:
+            file_name = f"{forecast_date.strftime('%Y%m%d')}_{lat:.2f}_{lon:.2f}"
+            with zi.open(file_name) as f:
+                vals = f.read().decode("utf-8").split(',')
+                start_datetime = datetime.datetime(forecast_date.year, forecast_date.month, forecast_date.day)
+                for i, val in enumerate(vals):
+                    ret[start_datetime + datetime.timedelta(hours=i*self._interval)] = val
+        return ret
+
+    def get_data(self, lat, lon, forecast_date):
+        """
+        return pd.Series with the forecast data corresponding to a lat/lon and forecast_date
+        """
+        super().get_data()
+        first_metadata = self.get_metadata(self.head)
+        if self._con_to_cpc:
+            lat, lon = conventional_lat_lon_to_cpc(float(lat), float(lon))
+            snapped_lat, snapped_lon = self.snap_to_grid(float(lat), float(lon), first_metadata)
+            relevant_hash = self.get_relevant_hash(forecast_date)
+            weather_dict = self.get_weather_dict(forecast_date, relevant_hash, snapped_lat, snapped_lon)
+            ret_lat, ret_lon = cpc_lat_lon_to_conventional(snapped_lat, snapped_lon)
+        else:
+            lat, lon = float(lat), float(lon)
+            snapped_lat, snapped_lon = self.snap_to_grid(float(lat), float(lon), first_metadata)
+            relevant_hash = self.get_relevant_hash(forecast_date)
+            weather_dict = self.get_weather_dict(forecast_date, relevant_hash, snapped_lat, snapped_lon)
+            ret_lat, ret_lon = snapped_lat, snapped_lon
+
+        return (float(ret_lat), float(ret_lon)), pd.Series(weather_dict)

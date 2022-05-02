@@ -200,30 +200,31 @@ class CopernicusDataset(GriddedDataset):
         first_metadata = self.get_metadata(self.head)
         snapped_lat, snapped_lon = self.snap_to_grid(float(lat), float(lon), first_metadata)
         self.bin_name = f"{snapped_lat:.3f}_{snapped_lon:.3f}"
-        self.ret_dict = {}
-        for h in self.get_hashes():
-            print(h)
-            self.update_copernicus_dict(h)
-        return (float(snapped_lat), float(snapped_lon)), pd.Series(self.ret_dict)
+        self.zip_name = f"{snapped_lat:.3f}.zip"
+        ret_dict = {}
+        for i, h in enumerate(self.get_hashes()):
+            date_range = self.get_date_range_from_metadata(h)
+            weather_dict = self.get_copernicus_dict(date_range, h, i == 0)
+            ret_dict = {**ret_dict, **weather_dict}
+        return (float(snapped_lat), float(snapped_lon)), pd.Series(ret_dict).round(4).astype(str)
 
-    def update_copernicus_dict(self, ipfs_hash):
+    def get_copernicus_dict(self, date_range, ipfs_hash, is_root):
         """
-        Updates self.ret_dict with data from a hash in the linked list. Written so as to never
-        overwrite newer data with older
+        Get a dict of weather values for a given IPFS hash
         args:
-        :ipfs_hash: hash in linked list from which to get data
+        :date_range: time range that hash has data for
+        :ipfs_hash: hash containing data
+        :is_root: bool indicating whether this is the root node in the linked list
+        return: dictionaey with date keys and weather values
         """
-        a = array('f', [])
-        fileR = self.get_file_object(f"{ipfs_hash}/{self.bin_name}")
-        a.frombytes(fileR.read())
-        metadata = self.get_metadata(ipfs_hash)
-        day_of_year = datetime.datetime.fromisoformat(metadata["date range"][0])
-        for i in range(len(a)):
-            point = a[i]
-            if (day_of_year not in self.ret_dict) and point:
-                self.ret_dict[day_of_year] = point
-                day_of_year += datetime.timedelta(days=1)
-        
+        if is_root:
+            data_bytes = self.get_file_object(f"{ipfs_hash}/{self.bin_name}").read()
+        else:
+            with zipfile.ZipFile(self.get_file_object(f"{ipfs_hash}/{self.zip_name}")) as zi:
+                data_bytes = zi.open(self.bin_name).read()
+        data_array = list(array("f", data_bytes))
+        index = [d.to_pydatetime().date() for d in pd.date_range(date_range[0], date_range[1])]
+        return dict(zip(index, data_array))
 
 class PrismGriddedDataset(GriddedDataset):
     """

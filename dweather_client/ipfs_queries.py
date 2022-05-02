@@ -4,7 +4,7 @@ Queries associated with the ipfs protocol option.
 
 from abc import ABC, abstractmethod
 from collections import deque
-import ipfshttpclient, json, datetime, os, tarfile, gzip, pickle, zipfile
+import ipfshttpclient, json, datetime, os, tarfile, gzip, pickle, zipfile, array
 from dweather_client.ipfs_errors import *
 from dweather_client.grid_utils import conventional_lat_lon_to_cpc, cpc_lat_lon_to_conventional
 from dweather_client.struct_utils import find_closest_lat_lon
@@ -182,6 +182,46 @@ class GriddedDataset(IpfsDataset):
                     day_itr = day_itr + datetime.timedelta(hours=1)
         return weather_dict
 
+class CopernicusDataset(GriddedDataset):
+    """
+    Abstract class for copernicus datasets, contains logic for reading binary files
+    """
+    def get_data(self, lat, lon):
+        """
+        Copernicus datasets' method for getting data. Reads binary files named by long/lat
+        args:
+        :lat: float of latitude from which to get data
+        :lon: float of longitude from which to get data
+        return: tuple of lat/lon snapped to copernicus grid, and weather data, which is pd.Series with date index
+        and str values corresponding to weather observations
+        """
+        super().get_data()
+        first_metadata = self.get_metadata(self.head)
+        snapped_lat, snapped_lon = self.snap_to_grid(float(lat), float(lon), first_metadata)
+        self.bin_name = f"{snapped_lat:.3f}_{snapped_lon:.3f}"
+        self.ret_dict = {}
+        for h in self.get_hashes():
+            print(h)
+            self.update_copernicus_dict(h)
+        return (float(snapped_lat), float(snapped_lon)), pd.Series(self.ret_dict)
+
+    def update_copernicus_dict(self, ipfs_hash):
+        """
+        Updates self.ret_dict with data from a hash in the linked list. Written so as to never
+        overwrite newer data with older
+        args:
+        :ipfs_hash: hash in linked list from which to get data
+        """
+        a = array('f', [])
+        with open(fileobj=self.get_file_object(f"{ipfs_hash}/{self.tar_name}")) as fileR:
+            a.frombytes(fileR.read())
+            day_of_year = self.get_date_range_from_metadata(self, ipfs_hash)[0]
+            for i in len(a):
+                point = a[i]
+                if (day_of_year not in self.ret_dict) and point:
+                    self.ret_dict[day_of_year] = point
+                    day_of_year += datetime.timedelta(days=1)
+        
 
 class PrismGriddedDataset(GriddedDataset):
     """

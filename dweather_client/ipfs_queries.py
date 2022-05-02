@@ -214,14 +214,15 @@ class CopernicusDataset(GriddedDataset):
         :ipfs_hash: hash in linked list from which to get data
         """
         a = array('f', [])
-        with open(fileobj=self.get_file_object(f"{ipfs_hash}/{self.tar_name}")) as fileR:
-            a.frombytes(fileR.read())
-            day_of_year = self.get_date_range_from_metadata(self, ipfs_hash)[0]
-            for i in len(a):
-                point = a[i]
-                if (day_of_year not in self.ret_dict) and point:
-                    self.ret_dict[day_of_year] = point
-                    day_of_year += datetime.timedelta(days=1)
+        fileR = self.get_file_object(f"{ipfs_hash}/{self.bin_name}")
+        a.frombytes(fileR.read())
+        metadata = self.get_metadata(ipfs_hash)
+        day_of_year = datetime.datetime.fromisoformat(metadata["date range"][0])
+        for i in range(len(a)):
+            point = a[i]
+            if (day_of_year not in self.ret_dict) and point:
+                self.ret_dict[day_of_year] = point
+                day_of_year += datetime.timedelta(days=1)
         
 
 class PrismGriddedDataset(GriddedDataset):

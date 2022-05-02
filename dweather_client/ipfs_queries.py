@@ -4,12 +4,13 @@ Queries associated with the ipfs protocol option.
 
 from abc import ABC, abstractmethod
 from collections import deque
-import ipfshttpclient, json, datetime, os, tarfile, gzip, pickle, zipfile, array
+import ipfshttpclient, json, datetime, os, tarfile, gzip, pickle, zipfile
 from dweather_client.ipfs_errors import *
 from dweather_client.grid_utils import conventional_lat_lon_to_cpc, cpc_lat_lon_to_conventional
 from dweather_client.struct_utils import find_closest_lat_lon
 from dweather_client.http_queries import get_heads
 import pandas as pd
+from array import array
 from io import BytesIO
 
 

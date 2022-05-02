@@ -11,11 +11,9 @@ def get_data(self, lat, lon):
         return pickle.load(f)
 
 def dummy_enter(self):
-    print('__enter__')
     return self
 
 def dummy_exit(self, exc_type, exc_val, exc_tb):
-    print("__exit__")
     if isinstance(exc_val, Exception):
         return False
     return True

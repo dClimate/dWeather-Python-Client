@@ -1,4 +1,4 @@
-from dweather_client.ipfs_queries import SimpleGriddedDataset, RtmaGriddedDataset, Era5LandWind, PrismGriddedDataset, Vhi
+from dweather_client.ipfs_queries import CopernicusDataset, SimpleGriddedDataset, RtmaGriddedDataset, Era5LandWind, PrismGriddedDataset, CopernicusDataset, Vhi
 
 """
 Module containing the leaf classes for the gridded dataset inheritance chain.
@@ -90,3 +90,8 @@ class Era5Wind100mVHourly(SimpleGriddedDataset):
 class Era5VolumetricSoilWater(SimpleGriddedDataset):
     dataset = "era5_volumetric_soil_water_layer_1-hourly"
 
+class CopernicusOceanTemp1p5Meters(CopernicusDataset):
+    dataset = "copernicus_ocean_temp_1p5_meters-daily"
+
+class CopernicusOceanTemp6p5Meters(CopernicusDataset):
+    dataset = "copernicus_ocean_temp_6p5_meters-daily"

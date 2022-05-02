@@ -10,6 +10,7 @@ from dweather_client.grid_utils import conventional_lat_lon_to_cpc, cpc_lat_lon_
 from dweather_client.struct_utils import find_closest_lat_lon
 from dweather_client.http_queries import get_heads
 import pandas as pd
+from array import array
 from io import BytesIO
 
 
@@ -182,6 +183,48 @@ class GriddedDataset(IpfsDataset):
                     day_itr = day_itr + datetime.timedelta(hours=1)
         return weather_dict
 
+class CopernicusDataset(GriddedDataset):
+    """
+    Abstract class for copernicus datasets, contains logic for reading binary files
+    """
+    def get_data(self, lat, lon):
+        """
+        Copernicus datasets' method for getting data. Reads binary files named by long/lat
+        args:
+        :lat: float of latitude from which to get data
+        :lon: float of longitude from which to get data
+        return: tuple of lat/lon snapped to copernicus grid, and weather data, which is pd.Series with date index
+        and str values corresponding to weather observations
+        """
+        super().get_data()
+        first_metadata = self.get_metadata(self.head)
+        snapped_lat, snapped_lon = self.snap_to_grid(float(lat), float(lon), first_metadata)
+        self.bin_name = f"{snapped_lat:.3f}_{snapped_lon:.3f}"
+        self.zip_name = f"{snapped_lat:.3f}.zip"
+        ret_dict = {}
+        for i, h in enumerate(self.get_hashes()):
+            date_range = self.get_date_range_from_metadata(h)
+            weather_dict = self.get_copernicus_dict(date_range, h, i == 0)
+            ret_dict = {**ret_dict, **weather_dict}
+        return (float(snapped_lat), float(snapped_lon)), pd.Series(ret_dict).round(4).astype(str)
+
+    def get_copernicus_dict(self, date_range, ipfs_hash, is_root):
+        """
+        Get a dict of weather values for a given IPFS hash
+        args:
+        :date_range: time range that hash has data for
+        :ipfs_hash: hash containing data
+        :is_root: bool indicating whether this is the root node in the linked list
+        return: dictionaey with date keys and weather values
+        """
+        if is_root:
+            data_bytes = self.get_file_object(f"{ipfs_hash}/{self.bin_name}").read()
+        else:
+            with zipfile.ZipFile(self.get_file_object(f"{ipfs_hash}/{self.zip_name}")) as zi:
+                data_bytes = zi.open(self.bin_name).read()
+        data_array = list(array("f", data_bytes))
+        index = [d.to_pydatetime().date() for d in pd.date_range(date_range[0], date_range[1])]
+        return dict(zip(index, data_array))
 
 class PrismGriddedDataset(GriddedDataset):
     """

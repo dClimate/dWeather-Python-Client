@@ -40,7 +40,7 @@ def test_get_gridcell_history_units(mocker):
                         assert res[k].unit == u.J / u.m ** 2
                     elif use_imperial:
                         assert res[k].unit == imperial.deg_F
-                    elif s in {"era5_surface_runoff-hourly", "era5_land_precip-hourly", "era5_land_snowfall-hourly"}:
+                    elif s in {"era5_surface_runoff-hourly", "era5_land_precip-hourly", "era5_land_snowfall-hourly", "era5_precip-hourly"}:
                         assert res[k].unit == u.m
                     elif "precip" in s or "chirps" in s:
                         assert res[k].unit == u.mm

@@ -90,6 +90,9 @@ class Era5Wind100mVHourly(SimpleGriddedDataset):
 class Era5VolumetricSoilWater(SimpleGriddedDataset):
     dataset = "era5_volumetric_soil_water_layer_1-hourly"
 
+class Era5Precip(SimpleGriddedDataset):
+    dataset = "era5_precip-hourly"
+
 class CopernicusOceanTemp1p5Meters(CopernicusDataset):
     dataset = "copernicus_ocean_temp_1p5_meters-daily"
 

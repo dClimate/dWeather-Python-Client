@@ -1,3 +1,7 @@
+import sys
+import os
+sys.path.insert(1, os.getcwd())
+
 from dweather_client.client import GRIDDED_DATASETS
 import pickle
 import argparse

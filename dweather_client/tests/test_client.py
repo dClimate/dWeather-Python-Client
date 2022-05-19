@@ -2,7 +2,7 @@ from dweather_client.ipfs_errors import *
 from dweather_client.tests.mock_fixtures import get_patched_datasets
 from dweather_client.client import get_australia_station_history, get_station_history, get_gridcell_history, get_tropical_storms,\
     get_yield_history, get_irrigation_data, get_power_history, get_gas_history, get_alberta_power_history, GRIDDED_DATASETS, has_dataset_updated,\
-    get_forecast_datasets, get_forecast, get_cme_station_history, get_european_station_history, get_drought_monitor_history, get_japan_station_history,\
+    get_forecast_datasets, get_forecast, get_cme_station_history, get_european_station_history, get_hourly_european_station_history, get_drought_monitor_history, get_japan_station_history,\
     get_afr_history
 from dweather_client.aliases_and_units import snotel_to_ghcnd
 import pandas as pd
@@ -220,9 +220,10 @@ def test_german_station():
     assert german[datetime.date(2017, 3, 29)].unit == imperial.deg_F
 
 def test_hourly_german_station():
-    german = get_european_station_history('dwd_hourly-hourly', '02932', 'TAVG', use_imperial_units=True, ipfs_timeout=IPFS_TIMEOUT)
-    assert len(german) >= 5234
-    assert german[datetime.datetime(1980, 3, 29)].unit == imperial.deg_F
+    german = get_hourly_european_station_history('dwd_hourly-hourly', '02932', 'TAVG', use_imperial_units=True, ipfs_timeout=IPFS_TIMEOUT)
+    data = german['data']
+    assert len(data) >= 5234
+    assert data[datetime.datetime(1980, 3, 29)].unit == imperial.deg_F
 
 def test_european_station_desired_units():
     german = get_european_station_history('dwd_stations-daily', '13670', 'TMIN', desired_units="K", ipfs_timeout=IPFS_TIMEOUT)

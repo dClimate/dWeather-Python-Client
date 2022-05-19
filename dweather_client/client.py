@@ -399,17 +399,25 @@ def get_hourly_european_station_history(dataset, station_id, weather_variable, u
     except ipfshttpclient.exceptions.ErrorResponse:
         raise StationNotFoundError("Invalid station ID for dataset")
     df = pd.read_csv(StringIO(csv_text))
+    str_resp_series = df[weather_variable].astype(str)
     df = df.set_index("DATE")
-    if use_imperial_units:
-        converter, _ = get_unit_converter("degC", use_imperial_units)
-        df["TAVG"] = pd.Series(converter(df["TAVG"].values * original_units))
-    elif desired_units:
-        converter, dweather_unit = get_unit_converter_no_aliases("degC", desired_units)
-
-
+    if not desired_units:
+        converter, dweather_unit = get_unit_converter("deg_C", use_imperial_units)
+    else:
+        converter, dweather_unit = get_unit_converter_no_aliases("deg_C", desired_units)
     del df["STATION"]
-    import ipdb; ipdb.set_trace()
-
+    if converter is not None:
+        try:
+            converted_resp_series = pd.Series(converter(df[weather_variable].values*original_units), index=df.index)
+        except ValueError:
+            raise UnitError("Specified unit is incompatible with original")
+        if desired_units is not None:
+            rounded_resp_array = np.vectorize(rounding_formula_temperature)(str_resp_series, converted_resp_series)
+            final_resp_series = pd.Series(rounded_resp_array * converted_resp_series.values.unit, index=df.index)
+        else: 
+            final_resp_series = converted_resp_series
+    result = {"data": {datetime.datetime.fromisoformat(k): convert_nans_to_none(v) for k, v in final_resp_series.to_dict().items()}}
+    return result
 
 
 
@@ -608,3 +616,5 @@ def has_dataset_updated(dataset, slices, as_of, ipfs_timeout=None):
     with DateRangeRetriever(dataset, ipfs_timeout=ipfs_timeout) as dataset_obj:
         ranges = dataset_obj.get_data(as_of)
     return has_changed(slices, ranges)
+
+

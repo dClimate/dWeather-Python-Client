@@ -571,7 +571,7 @@ class DwdHourlyStationsDataset(IpfsDataset):
     """
     Instantiable class used for pulling in dutch station data
     """
-    dataset = "dwd_stations-daily"
+    dataset = "dwd_hourly-hourly"
 
     def __init__(self, ipfs_timeout=None):
         super().__init__(ipfs_timeout=ipfs_timeout)

@@ -567,6 +567,21 @@ class DwdStationsDataset(IpfsDataset):
         with gzip.open(self.get_file_object(file_name)) as gz:
             return gz.read().decode("utf-8")
 
+class DwdHourlyStationsDataset(IpfsDataset):
+    """
+    Instantiable class used for pulling in dutch station data
+    """
+    dataset = "dwd_stations-daily"
+
+    def __init__(self, ipfs_timeout=None):
+        super().__init__(ipfs_timeout=ipfs_timeout)
+
+    def get_data(self, station, weather_variable):
+        super().get_data()
+        file_name = f"{self.head}/{weather_variable}/{station}.csv.gz"
+        with gzip.open(self.get_file_object(file_name)) as gz:
+            return gz.read().decode("utf-8")
+
 class YieldDatasets(IpfsDataset):
     """
     Instantiable class used for pulling in sco and rma transitional yield data

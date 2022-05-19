@@ -219,6 +219,11 @@ def test_german_station():
     assert len(german) >= 5234
     assert german[datetime.date(2017, 3, 29)].unit == imperial.deg_F
 
+def test_hourly_german_station():
+    german = get_european_station_history('dwd_stations-hourly', '02932', 'TAVG', use_imperial_units=True, ipfs_timeout=IPFS_TIMEOUT)
+    assert len(german) >= 5234
+    assert german[datetime.date(2017, 3, 29)].unit == imperial.deg_F
+
 def test_european_station_desired_units():
     german = get_european_station_history('dwd_stations-daily', '13670', 'TMIN', desired_units="K", ipfs_timeout=IPFS_TIMEOUT)
     assert german[datetime.date(2017, 3, 29)].unit == u.K

@@ -14,7 +14,7 @@ from astropy import units as u
 from timezonefinder import TimezoneFinder
 from dweather_client import gridded_datasets
 from dweather_client.storms_datasets import IbtracsDataset, AtcfDataset, SimulatedStormsDataset
-from dweather_client.ipfs_queries import AustraliaBomStations, CedaBiomass, CmeStationsDataset, DutchStationsDataset, DwdStationsDataset, JapanStations, StationDataset, YieldDatasets, FsaIrrigationDataset, AemoPowerDataset, AemoGasDataset, AesoPowerDataset, ForecastDataset, AfrDataset, DroughtMonitor
+from dweather_client.ipfs_queries import AustraliaBomStations, CedaBiomass, CmeStationsDataset, DutchStationsDataset, DwdStationsDataset, DwdHourlyStationsDataset, JapanStations, StationDataset, YieldDatasets, FsaIrrigationDataset, AemoPowerDataset, AemoGasDataset, AesoPowerDataset, ForecastDataset, AfrDataset, DroughtMonitor
 from dweather_client.slice_utils import DateRangeRetriever, has_changed
 from dweather_client.ipfs_errors import *
 import ipfshttpclient
@@ -392,13 +392,18 @@ def get_european_station_history(dataset, station_id, weather_variable, use_impe
     try:
         if dataset == "dwd_stations-daily":
             cm = DwdStationsDataset(ipfs_timeout=ipfs_timeout)
+        elif dataset == "dwd_stations-hourly":
+            cm = DwdHourlyStationsDataset(ipfs_timeout=ipfs_timeout)
         elif dataset == "dutch_stations-daily":
             cm = DutchStationsDataset(ipfs_timeout=ipfs_timeout)
         else:
             raise ValueError("invalid european dataset")
 
         with cm as dataset_obj:
-            csv_text = dataset_obj.get_data(station_id)
+            if dataset == "dwd_stations-hourly":
+                csv_text = dataset_obj.get_data(station_id, weather_variable)
+            else:
+                csv_text = dataset_obj.get_data(station_id)
     except KeyError:
         raise DatasetError("No such dataset in dClimate")
     except ipfshttpclient.exceptions.ErrorResponse:

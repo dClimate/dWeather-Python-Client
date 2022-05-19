@@ -416,7 +416,7 @@ def get_hourly_european_station_history(dataset, station_id, weather_variable, u
             final_resp_series = pd.Series(rounded_resp_array * converted_resp_series.values.unit, index=df.index)
         else: 
             final_resp_series = converted_resp_series
-    result = {"data": {datetime.datetime.fromisoformat(k): convert_nans_to_none(v) for k, v in final_resp_series.to_dict().items()}}
+    result = {datetime.datetime.fromisoformat(k): convert_nans_to_none(v) for k, v in final_resp_series.to_dict().items()}
     return result
 
 

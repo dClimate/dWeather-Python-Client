@@ -68,12 +68,20 @@ See further examples in `tests`
 
 ## Development
 
+### Running the testing suite
+
     cd dweather-python-client
     python3 -m venv .
     bin/pip3 install -r requirements.txt
     bin/python3 -m pytest dweather_client/tests
 
 Some dweather_client features require an ipfs daemon to work.
+
+### Running tests for local files
+
+Some gridded dataset tests run from local pickles of the dataset for speed. To generate one of these pickles from a dataset that exists in gridded_datasets.py, simply run the below from command line whilst at the top level (dweather-python-client) of the project. The example shown assumes a dataset name of "era5_precip-hourly".
+
+    python3 dweather_client/tools/create_pickle.py era5_precip-hourly
 
 ### Install the Python dWeather Client
 

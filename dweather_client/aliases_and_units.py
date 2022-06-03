@@ -52,6 +52,7 @@ STATION_ALIASES_TO_COLUMNS = {
      'snow fall',
      'snowfall',
      'snow'): 'SNOW',
+    ('WSF5'): 'WSF5',
     ('WESD',
      'snow water equivalent',
      'water equivalent snow depth'): 'WESD',
@@ -203,7 +204,9 @@ STATION_UNITS_LOOKUP = {
              'imperialize': lambda m: m.to(imperial.deg_F, equivalencies=u.temperature())},
     'TMIN': {'vectorize': lambda m: (m/10.0) * u.deg_C, 
              'imperialize': lambda m: m.to(imperial.deg_F, equivalencies=u.temperature())},
-}
+    'WSF5': {'vectorize': lambda q: (q/10.0)* u.m/u.s, 
+             'imperialize': lambda q: q.to(imperial.mile/u.hour)},
+} 
 
 parent_dir = os.path.dirname(os.path.abspath(__file__))
 CPC_LOOKUP_PATH = os.path.join(parent_dir, '/etc/cpc-grid-ids.csv')

@@ -295,6 +295,7 @@ def get_station_history(
         'TMAX' -- daily high temperature
         'TMIN' -- daily low temperature
         'PRCP' -- depth of rainfall
+        'WSF5' -- max five second wind gust
 
     The GHCN column names are fairly esoteric so a column_lookup
     dictionary will try to find a valid GHCN column name for common 

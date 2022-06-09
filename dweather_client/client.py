@@ -543,7 +543,7 @@ def get_cwv_station_history(station_name, as_of=None, ipfs_timeout=None):
     with CwvStations(ipfs_timeout=ipfs_timeout, as_of=as_of) as dataset_obj:
         str_resp_series = dataset_obj.get_data(station_name)
     resp_series = str_resp_series.astype(float)
-    # Is this the right unit given no unit?
+    # CWV is a proprietary unscaled unit from the UK National Grid so use dimensionless unscaled
     return (resp_series * u.dimensionless_unscaled).to_dict()
 
 def get_australia_station_history(station_name, weather_variable, desired_units=None, as_of=None, ipfs_timeout=None):

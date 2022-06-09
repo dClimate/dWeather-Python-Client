@@ -775,6 +775,41 @@ class JapanStations(GriddedDataset):
             day_itr += datetime.timedelta(days=1)
         return data_dict
 
+class CwvStations(GriddedDataset):
+    """
+    Instantiable class for Composite Weather Variable Station Data
+    """
+    @property
+    def dataset(self):
+        return "cwv-daily"
+
+    @property
+    def data_file_format(self):
+        """
+        format string requires station name eg 'EM'
+        """
+        return "cwv_update_{}.txt"
+
+    def get_data(self, station_name):
+        super().get_data()
+        hashes = self.get_hashes()
+        ret_dict = {}
+        for h in hashes:
+            date_range = self.get_date_range_from_metadata(h)
+            new_dict = self.extract_data_from_text(date_range, h, station_name)
+            ret_dict = {**ret_dict, **new_dict}
+        return pd.Series(ret_dict)
+
+    def extract_data_from_text(self, date_range, ipfs_hash, station_name):
+        byte_obj = self.get_file_object(f"{ipfs_hash}/{self.data_file_format.format(station_name)}")
+        data = byte_obj.read().decode("utf-8").split(",")
+        day_itr = date_range[0].date()
+        data_dict = {}
+        for point in data:
+            data_dict[day_itr] = point
+            day_itr += datetime.timedelta(days=1)
+        return data_dict
+
 class AustraliaBomStations(GriddedDataset):
     """
     Instantiable class for Australia BOM Data

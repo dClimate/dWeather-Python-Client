@@ -367,6 +367,3 @@ def test_has_dataset_updated_false():
         datetime.datetime(2021, 7, 25), 
         ipfs_timeout=10
     )
-
-if __name__ == "__main__":
-    test_GHISD_station()

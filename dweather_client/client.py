@@ -14,7 +14,7 @@ from astropy import units as u
 from timezonefinder import TimezoneFinder
 from dweather_client import gridded_datasets
 from dweather_client.storms_datasets import IbtracsDataset, AtcfDataset, SimulatedStormsDataset
-from dweather_client.ipfs_queries import AustraliaBomStations, CedaBiomass, CmeStationsDataset, DutchStationsDataset, DwdStationsDataset, DwdHourlyStationsDataset, JapanStations, StationDataset, YieldDatasets, FsaIrrigationDataset, AemoPowerDataset, AemoGasDataset, AesoPowerDataset, ForecastDataset, AfrDataset, DroughtMonitor, CwvStations
+from dweather_client.ipfs_queries import AustraliaBomStations, CedaBiomass, CmeStationsDataset, DutchStationsDataset, DwdStationsDataset, DwdHourlyStationsDataset, GlobalHourlyStationsDataset, JapanStations, StationDataset, YieldDatasets, FsaIrrigationDataset, AemoPowerDataset, AemoGasDataset, AesoPowerDataset, ForecastDataset, AfrDataset, DroughtMonitor, CwvStations
 from dweather_client.slice_utils import DateRangeRetriever, has_changed
 from dweather_client.ipfs_errors import *
 from io import StringIO
@@ -390,13 +390,17 @@ def get_cme_station_history(station_id, weather_variable, use_imperial_units=Tru
         history[datetime.datetime.strptime(row[date_col], "%Y-%m-%d").date()] = final_datapoint
     return history
 
-def get_hourly_european_station_history(dataset, station_id, weather_variable, use_imperial_units=True, desired_units=None, ipfs_timeout=None):
+def get_hourly_station_history(dataset, station_id, weather_variable, use_imperial_units=True, desired_units=None, ipfs_timeout=None):
     original_units = u.deg_C
-    if dataset != "dwd_hourly-hourly":
-        raise DatasetError("No such dataset in dClimate")
     try:
-        with DwdHourlyStationsDataset(ipfs_timeout=ipfs_timeout) as dataset_obj:
-            csv_text = dataset_obj.get_data(station_id, weather_variable)
+        if dataset == "dwd_hourly-hourly":
+            with DwdHourlyStationsDataset(ipfs_timeout=ipfs_timeout) as dataset_obj:
+                csv_text = dataset_obj.get_data(station_id, weather_variable)
+        elif dataset == "ghisd":
+            with GlobalHourlyStationsDataset(ipfs_timeout=ipfs_timeout) as dataset_obj:
+                csv_text = dataset_obj.get_data(station_id, weather_variable)
+        else:
+            raise DatasetError("No such dataset in dClimate")
     except ipfshttpclient.exceptions.ErrorResponse:
         raise StationNotFoundError("Invalid station ID for dataset")
     df = pd.read_csv(StringIO(csv_text))
@@ -406,7 +410,8 @@ def get_hourly_european_station_history(dataset, station_id, weather_variable, u
         converter, dweather_unit = get_unit_converter("deg_C", use_imperial_units)
     else:
         converter, dweather_unit = get_unit_converter_no_aliases("deg_C", desired_units)
-    del df["STATION"]
+    if "STATION" in df:
+        del df["STATION"]
     if converter is not None:
         try:
             converted_resp_series = pd.Series(converter(df[weather_variable].values*original_units), index=df.index)
@@ -419,8 +424,6 @@ def get_hourly_european_station_history(dataset, station_id, weather_variable, u
             final_resp_series = converted_resp_series
     result = {datetime.datetime.fromisoformat(k): convert_nans_to_none(v) for k, v in final_resp_series.to_dict().items()}
     return result
-
-
 
 def get_european_station_history(dataset, station_id, weather_variable, use_imperial_units=True, desired_units=None, ipfs_timeout=None):
     try:

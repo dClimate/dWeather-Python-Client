@@ -406,13 +406,13 @@ def get_hourly_station_history(dataset, station_id, weather_variable, use_imperi
     df = pd.read_csv(StringIO(csv_text))
     str_resp_series = df[weather_variable].astype(str)
     df = df.set_index("DATE")
-    if not desired_units:
-        converter, dweather_unit = get_unit_converter("deg_C", use_imperial_units)
-    else:
-        converter, dweather_unit = get_unit_converter_no_aliases("deg_C", desired_units)
     if "STATION" in df:
         del df["STATION"]
-    if converter is not None:
+    if desired_units:
+        converter, dweather_unit = get_unit_converter_no_aliases("deg_C", desired_units)
+    else:
+        converter, dweather_unit = get_unit_converter("deg_C", use_imperial_units)
+    if converter:
         try:
             converted_resp_series = pd.Series(converter(df[weather_variable].values*original_units), index=df.index)
         except ValueError:
@@ -423,7 +423,7 @@ def get_hourly_station_history(dataset, station_id, weather_variable, use_imperi
         else: 
             final_resp_series = converted_resp_series
     else:
-        final_resp_series = pd.Series(df[weather_variable].values, index=df.index)
+        final_resp_series = pd.Series(df[weather_variable].values*original_units, index=df.index)
     result = {datetime.datetime.fromisoformat(k): convert_nans_to_none(v) for k, v in final_resp_series.to_dict().items()}
     return result
 

@@ -225,15 +225,14 @@ def test_hourly_german_station():
     assert german[datetime.datetime(1980, 3, 29)].unit == imperial.deg_F
 
 def test_ghisd_station():
-    station_f = get_hourly_station_history('ghisd', '03772099999', 'TMP', use_imperial_units=True, ipfs_timeout=IPFS_TIMEOUT)
+    station_f = get_hourly_station_history('ghisd-sub_hourly', '03772099999', 'TMP', use_imperial_units=True, ipfs_timeout=IPFS_TIMEOUT)
     assert station_f[datetime.datetime(2015, 1, 1, 10)].value == 47.3
     assert station_f[datetime.datetime(2015, 1, 1, 10)].unit == imperial.deg_F
-    station_c = get_hourly_station_history('ghisd', '03772099999', 'TMP', desired_units="deg_C", ipfs_timeout=IPFS_TIMEOUT)
+    station_c = get_hourly_station_history('ghisd-sub_hourly', '03772099999', 'TMP', desired_units="deg_C", ipfs_timeout=IPFS_TIMEOUT)
     assert station_c[datetime.datetime(2015, 1, 1, 10)].value == 8.5
-    station_d = get_hourly_station_history('ghisd', '03772099999', 'TMP', use_imperial_units=False, ipfs_timeout=IPFS_TIMEOUT)
+    station_d = get_hourly_station_history('ghisd-sub_hourly', '03772099999', 'TMP', use_imperial_units=False, ipfs_timeout=IPFS_TIMEOUT)
     assert station_d[datetime.datetime(2015, 1, 1, 10)].value == 8.5
     assert len(station_c) >= 940000
-    
 
 def test_european_station_desired_units():
     german = get_european_station_history('dwd_stations-daily', '13670', 'TMIN', desired_units="K", ipfs_timeout=IPFS_TIMEOUT)

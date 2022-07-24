@@ -391,12 +391,21 @@ def get_cme_station_history(station_id, weather_variable, use_imperial_units=Tru
     return history
 
 def get_hourly_station_history(dataset, station_id, weather_variable, use_imperial_units=True, desired_units=None, ipfs_timeout=None):
-    original_units = u.deg_C
+    
+    #Get original units from metadata
+    original_units = None
+    metadata = get_metadata(get_heads()[dataset])
+    station_metadata = metadata["station_metadata"][station_id]
+    for climate_var in station_metadata:
+        if climate_var['name'] == weather_variable:
+            original_units = climate_var["unit"]
+    if original_units == None:
+        raise WeatherVariableNotFoundError("Invalid weather variable for this station")
     try:
         if dataset == "dwd_hourly-hourly":
             with DwdHourlyStationsDataset(ipfs_timeout=ipfs_timeout) as dataset_obj:
                 csv_text = dataset_obj.get_data(station_id, weather_variable)
-        elif dataset == "ghisd":
+        elif dataset == "ghisd-sub_hourly":
             with GlobalHourlyStationsDataset(ipfs_timeout=ipfs_timeout) as dataset_obj:
                 csv_text = dataset_obj.get_data(station_id, weather_variable)
         else:
@@ -406,15 +415,15 @@ def get_hourly_station_history(dataset, station_id, weather_variable, use_imperi
     df = pd.read_csv(StringIO(csv_text))
     str_resp_series = df[weather_variable].astype(str)
     df = df.set_index("DATE")
-    if not desired_units:
-        converter, dweather_unit = get_unit_converter("deg_C", use_imperial_units)
-    else:
-        converter, dweather_unit = get_unit_converter_no_aliases("deg_C", desired_units)
     if "STATION" in df:
         del df["STATION"]
-    if converter is not None:
+    if desired_units:
+        converter, dweather_unit = get_unit_converter_no_aliases(original_units, desired_units)
+    else:
+        converter, dweather_unit = get_unit_converter(original_units, use_imperial_units)
+    if converter:
         try:
-            converted_resp_series = pd.Series(converter(df[weather_variable].values*original_units), index=df.index)
+            converted_resp_series = pd.Series(converter(df[weather_variable].values*dweather_unit), index=df.index)
         except ValueError:
             raise UnitError("Specified unit is incompatible with original")
         if desired_units is not None:
@@ -422,6 +431,8 @@ def get_hourly_station_history(dataset, station_id, weather_variable, use_imperi
             final_resp_series = pd.Series(rounded_resp_array * converted_resp_series.values.unit, index=df.index)
         else: 
             final_resp_series = converted_resp_series
+    else:
+        final_resp_series = pd.Series(df[weather_variable].values*dweather_unit, index=df.index)
     result = {datetime.datetime.fromisoformat(k): convert_nans_to_none(v) for k, v in final_resp_series.to_dict().items()}
     return result
 
@@ -443,6 +454,7 @@ def get_european_station_history(dataset, station_id, weather_variable, use_impe
     metadata = get_metadata(get_heads()[dataset])
 
     station_metadata = metadata["station_metadata"][station_id]
+    print(station_metadata)
     try:
         weather_var_index = [i for i in range(len(station_metadata)) if station_metadata[i]["name"] == weather_variable][0]
     except IndexError:

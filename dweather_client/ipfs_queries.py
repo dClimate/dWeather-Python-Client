@@ -869,6 +869,40 @@ class AustraliaBomStations(GriddedDataset):
             day_itr += datetime.timedelta(days=1)
         return ret_list
 
+class SpeedwellStations(GriddedDataset):
+    """
+    Instantiable class for Speedwell Station Data
+    """
+    @property
+    def dataset(self):
+        return "speedwell_temperature-daily"
+
+    @property
+    def data_file_format(self):
+        return "speedwell_temperature_{}.txt"
+
+    def get_WMO(self, station_name, h):
+        metadata = self.get_metadata(h)
+        try:
+            return metadata["station_metadata"][station_name]['WMO']
+        except KeyError:
+            raise ValueError("Invalid station name")
+
+    def extract_data_from_text(self, ipfs_hash, WMO):
+        byte_obj = self.get_file_object(f"{ipfs_hash}/{self.data_file_format.format(WMO)}")
+        data = byte_obj.read().decode("utf-8")
+        return data
+
+    def get_data(self, station_name):
+        super().get_data()
+        hashes = self.get_hashes()
+        WMO = self.get_WMO(station_name, hashes[0])
+        total_data = []
+        for h in hashes:
+            total_data.append(self.extract_data_from_text(h, WMO))
+        return total_data
+
+
 class DroughtMonitor(IpfsDataset):
     """
     Instantiable class for drought data

@@ -14,7 +14,7 @@ from astropy import units as u
 from timezonefinder import TimezoneFinder
 from dweather_client import gridded_datasets
 from dweather_client.storms_datasets import IbtracsDataset, AtcfDataset, SimulatedStormsDataset
-from dweather_client.ipfs_queries import AustraliaBomStations, CedaBiomass, CmeStationsDataset, DutchStationsDataset, DwdStationsDataset, DwdHourlyStationsDataset, GlobalHourlyStationsDataset, JapanStations, StationDataset, YieldDatasets, FsaIrrigationDataset, AemoPowerDataset, AemoGasDataset, AesoPowerDataset, ForecastDataset, AfrDataset, DroughtMonitor, CwvStations
+from dweather_client.ipfs_queries import AustraliaBomStations, CedaBiomass, CmeStationsDataset, DutchStationsDataset, DwdStationsDataset, DwdHourlyStationsDataset, GlobalHourlyStationsDataset, JapanStations, StationDataset, YieldDatasets, FsaIrrigationDataset, AemoPowerDataset, AemoGasDataset, AesoPowerDataset, ForecastDataset, AfrDataset, DroughtMonitor, CwvStations, SpeedwellStations
 from dweather_client.slice_utils import DateRangeRetriever, has_changed
 from dweather_client.ipfs_errors import *
 from io import StringIO
@@ -585,6 +585,14 @@ def get_australia_station_history(station_name, weather_variable, desired_units=
         return final_resp_series.to_dict()
     else:
         return (resp_series * u.Unit(unit)).to_dict()
+
+def get_speedwell_station_history(station_name, ipfs_timeout=None):
+    """
+    return:
+        list of dataframes encrypted as strings
+    """
+    with SpeedwellStations(ipfs_timeout=ipfs_timeout) as dataset_obj:
+        return dataset_obj.get_data(station_name)
 
 def get_power_history(ipfs_timeout=None):
     """

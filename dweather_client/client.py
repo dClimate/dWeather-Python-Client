@@ -14,7 +14,8 @@ from astropy import units as u
 from timezonefinder import TimezoneFinder
 from dweather_client import gridded_datasets
 from dweather_client.storms_datasets import IbtracsDataset, AtcfDataset, SimulatedStormsDataset
-from dweather_client.ipfs_queries import AustraliaBomStations, CedaBiomass, CmeStationsDataset, DutchStationsDataset, DwdStationsDataset, DwdHourlyStationsDataset, GlobalHourlyStationsDataset, JapanStations, StationDataset, YieldDatasets, FsaIrrigationDataset, AemoPowerDataset, AemoGasDataset, AesoPowerDataset, ForecastDataset, AfrDataset, DroughtMonitor, CwvStations, SpeedwellStations
+from dweather_client.ipfs_queries import AustraliaBomStations, CedaBiomass, CmeStationsDataset, DutchStationsDataset, DwdStationsDataset, DwdHourlyStationsDataset, GlobalHourlyStationsDataset, JapanStations, StationDataset,\
+    YieldDatasets, FsaIrrigationDataset, AemoPowerDataset, AemoGasDataset, AesoPowerDataset, ForecastDataset, AfrDataset, DroughtMonitor, CwvStations, SpeedwellStations, TeleconnectionsDataset
 from dweather_client.slice_utils import DateRangeRetriever, has_changed
 from dweather_client.ipfs_errors import *
 from io import StringIO
@@ -454,7 +455,6 @@ def get_european_station_history(dataset, station_id, weather_variable, use_impe
     metadata = get_metadata(get_heads()[dataset])
 
     station_metadata = metadata["station_metadata"][station_id]
-    print(station_metadata)
     try:
         weather_var_index = [i for i in range(len(station_metadata)) if station_metadata[i]["name"] == weather_variable][0]
     except IndexError:
@@ -648,9 +648,15 @@ def get_afr_history(ipfs_timeout=None):
 def has_dataset_updated(dataset, slices, as_of, ipfs_timeout=None):
     """
     Determine whether any dataset updates generated after `as_of` affect any `slices` of date ranges.
-    """
-    with DateRangeRetriever(dataset, ipfs_timeout=ipfs_timeout) as dataset_obj:
+    """    with DateRangeRetriever(dataset, ipfs_timeout=ipfs_timeout) as dataset_obj:
         ranges = dataset_obj.get_data(as_of)
     return has_changed(slices, ranges)
 
-
+def get_teleconnections_history(ipfs_timeout=None):
+    with TeleconnectionsDataset(ipfs_timeout=ipfs_timeout) as dataset_obj:
+        csv_text = dataset_obj.get_data()
+        return csv_text
+        #reader = csv.reader(csv_text.split('\n'))
+        #headers = next(reader)
+        #date_col = headers.index('Date')
+        #for row in reader:

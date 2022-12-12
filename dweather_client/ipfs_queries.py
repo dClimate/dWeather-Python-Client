@@ -105,6 +105,7 @@ class IpfsDataset(ABC):
         """
         self.head = get_heads()[self.dataset]
 
+
 class GriddedDataset(IpfsDataset):
     """
     Abstract class from which all gridded, linked list datasets inherit
@@ -182,6 +183,7 @@ class GriddedDataset(IpfsDataset):
                     weather_dict[day_itr] = hour_data
                     day_itr = day_itr + datetime.timedelta(hours=1)
         return weather_dict
+
 
 class CopernicusDataset(GriddedDataset):
     """
@@ -281,6 +283,7 @@ class PrismGriddedDataset(GriddedDataset):
                             if (day_of_year not in self.ret_dict) and point:
                                 self.ret_dict[day_of_year] = point
                             day_of_year += datetime.timedelta(days=1)
+
 
 class RtmaGriddedDataset(GriddedDataset):
     """
@@ -428,6 +431,7 @@ class Era5LandWind(SimpleGriddedDataset):
     def zero_padding(self):
         return 8
 
+
 class Vhi(IpfsDataset):
     """
     Instantiable gridded vegetative health dataset. Due to some metadata differences with other sets, doesn't
@@ -506,6 +510,7 @@ class Vhi(IpfsDataset):
         end_date = metadata["date range"][1]
         return [datetime.date.fromisoformat(dt) for dt in [start_date, end_date]]
 
+
 class StationDataset(IpfsDataset):
     """
     Instantiable class used for pulling in "ghcnd" or "ghcnd-imputed-daily" station data
@@ -524,6 +529,7 @@ class StationDataset(IpfsDataset):
         with gzip.open(self.get_file_object(file_name)) as gz:
             return gz.read().decode('utf-8')
 
+
 class CmeStationsDataset(IpfsDataset):
     """
     Instantiable class used for pulling in cme station data
@@ -538,6 +544,7 @@ class CmeStationsDataset(IpfsDataset):
         file_name = f"{self.head}/{station}.csv"
         return self.get_file_object(file_name).read().decode("utf-8")
 
+
 class DutchStationsDataset(IpfsDataset):
     """
     Instantiable class used for pulling in dutch station data
@@ -551,6 +558,7 @@ class DutchStationsDataset(IpfsDataset):
         super().get_data()
         file_name = f"{self.head}/{station}.csv"
         return self.get_file_object(file_name).read().decode("utf-8")
+
 
 class DwdStationsDataset(IpfsDataset):
     """
@@ -567,6 +575,7 @@ class DwdStationsDataset(IpfsDataset):
         with gzip.open(self.get_file_object(file_name)) as gz:
             return gz.read().decode("utf-8")
 
+
 class DwdHourlyStationsDataset(IpfsDataset):
     """
     Instantiable class used for pulling in german station data
@@ -582,6 +591,7 @@ class DwdHourlyStationsDataset(IpfsDataset):
         with gzip.open(self.get_file_object(file_name)) as gz:
             return gz.read().decode("utf-8")
 
+
 class GlobalHourlyStationsDataset(IpfsDataset):
     """
     Instantiable class used for pulling in global hourly station data
@@ -596,6 +606,7 @@ class GlobalHourlyStationsDataset(IpfsDataset):
         file_name = f"{self.head}/{station}.csv.gz"
         with gzip.open(self.get_file_object(file_name)) as gz:
             return gz.read().decode("utf-8")
+
 
 class YieldDatasets(IpfsDataset):
     """
@@ -625,6 +636,7 @@ class YieldDatasets(IpfsDataset):
             file_name = f"{self.head}/{commodity}-{state}-{county}.csv"
         return self.get_file_object(file_name).read().decode("utf-8")
 
+
 class FsaIrrigationDataset(IpfsDataset):
     """
     Instantiable class for pulling in FSA irrigation data
@@ -635,6 +647,7 @@ class FsaIrrigationDataset(IpfsDataset):
         super().get_data()
         file_name = f"{self.head}/fsa_commodity_{commodity}.csv"
         return self.get_file_object(file_name).read().decode("utf-8")
+
 
 class PowerDataset(IpfsDataset):
     """
@@ -671,6 +684,7 @@ class PowerDataset(IpfsDataset):
             new_dict = self.extract_data_from_gz(date_range, h)
             ret_dict = {**ret_dict, **new_dict}
         return ret_dict
+
 
 class AemoPowerDataset(PowerDataset):
     """
@@ -723,6 +737,7 @@ class AemoGasDataset(PowerDataset):
                 date_itr = date_itr + datetime.timedelta(days=1)
         return data_dict
 
+
 class AesoPowerDataset(PowerDataset):
     """
     Instantiable class for AEMO Victoria gas data
@@ -749,6 +764,7 @@ class AesoPowerDataset(PowerDataset):
                 data_dict[time_itr] = {"price": price, "ravg": ravg, "demand": demand}
                 time_itr = time_itr + datetime.timedelta(hours=1)
         return data_dict
+
 
 class JapanStations(GriddedDataset):
     """
@@ -790,6 +806,7 @@ class JapanStations(GriddedDataset):
             day_itr += datetime.timedelta(days=1)
         return data_dict
 
+
 class CwvStations(GriddedDataset):
     """
     Instantiable class for Composite Weather Variable Station Data
@@ -824,6 +841,7 @@ class CwvStations(GriddedDataset):
             data_dict[day_itr] = point
             day_itr += datetime.timedelta(days=1)
         return data_dict
+
 
 class AustraliaBomStations(GriddedDataset):
     """
@@ -868,6 +886,7 @@ class AustraliaBomStations(GriddedDataset):
                 ret_list.append({"date": day_itr, **{k: "" for k in self.FIELDS}})
             day_itr += datetime.timedelta(days=1)
         return ret_list
+
 
 class SpeedwellStations(GriddedDataset):
     """
@@ -945,6 +964,7 @@ class DroughtMonitor(IpfsDataset):
             time_itr += datetime.timedelta(days=7)
         return data_dict
 
+
 class AfrDataset(IpfsDataset):
     @property
     def dataset(self):
@@ -958,6 +978,7 @@ class AfrDataset(IpfsDataset):
             f = self.get_file_object(f"{h}/afr.json")
             ret_dict = {**ret_dict, **json.load(f)}
         return ret_dict
+
 
 class CedaBiomass(IpfsDataset):
     """
@@ -1065,3 +1086,20 @@ class ForecastDataset(GriddedDataset):
             ret_lat, ret_lon = snapped_lat, snapped_lon
 
         return (float(ret_lat), float(ret_lon)), pd.Series(weather_dict)
+
+
+class TeleconnectionsDataset(IpfsDataset):
+    """
+    Instantiable class used for pulling in el nino teleconnections data 
+    """
+    dataset = "cpc_teleconnections-monthly"
+
+    def __init__(self, ipfs_timeout=None):
+        super().__init__(ipfs_timeout=ipfs_timeout)
+
+    def get_data(self): 
+        super().get_data()
+        metadata = self.get_metadata(self.head)
+        year_month = metadata["time generated"][:7]
+        file_name = f"{self.head}/teleconnections_{year_month}.csv"
+        return self.get_file_object(file_name).read().decode("utf-8")

@@ -648,7 +648,8 @@ def get_afr_history(ipfs_timeout=None):
 def has_dataset_updated(dataset, slices, as_of, ipfs_timeout=None):
     """
     Determine whether any dataset updates generated after `as_of` affect any `slices` of date ranges.
-    """    with DateRangeRetriever(dataset, ipfs_timeout=ipfs_timeout) as dataset_obj:
+    """    
+    with DateRangeRetriever(dataset, ipfs_timeout=ipfs_timeout) as dataset_obj:
         ranges = dataset_obj.get_data(as_of)
     return has_changed(slices, ranges)
 

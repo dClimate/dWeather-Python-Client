@@ -672,6 +672,6 @@ def get_teleconnections_history(weather_variable, ipfs_timeout=None):
                 continue
             try: # Values will either be a float value in string form (which need to be cast to a float), or an empty string
                 history[datetime.datetime.strptime(row[date_col], "%Y-%m-%d").date()] = float(row[data_col])
-            except:
+            except ValueError:
                 history[datetime.datetime.strptime(row[date_col], "%Y-%m-%d").date()] = row[data_col]
         return history

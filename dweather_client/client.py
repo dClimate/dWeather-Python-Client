@@ -660,7 +660,7 @@ def get_teleconnections_history(weather_variable, ipfs_timeout=None):
         reader = csv.reader(csv_text.split('\n'))
         headers = next(reader)
         date_col = headers.index('DATE')
-        try:
+        try: # Make sure weather variable is correct.
             data_col = headers.index(weather_variable)
         except ValueError:
             raise WeatherVariableNotFoundError("Invalid weather variable for this station")
@@ -668,9 +668,9 @@ def get_teleconnections_history(weather_variable, ipfs_timeout=None):
             try:
                 if row[data_col] == '':
                     continue
-            except IndexError:
+            except IndexError: # Catch weird index issues that can occur 
                 continue
-            try:
+            try: # Values will either be a float value in string form (which need to be cast to a float), or an empty string
                 history[datetime.datetime.strptime(row[date_col], "%Y-%m-%d").date()] = float(row[data_col])
             except:
                 history[datetime.datetime.strptime(row[date_col], "%Y-%m-%d").date()] = row[data_col]

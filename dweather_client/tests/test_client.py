@@ -3,7 +3,7 @@ from dweather_client.tests.mock_fixtures import get_patched_datasets
 from dweather_client.client import get_australia_station_history, get_speedwell_station_history, get_station_history, get_gridcell_history, get_tropical_storms,\
     get_yield_history, get_irrigation_data, get_power_history, get_gas_history, get_alberta_power_history, GRIDDED_DATASETS, has_dataset_updated,\
     get_forecast_datasets, get_forecast, get_cme_station_history, get_european_station_history, get_hourly_station_history, get_drought_monitor_history, get_japan_station_history,\
-    get_afr_history, get_cwv_station_history
+    get_afr_history, get_cwv_station_history, get_teleconnections_history
 from dweather_client.aliases_and_units import snotel_to_ghcnd
 import pandas as pd
 from io import StringIO
@@ -360,6 +360,10 @@ def test_drought_monitor():
     time_diff_weeks = time_diff.days / 7
 
     assert time_diff_weeks + 1 == len(drought_dict) 
+
+def test_teleconnections_history():
+    tele_history = get_teleconnections_history('NAO')
+    assert tele_history[datetime.datetime(1950, 2, 1)].value == 0.01
 
 def test_has_dataset_updated_true():
     assert has_dataset_updated(

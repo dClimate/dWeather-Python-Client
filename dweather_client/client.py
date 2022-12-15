@@ -14,7 +14,8 @@ from astropy import units as u
 from timezonefinder import TimezoneFinder
 from dweather_client import gridded_datasets
 from dweather_client.storms_datasets import IbtracsDataset, AtcfDataset, SimulatedStormsDataset
-from dweather_client.ipfs_queries import AustraliaBomStations, CedaBiomass, CmeStationsDataset, DutchStationsDataset, DwdStationsDataset, DwdHourlyStationsDataset, GlobalHourlyStationsDataset, JapanStations, StationDataset, YieldDatasets, FsaIrrigationDataset, AemoPowerDataset, AemoGasDataset, AesoPowerDataset, ForecastDataset, AfrDataset, DroughtMonitor, CwvStations, SpeedwellStations
+from dweather_client.ipfs_queries import AustraliaBomStations, CedaBiomass, CmeStationsDataset, DutchStationsDataset, DwdStationsDataset, DwdHourlyStationsDataset, GlobalHourlyStationsDataset, JapanStations, StationDataset,\
+    YieldDatasets, FsaIrrigationDataset, AemoPowerDataset, AemoGasDataset, AesoPowerDataset, ForecastDataset, AfrDataset, DroughtMonitor, CwvStations, SpeedwellStations, TeleconnectionsDataset
 from dweather_client.slice_utils import DateRangeRetriever, has_changed
 from dweather_client.ipfs_errors import *
 from io import StringIO
@@ -454,7 +455,6 @@ def get_european_station_history(dataset, station_id, weather_variable, use_impe
     metadata = get_metadata(get_heads()[dataset])
 
     station_metadata = metadata["station_metadata"][station_id]
-    print(station_metadata)
     try:
         weather_var_index = [i for i in range(len(station_metadata)) if station_metadata[i]["name"] == weather_variable][0]
     except IndexError:
@@ -648,9 +648,30 @@ def get_afr_history(ipfs_timeout=None):
 def has_dataset_updated(dataset, slices, as_of, ipfs_timeout=None):
     """
     Determine whether any dataset updates generated after `as_of` affect any `slices` of date ranges.
-    """
+    """    
     with DateRangeRetriever(dataset, ipfs_timeout=ipfs_timeout) as dataset_obj:
         ranges = dataset_obj.get_data(as_of)
     return has_changed(slices, ranges)
 
-
+def get_teleconnections_history(weather_variable, ipfs_timeout=None):
+    with TeleconnectionsDataset(ipfs_timeout=ipfs_timeout) as dataset_obj:
+        csv_text = dataset_obj.get_data()
+        history = {}
+        reader = csv.reader(csv_text.split('\n'))
+        headers = next(reader)
+        date_col = headers.index('DATE')
+        try: # Make sure weather variable is correct.
+            data_col = headers.index(weather_variable)
+        except ValueError:
+            raise WeatherVariableNotFoundError("Invalid weather variable for this station")
+        for row in reader:
+            try:
+                if row[data_col] == '':
+                    continue
+            except IndexError: # Catch weird index issues that can occur 
+                continue
+            try: # Values will either be a float value in string form (which need to be cast to a float), or an empty string
+                history[datetime.datetime.strptime(row[date_col], "%Y-%m-%d").date()] = float(row[data_col])
+            except ValueError:
+                history[datetime.datetime.strptime(row[date_col], "%Y-%m-%d").date()] = row[data_col]
+        return history

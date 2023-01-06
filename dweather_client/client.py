@@ -7,14 +7,17 @@ from dweather_client.http_queries import get_metadata, get_heads
 from dweather_client.aliases_and_units import \
     get_to_units, lookup_station_alias, STATION_UNITS_LOOKUP as SUL, get_unit_converter, get_unit_converter_no_aliases, rounding_formula, rounding_formula_temperature, BOM_UNITS
 from dweather_client.struct_utils import tupleify, convert_nans_to_none
-import datetime, pytz, csv, inspect
+import datetime
+import pytz
+import csv
+import inspect
 import numpy as np
 import pandas as pd
 from astropy import units as u
 from timezonefinder import TimezoneFinder
 from dweather_client import gridded_datasets
 from dweather_client.storms_datasets import IbtracsDataset, AtcfDataset, SimulatedStormsDataset
-from dweather_client.ipfs_queries import AustraliaBomStations, CedaBiomass, CmeStationsDataset, DutchStationsDataset, DwdStationsDataset, DwdHourlyStationsDataset, GlobalHourlyStationsDataset, JapanStations, StationDataset,\
+from dweather_client.ipfs_queries import AustraliaBomStations, CedaBiomass, CsvStationDataset, DwdHourlyStationsDataset, JapanStations, GzipStationDataset,\
     YieldDatasets, FsaIrrigationDataset, AemoPowerDataset, AemoGasDataset, AesoPowerDataset, ForecastDataset, AfrDataset, DroughtMonitor, CwvStations, SpeedwellStations, TeleconnectionsDataset
 from dweather_client.slice_utils import DateRangeRetriever, has_changed
 from dweather_client.ipfs_errors import *
@@ -27,6 +30,7 @@ GRIDDED_DATASETS = {
     if inspect.isclass(obj) and type(obj.dataset) == str
 }
 
+
 def get_forecast_datasets():
     heads = get_heads()
     potential_sources = ['gfs', 'ecmwf']
@@ -36,6 +40,7 @@ def get_forecast_datasets():
             if source in head:
                 get_forecast_heads.append(head)
     return get_forecast_heads
+
 
 def get_gridcell_history(
         lat,
@@ -70,9 +75,11 @@ def get_gridcell_history(
 
     # set up units
     if not desired_units:
-        converter, dweather_unit = get_unit_converter(metadata["unit of measurement"], use_imperial_units)
+        converter, dweather_unit = get_unit_converter(
+            metadata["unit of measurement"], use_imperial_units)
     else:
-        converter, dweather_unit = get_unit_converter_no_aliases(metadata["unit of measurement"], desired_units)
+        converter, dweather_unit = get_unit_converter_no_aliases(
+            metadata["unit of measurement"], desired_units)
 
     # get dataset-specific "no observation" value
     missing_value = metadata["missing value"]
@@ -85,47 +92,55 @@ def get_gridcell_history(
     except KeyError:
         raise DatasetError("No such dataset in dClimate")
 
-    
-
     # try a timezone-based transformation on the times in case we're using an hourly set.
     if convert_to_local_time:
         try:
             tf = TimezoneFinder()
             local_tz = pytz.timezone(tf.timezone_at(lng=lon, lat=lat))
-            str_resp_series = str_resp_series.tz_localize("UTC").tz_convert(local_tz)
-        except (AttributeError, TypeError):  # datetime.date (daily sets) doesn't work with this, only datetime.datetime (hourly sets)
+            str_resp_series = str_resp_series.tz_localize(
+                "UTC").tz_convert(local_tz)
+        # datetime.date (daily sets) doesn't work with this, only datetime.datetime (hourly sets)
+        except (AttributeError, TypeError):
             pass
 
     if type(missing_value) == str:
-        resp_series = str_resp_series.replace(missing_value, np.NaN).astype(float)
+        resp_series = str_resp_series.replace(
+            missing_value, np.NaN).astype(float)
     else:
-        str_resp_series.loc[str_resp_series.astype(float) == missing_value] = np.NaN
+        str_resp_series.loc[str_resp_series.astype(
+            float) == missing_value] = np.NaN
         resp_series = str_resp_series.astype(float)
 
     resp_series = resp_series * dweather_unit
     if converter is not None:
         try:
-            converted_resp_series = pd.Series(converter(resp_series.values), resp_series.index)
+            converted_resp_series = pd.Series(
+                converter(resp_series.values), resp_series.index)
         except ValueError:
             raise UnitError("Specified unit is incompatible with original")
         if desired_units is not None:
             if converted_resp_series.values.unit.physical_type == "temperature":
-                rounded_resp_array = np.vectorize(rounding_formula_temperature)(str_resp_series, converted_resp_series)
+                rounded_resp_array = np.vectorize(rounding_formula_temperature)(
+                    str_resp_series, converted_resp_series)
             else:
-                rounded_resp_array = np.vectorize(rounding_formula)(str_resp_series, resp_series, converted_resp_series)
-            final_resp_series = pd.Series(rounded_resp_array * converted_resp_series.values.unit, index=resp_series.index)
+                rounded_resp_array = np.vectorize(rounding_formula)(
+                    str_resp_series, resp_series, converted_resp_series)
+            final_resp_series = pd.Series(
+                rounded_resp_array * converted_resp_series.values.unit, index=resp_series.index)
         else:
             final_resp_series = converted_resp_series
     else:
         final_resp_series = resp_series
 
-    result = {k: convert_nans_to_none(v) for k, v in final_resp_series.to_dict().items()}
-    
+    result = {k: convert_nans_to_none(
+        v) for k, v in final_resp_series.to_dict().items()}
+
     if also_return_metadata:
         result = tupleify(result) + ({"metadata": metadata},)
     if also_return_snapped_coordinates:
         result = tupleify(result) + ({"snapped to": (lat, lon)},)
     return result
+
 
 def get_forecast(
         lat,
@@ -156,20 +171,23 @@ def get_forecast(
     # else:
     #     converter, dweather_unit = get_unit_converter_no_aliases(metadata["unit of measurement"], desired_units)
     if not desired_units:
-        converter, dweather_unit = get_unit_converter(metadata["unit of measurement"], use_imperial_units)
+        converter, dweather_unit = get_unit_converter(
+            metadata["unit of measurement"], use_imperial_units)
     else:
-        converter, dweather_unit = get_unit_converter_no_aliases(metadata["unit of measurement"], desired_units)
+        converter, dweather_unit = get_unit_converter_no_aliases(
+            metadata["unit of measurement"], desired_units)
 
     if 'gfs' in dataset:
-        interval=1
-        con_to_cpc=True
+        interval = 1
+        con_to_cpc = True
     elif 'ecmwf' in dataset:
-        interval=3
-        con_to_cpc=False
-    
+        interval = 3
+        con_to_cpc = False
+
     try:
         with ForecastDataset(dataset, interval=interval, con_to_cpc=con_to_cpc, ipfs_timeout=ipfs_timeout) as dataset_obj:
-            (lat, lon), str_resp_series = dataset_obj.get_data(lat, lon, forecast_date)
+            (lat, lon), str_resp_series = dataset_obj.get_data(
+                lat, lon, forecast_date)
     except KeyError:
         raise DatasetError("No such dataset in dClimate")
     except (ipfshttpclient.exceptions.ErrorResponse, ipfshttpclient.exceptions.TimeoutError, KeyError, FileNotFoundError) as e:
@@ -179,8 +197,10 @@ def get_forecast(
         try:
             tf = TimezoneFinder()
             local_tz = pytz.timezone(tf.timezone_at(lng=lon, lat=lat))
-            str_resp_series = str_resp_series.tz_localize("UTC").tz_convert(local_tz)
-        except (AttributeError, TypeError):  # datetime.date (daily sets) doesn't work with this, only datetime.datetime (hourly sets)
+            str_resp_series = str_resp_series.tz_localize(
+                "UTC").tz_convert(local_tz)
+        # datetime.date (daily sets) doesn't work with this, only datetime.datetime (hourly sets)
+        except (AttributeError, TypeError):
             pass
 
     missing_value = ""
@@ -189,26 +209,32 @@ def get_forecast(
 
     if converter is not None:
         try:
-            converted_resp_series = pd.Series(converter(resp_series.values), resp_series.index)
+            converted_resp_series = pd.Series(
+                converter(resp_series.values), resp_series.index)
         except ValueError:
             raise UnitError("Specified unit is incompatible with original")
         if desired_units is not None:
             if converted_resp_series.values.unit.physical_type == "temperature":
-                rounded_resp_array = np.vectorize(rounding_formula_temperature)(str_resp_series, converted_resp_series)
+                rounded_resp_array = np.vectorize(rounding_formula_temperature)(
+                    str_resp_series, converted_resp_series)
             else:
-                rounded_resp_array = np.vectorize(rounding_formula)(str_resp_series, resp_series, converted_resp_series)
-            final_resp_series = pd.Series(rounded_resp_array * converted_resp_series.values.unit, index=resp_series.index)
+                rounded_resp_array = np.vectorize(rounding_formula)(
+                    str_resp_series, resp_series, converted_resp_series)
+            final_resp_series = pd.Series(
+                rounded_resp_array * converted_resp_series.values.unit, index=resp_series.index)
         else:
             final_resp_series = converted_resp_series
     else:
         final_resp_series = resp_series
-    
-    result = {"data": {k: convert_nans_to_none(v) for k, v in final_resp_series.to_dict().items()}}
+
+    result = {"data": {k: convert_nans_to_none(
+        v) for k, v in final_resp_series.to_dict().items()}}
     if also_return_metadata:
         result = {**result, "metadata": metadata}
     if also_return_snapped_coordinates:
         result = {**result, "snapped to": [lat, lon]}
     return result
+
 
 def get_tropical_storms(
         source,
@@ -267,13 +293,14 @@ def get_tropical_storms(
             return storm_getter.get_data(basin, min_lat=min_lat, min_lon=min_lon, max_lat=max_lat, max_lon=max_lon)
         else:
             return storm_getter.get_data(basin)
-    
+
+
 def get_station_history(
         station_id,
         weather_variable,
         use_imperial_units=True,
         desired_units=None,
-        dataset='ghcnd',     
+        dataset='ghcnd',
         ipfs_timeout=None):
     """
     Takes in a station id and a weather variable.
@@ -306,7 +333,7 @@ def get_station_history(
     if desired_units:
         to_unit = get_to_units(desired_units)
     try:
-        with StationDataset(dataset, ipfs_timeout=ipfs_timeout) as dataset_obj:
+        with GzipStationDataset(dataset=dataset, ipfs_timeout=ipfs_timeout) as dataset_obj:
             csv_text = dataset_obj.get_data(station_id)
     except KeyError:
         raise DatasetError("No such dataset in dClimate")
@@ -320,7 +347,8 @@ def get_station_history(
     try:
         data_col = headers.index(column)
     except ValueError:
-        raise WeatherVariableNotFoundError("Invalid weather variable for this station")
+        raise WeatherVariableNotFoundError(
+            "Invalid weather variable for this station")
     for row in reader:
         try:
             if row[data_col] == '':
@@ -332,22 +360,27 @@ def get_station_history(
         if desired_units:
             try:
                 if to_unit.physical_type == "temperature":
-                    converted = datapoint.to(to_unit, equivalencies=u.temperature())
-                    datapoint = rounding_formula_temperature(row[data_col], converted.value) * to_unit
+                    converted = datapoint.to(
+                        to_unit, equivalencies=u.temperature())
+                    datapoint = rounding_formula_temperature(
+                        row[data_col], converted.value) * to_unit
                 else:
                     converted = datapoint.to(to_unit)
-                    datapoint = rounding_formula(row[data_col], datapoint.value, converted.value) * to_unit
+                    datapoint = rounding_formula(
+                        row[data_col], datapoint.value, converted.value) * to_unit
             except ValueError:
                 raise UnitError("Specified unit is incompatible with original")
         elif use_imperial_units:
             datapoint = SUL[column]['imperialize'](datapoint)
-        
-        history[datetime.datetime.strptime(row[date_col], "%Y-%m-%d").date()] = datapoint
+
+        history[datetime.datetime.strptime(
+            row[date_col], "%Y-%m-%d").date()] = datapoint
     return history
+
 
 def get_cme_station_history(station_id, weather_variable, use_imperial_units=True, desired_units=None, ipfs_timeout=None):
     try:
-        with CmeStationsDataset(ipfs_timeout=ipfs_timeout) as dataset_obj:
+        with CsvStationDataset(dataset="cme_temperature_stations-daily", ipfs_timeout=ipfs_timeout) as dataset_obj:
             csv_text = dataset_obj.get_data(station_id)
     except KeyError:
         raise DatasetError("No such dataset in dClimate")
@@ -356,7 +389,8 @@ def get_cme_station_history(station_id, weather_variable, use_imperial_units=Tru
     metadata = get_metadata(get_heads()["cme_temperature_stations-daily"])
     unit = metadata["stations"][station_id]
     if desired_units:
-        converter, dweather_unit = get_unit_converter_no_aliases(unit, desired_units)
+        converter, dweather_unit = get_unit_converter_no_aliases(
+            unit, desired_units)
     else:
         converter, dweather_unit = get_unit_converter(unit, use_imperial_units)
     history = {}
@@ -366,7 +400,8 @@ def get_cme_station_history(station_id, weather_variable, use_imperial_units=Tru
     try:
         data_col = headers.index(weather_variable)
     except ValueError:
-        raise WeatherVariableNotFoundError("Invalid weather variable for this station")
+        raise WeatherVariableNotFoundError(
+            "Invalid weather variable for this station")
     for row in reader:
         try:
             if row[data_col] == '':
@@ -381,19 +416,23 @@ def get_cme_station_history(station_id, weather_variable, use_imperial_units=Tru
                 raise UnitError("Specified unit is incompatible with original")
             if desired_units:
                 if dweather_unit.physical_type == "temperature":
-                    final_datapoint = rounding_formula_temperature(row[data_col], converted.value) * converted.unit
+                    final_datapoint = rounding_formula_temperature(
+                        row[data_col], converted.value) * converted.unit
                 else:
-                    final_datapoint = rounding_formula(row[data_col], datapoint.value, converted.value) * converted.unit
+                    final_datapoint = rounding_formula(
+                        row[data_col], datapoint.value, converted.value) * converted.unit
             else:
                 final_datapoint = converted.round(2)
         else:
             final_datapoint = datapoint
-        history[datetime.datetime.strptime(row[date_col], "%Y-%m-%d").date()] = final_datapoint
+        history[datetime.datetime.strptime(
+            row[date_col], "%Y-%m-%d").date()] = final_datapoint
     return history
 
+
 def get_hourly_station_history(dataset, station_id, weather_variable, use_imperial_units=True, desired_units=None, ipfs_timeout=None):
-    
-    #Get original units from metadata
+
+    # Get original units from metadata
     original_units = None
     metadata = get_metadata(get_heads()[dataset])
     station_metadata = metadata["station_metadata"][station_id]
@@ -401,13 +440,14 @@ def get_hourly_station_history(dataset, station_id, weather_variable, use_imperi
         if climate_var['name'] == weather_variable:
             original_units = climate_var["unit"]
     if original_units == None:
-        raise WeatherVariableNotFoundError("Invalid weather variable for this station")
+        raise WeatherVariableNotFoundError(
+            "Invalid weather variable for this station")
     try:
         if dataset == "dwd_hourly-hourly":
             with DwdHourlyStationsDataset(ipfs_timeout=ipfs_timeout) as dataset_obj:
                 csv_text = dataset_obj.get_data(station_id, weather_variable)
         elif dataset == "ghisd-sub_hourly":
-            with GlobalHourlyStationsDataset(ipfs_timeout=ipfs_timeout) as dataset_obj:
+            with GzipStationDataset(dataset='ghisd-sub_hourly', ipfs_timeout=ipfs_timeout) as dataset_obj:
                 csv_text = dataset_obj.get_data(station_id, weather_variable)
         else:
             raise DatasetError("No such dataset in dClimate")
@@ -419,30 +459,40 @@ def get_hourly_station_history(dataset, station_id, weather_variable, use_imperi
     if "STATION" in df:
         del df["STATION"]
     if desired_units:
-        converter, dweather_unit = get_unit_converter_no_aliases(original_units, desired_units)
+        converter, dweather_unit = get_unit_converter_no_aliases(
+            original_units, desired_units)
     else:
-        converter, dweather_unit = get_unit_converter(original_units, use_imperial_units)
+        converter, dweather_unit = get_unit_converter(
+            original_units, use_imperial_units)
     if converter:
         try:
-            converted_resp_series = pd.Series(converter(df[weather_variable].values*dweather_unit), index=df.index)
+            converted_resp_series = pd.Series(
+                converter(df[weather_variable].values*dweather_unit), index=df.index)
         except ValueError:
             raise UnitError("Specified unit is incompatible with original")
         if desired_units is not None:
-            rounded_resp_array = np.vectorize(rounding_formula_temperature)(str_resp_series, converted_resp_series)
-            final_resp_series = pd.Series(rounded_resp_array * converted_resp_series.values.unit, index=df.index)
-        else: 
+            rounded_resp_array = np.vectorize(rounding_formula_temperature)(
+                str_resp_series, converted_resp_series)
+            final_resp_series = pd.Series(
+                rounded_resp_array * converted_resp_series.values.unit, index=df.index)
+        else:
             final_resp_series = converted_resp_series
     else:
-        final_resp_series = pd.Series(df[weather_variable].values*dweather_unit, index=df.index)
-    result = {datetime.datetime.fromisoformat(k): convert_nans_to_none(v) for k, v in final_resp_series.to_dict().items()}
+        final_resp_series = pd.Series(
+            df[weather_variable].values*dweather_unit, index=df.index)
+    result = {datetime.datetime.fromisoformat(k): convert_nans_to_none(
+        v) for k, v in final_resp_series.to_dict().items()}
     return result
+
 
 def get_european_station_history(dataset, station_id, weather_variable, use_imperial_units=True, desired_units=None, ipfs_timeout=None):
     try:
         if dataset == "dwd_stations-daily":
-            cm = DwdStationsDataset(ipfs_timeout=ipfs_timeout)
+            cm = GzipStationDataset(
+                dataset="dwd_stations-daily", ipfs_timeout=ipfs_timeout)
         elif dataset == "dutch_stations-daily":
-            cm = DutchStationsDataset(ipfs_timeout=ipfs_timeout)
+            cm = CsvStationDataset(
+                dataset="dutch_stations-daily", ipfs_timeout=ipfs_timeout)
         else:
             raise ValueError("invalid european dataset")
 
@@ -456,13 +506,16 @@ def get_european_station_history(dataset, station_id, weather_variable, use_impe
 
     station_metadata = metadata["station_metadata"][station_id]
     try:
-        weather_var_index = [i for i in range(len(station_metadata)) if station_metadata[i]["name"] == weather_variable][0]
+        weather_var_index = [i for i in range(
+            len(station_metadata)) if station_metadata[i]["name"] == weather_variable][0]
     except IndexError:
-        raise WeatherVariableNotFoundError("Invalid weather variable for this station")
+        raise WeatherVariableNotFoundError(
+            "Invalid weather variable for this station")
     unit = station_metadata[weather_var_index]["unit"]
     multiplier = station_metadata[weather_var_index]["multiplier"]
     if desired_units:
-        converter, dweather_unit = get_unit_converter_no_aliases(unit, desired_units)
+        converter, dweather_unit = get_unit_converter_no_aliases(
+            unit, desired_units)
     else:
         converter, dweather_unit = get_unit_converter(unit, use_imperial_units)
     history = {}
@@ -472,7 +525,8 @@ def get_european_station_history(dataset, station_id, weather_variable, use_impe
     try:
         data_col = headers.index(weather_variable)
     except ValueError:
-        raise WeatherVariableNotFoundError("Invalid weather variable for this station")
+        raise WeatherVariableNotFoundError(
+            "Invalid weather variable for this station")
     for row in reader:
         try:
             if row[data_col] == '':
@@ -487,15 +541,19 @@ def get_european_station_history(dataset, station_id, weather_variable, use_impe
                 raise UnitError("Specified unit is incompatible with original")
             if desired_units:
                 if dweather_unit.physical_type == "temperature":
-                    final_datapoint = rounding_formula_temperature(row[data_col], converted.value) * converted.unit
+                    final_datapoint = rounding_formula_temperature(
+                        row[data_col], converted.value) * converted.unit
                 else:
-                    final_datapoint = rounding_formula(row[data_col], datapoint.value, converted.value) * converted.unit
+                    final_datapoint = rounding_formula(
+                        row[data_col], datapoint.value, converted.value) * converted.unit
             else:
                 final_datapoint = converted.round(2)
         else:
             final_datapoint = datapoint
-        history[datetime.datetime.strptime(row[date_col], "%Y-%m-%d").date()] = final_datapoint
+        history[datetime.datetime.strptime(
+            row[date_col], "%Y-%m-%d").date()] = final_datapoint
     return history
+
 
 def get_yield_history(commodity, state, county, dataset="sco-yearly", ipfs_timeout=None):
     """
@@ -510,12 +568,14 @@ def get_yield_history(commodity, state, county, dataset="sco-yearly", ipfs_timeo
         https://webapp.rma.usda.gov/apps/RIRS/AreaPlanHistoricalYields.aspx
     """
     if dataset in ["rmasco_imputed-yearly", "rma_t_yield_imputed-single-value"] and commodity != "0081":
-        raise ValueError("Multipliers currently only available for soybeans (commodity code 0081)")
+        raise ValueError(
+            "Multipliers currently only available for soybeans (commodity code 0081)")
     try:
         with YieldDatasets(dataset, ipfs_timeout=ipfs_timeout) as dataset_obj:
             return dataset_obj.get_data(commodity, state, county)
     except ipfshttpclient.exceptions.ErrorResponse:
         raise ValueError("Invalid commodity/state/county code combination")
+
 
 def get_irrigation_data(commodity, ipfs_timeout=None):
     """
@@ -530,6 +590,7 @@ def get_irrigation_data(commodity, ipfs_timeout=None):
     except ipfshttpclient.exceptions.ErrorResponse:
         raise ValueError("Invalid commodity code")
 
+
 def get_japan_station_history(station_name, desired_units=None, as_of=None, ipfs_timeout=None):
     """
     return:
@@ -541,14 +602,19 @@ def get_japan_station_history(station_name, desired_units=None, as_of=None, ipfs
     resp_series = str_resp_series.astype(float)
     if desired_units:
         unit = metadata["unit of measurement"]
-        converter, dweather_unit = get_unit_converter_no_aliases(unit, desired_units)
+        converter, dweather_unit = get_unit_converter_no_aliases(
+            unit, desired_units)
         resp_series = resp_series * dweather_unit
-        converted_resp_series = pd.Series(converter(resp_series.values), resp_series.index)
-        rounded_resp_array = np.vectorize(rounding_formula_temperature)(str_resp_series, converted_resp_series)
-        final_resp_series = pd.Series(rounded_resp_array * converted_resp_series.values.unit, index=resp_series.index)
+        converted_resp_series = pd.Series(
+            converter(resp_series.values), resp_series.index)
+        rounded_resp_array = np.vectorize(rounding_formula_temperature)(
+            str_resp_series, converted_resp_series)
+        final_resp_series = pd.Series(
+            rounded_resp_array * converted_resp_series.values.unit, index=resp_series.index)
         return final_resp_series.to_dict()
     else:
         return (resp_series * u.Unit("deg_C")).to_dict()
+
 
 def get_cwv_station_history(station_name, as_of=None, ipfs_timeout=None):
     """
@@ -562,6 +628,7 @@ def get_cwv_station_history(station_name, as_of=None, ipfs_timeout=None):
     # CWV is a proprietary unscaled unit from the UK National Grid so use dimensionless unscaled
     return (resp_series * u.dimensionless_unscaled).to_dict()
 
+
 def get_australia_station_history(station_name, weather_variable, desired_units=None, as_of=None, ipfs_timeout=None):
     """
     return:
@@ -570,21 +637,27 @@ def get_australia_station_history(station_name, weather_variable, desired_units=
     try:
         unit = BOM_UNITS[weather_variable]
     except KeyError:
-        raise WeatherVariableNotFoundError("Invalid weather variable for Australia station")
+        raise WeatherVariableNotFoundError(
+            "Invalid weather variable for Australia station")
     with AustraliaBomStations(ipfs_timeout=ipfs_timeout, as_of=as_of) as dataset_obj:
         str_resp_series = dataset_obj.get_data(station_name)[weather_variable]
     if weather_variable == "GUSTDIR":
         return str_resp_series.replace("", np.nan).to_dict()
     resp_series = str_resp_series.replace("", np.nan).astype(float)
     if desired_units:
-        converter, dweather_unit = get_unit_converter_no_aliases(unit, desired_units)
+        converter, dweather_unit = get_unit_converter_no_aliases(
+            unit, desired_units)
         resp_series = resp_series * dweather_unit
-        converted_resp_series = pd.Series(converter(resp_series.values), resp_series.index)
-        rounded_resp_array = np.vectorize(rounding_formula_temperature)(str_resp_series, converted_resp_series)
-        final_resp_series = pd.Series(rounded_resp_array * converted_resp_series.values.unit, index=resp_series.index)
+        converted_resp_series = pd.Series(
+            converter(resp_series.values), resp_series.index)
+        rounded_resp_array = np.vectorize(rounding_formula_temperature)(
+            str_resp_series, converted_resp_series)
+        final_resp_series = pd.Series(
+            rounded_resp_array * converted_resp_series.values.unit, index=resp_series.index)
         return final_resp_series.to_dict()
     else:
         return (resp_series * u.Unit(unit)).to_dict()
+
 
 def get_speedwell_station_history(station_name, ipfs_timeout=None):
     """
@@ -594,6 +667,7 @@ def get_speedwell_station_history(station_name, ipfs_timeout=None):
     with SpeedwellStations(ipfs_timeout=ipfs_timeout) as dataset_obj:
         return dataset_obj.get_data(station_name)
 
+
 def get_power_history(ipfs_timeout=None):
     """
     return:
@@ -601,6 +675,7 @@ def get_power_history(ipfs_timeout=None):
     """
     with AemoPowerDataset(ipfs_timeout=ipfs_timeout) as dataset_obj:
         return dataset_obj.get_data()
+
 
 def get_gas_history(ipfs_timeout=None):
     """
@@ -610,6 +685,7 @@ def get_gas_history(ipfs_timeout=None):
     with AemoGasDataset(ipfs_timeout=ipfs_timeout) as dataset_obj:
         return dataset_obj.get_data()
 
+
 def get_alberta_power_history(ipfs_timeout=None):
     """
     return:
@@ -618,12 +694,14 @@ def get_alberta_power_history(ipfs_timeout=None):
     with AesoPowerDataset(ipfs_timeout=ipfs_timeout) as dataset_obj:
         return dataset_obj.get_data()
 
+
 def get_drought_monitor_history(state, county, ipfs_timeout=None):
     try:
         with DroughtMonitor(ipfs_timeout=ipfs_timeout) as dataset_obj:
             return dataset_obj.get_data(state, county)
     except ipfshttpclient.exceptions.ErrorResponse:
         raise ValueError("Invalid state/county combo")
+
 
 def get_ceda_biomass(year, lat, lon, unit, ipfs_timeout=None):
     """
@@ -641,17 +719,20 @@ def get_ceda_biomass(year, lat, lon, unit, ipfs_timeout=None):
     except ipfshttpclient.exceptions.ErrorResponse:
         raise ValueError("Invalid paramaters with which to get biomass data")
 
+
 def get_afr_history(ipfs_timeout=None):
     with AfrDataset(ipfs_timeout=ipfs_timeout) as dataset_obj:
         return dataset_obj.get_data()
 
+
 def has_dataset_updated(dataset, slices, as_of, ipfs_timeout=None):
     """
     Determine whether any dataset updates generated after `as_of` affect any `slices` of date ranges.
-    """    
+    """
     with DateRangeRetriever(dataset, ipfs_timeout=ipfs_timeout) as dataset_obj:
         ranges = dataset_obj.get_data(as_of)
     return has_changed(slices, ranges)
+
 
 def get_teleconnections_history(weather_variable, ipfs_timeout=None):
     with TeleconnectionsDataset(ipfs_timeout=ipfs_timeout) as dataset_obj:
@@ -660,18 +741,22 @@ def get_teleconnections_history(weather_variable, ipfs_timeout=None):
         reader = csv.reader(csv_text.split('\n'))
         headers = next(reader)
         date_col = headers.index('DATE')
-        try: # Make sure weather variable is correct.
+        try:  # Make sure weather variable is correct.
             data_col = headers.index(weather_variable)
         except ValueError:
-            raise WeatherVariableNotFoundError("Invalid weather variable for this station")
+            raise WeatherVariableNotFoundError(
+                "Invalid weather variable for this station")
         for row in reader:
             try:
                 if row[data_col] == '':
                     continue
-            except IndexError: # Catch weird index issues that can occur 
+            except IndexError:  # Catch weird index issues that can occur
                 continue
-            try: # Values will either be a float value in string form (which need to be cast to a float), or an empty string
-                history[datetime.datetime.strptime(row[date_col], "%Y-%m-%d").date()] = float(row[data_col])
+            # Values will either be a float value in string form (which need to be cast to a float), or an empty string
+            try:
+                history[datetime.datetime.strptime(
+                    row[date_col], "%Y-%m-%d").date()] = float(row[data_col])
             except ValueError:
-                history[datetime.datetime.strptime(row[date_col], "%Y-%m-%d").date()] = row[data_col]
+                history[datetime.datetime.strptime(
+                    row[date_col], "%Y-%m-%d").date()] = row[data_col]
         return history

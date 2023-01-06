@@ -539,7 +539,7 @@ class Vhi(IpfsDataset):
         return [datetime.date.fromisoformat(dt) for dt in [start_date, end_date]]
 
 
-class StationDataset(IpfsDataset):
+class GzipStationDataset(IpfsDataset):
     """
     Instantiable class used for pulling in "ghcnd" or "ghcnd-imputed-daily" station data
     """
@@ -551,57 +551,79 @@ class StationDataset(IpfsDataset):
         super().__init__(ipfs_timeout=ipfs_timeout)
         self._dataset = dataset
 
-    def get_data(self, station):
+    def get_data(self, station, weather_variable=None):
+        # only some stations need weather variable
+        # so this is an optional arg
         super().get_data()
         file_name = f"{self.head}/{station}.csv.gz"
         with gzip.open(self.get_file_object(file_name)) as gz:
             return gz.read().decode('utf-8')
 
 
-class CmeStationsDataset(IpfsDataset):
+class CsvStationDataset(IpfsDataset):
     """
-    Instantiable class used for pulling in cme station data
+    Instantiable class used for pulling in "ghcnd" or "ghcnd-imputed-daily" station data
     """
-    dataset = "cme_temperature_stations-daily"
+    @property
+    def dataset(self):
+        return self._dataset
 
-    def __init__(self, ipfs_timeout=None):
+    def __init__(self, dataset, ipfs_timeout=None):
         super().__init__(ipfs_timeout=ipfs_timeout)
+        self._dataset = dataset
 
-    def get_data(self, station):
+    def get_data(self, station, weather_variable=None):
+        # only some stations need weather variable
+        # so this is an optional arg
         super().get_data()
         file_name = f"{self.head}/{station}.csv"
         return self.get_file_object(file_name).read().decode("utf-8")
 
 
-class DutchStationsDataset(IpfsDataset):
-    """
-    Instantiable class used for pulling in dutch station data
-    """
-    dataset = "dutch_stations-daily"
+# class CmeStationsDataset(IpfsDataset):
+#     """
+#     Instantiable class used for pulling in cme station data
+#     """
+#     dataset = "cme_temperature_stations-daily"
 
-    def __init__(self, ipfs_timeout=None):
-        super().__init__(ipfs_timeout=ipfs_timeout)
+#     def __init__(self, ipfs_timeout=None):
+#         super().__init__(ipfs_timeout=ipfs_timeout)
 
-    def get_data(self, station):
-        super().get_data()
-        file_name = f"{self.head}/{station}.csv"
-        return self.get_file_object(file_name).read().decode("utf-8")
+#     def get_data(self, station):
+#         super().get_data()
+#         file_name = f"{self.head}/{station}.csv"
+#         return self.get_file_object(file_name).read().decode("utf-8")
 
 
-class DwdStationsDataset(IpfsDataset):
-    """
-    Instantiable class used for pulling in german station data
-    """
-    dataset = "dwd_stations-daily"
+# class DutchStationsDataset(IpfsDataset):
+#     """
+#     Instantiable class used for pulling in dutch station data
+#     """
+#     dataset = "dutch_stations-daily"
 
-    def __init__(self, ipfs_timeout=None):
-        super().__init__(ipfs_timeout=ipfs_timeout)
+#     def __init__(self, ipfs_timeout=None):
+#         super().__init__(ipfs_timeout=ipfs_timeout)
 
-    def get_data(self, station):
-        super().get_data()
-        file_name = f"{self.head}/{station}.csv.gz"
-        with gzip.open(self.get_file_object(file_name)) as gz:
-            return gz.read().decode("utf-8")
+#     def get_data(self, station):
+#         super().get_data()
+#         file_name = f"{self.head}/{station}.csv"
+#         return self.get_file_object(file_name).read().decode("utf-8")
+
+
+# class DwdStationsDataset(IpfsDataset):
+#     """
+#     Instantiable class used for pulling in german station data
+#     """
+#     dataset = "dwd_stations-daily"
+
+#     def __init__(self, ipfs_timeout=None):
+#         super().__init__(ipfs_timeout=ipfs_timeout)
+
+#     def get_data(self, station):
+#         super().get_data()
+#         file_name = f"{self.head}/{station}.csv.gz"
+#         with gzip.open(self.get_file_object(file_name)) as gz:
+#             return gz.read().decode("utf-8")
 
 
 class DwdHourlyStationsDataset(IpfsDataset):
@@ -620,20 +642,20 @@ class DwdHourlyStationsDataset(IpfsDataset):
             return gz.read().decode("utf-8")
 
 
-class GlobalHourlyStationsDataset(IpfsDataset):
-    """
-    Instantiable class used for pulling in global hourly station data
-    """
-    dataset = "ghisd-sub_hourly"
+# class GlobalHourlyStationsDataset(IpfsDataset):
+#     """
+#     Instantiable class used for pulling in global hourly station data
+#     """
+#     dataset = "ghisd-sub_hourly"
 
-    def __init__(self, ipfs_timeout=None):
-        super().__init__(ipfs_timeout=ipfs_timeout)
+#     def __init__(self, ipfs_timeout=None):
+#         super().__init__(ipfs_timeout=ipfs_timeout)
 
-    def get_data(self, station, weather_variable):
-        super().get_data()
-        file_name = f"{self.head}/{station}.csv.gz"
-        with gzip.open(self.get_file_object(file_name)) as gz:
-            return gz.read().decode("utf-8")
+#     def get_data(self, station, weather_variable):
+#         super().get_data()
+#         file_name = f"{self.head}/{station}.csv.gz"
+#         with gzip.open(self.get_file_object(file_name)) as gz:
+#             return gz.read().decode("utf-8")
 
 
 class YieldDatasets(IpfsDataset):

@@ -17,7 +17,7 @@ from astropy import units as u
 from timezonefinder import TimezoneFinder
 from dweather_client import gridded_datasets
 from dweather_client.storms_datasets import IbtracsDataset, AtcfDataset, SimulatedStormsDataset
-from dweather_client.ipfs_queries import AustraliaBomStations, CedaBiomass, CsvStationDataset, DwdHourlyStationsDataset, JapanStations, GzipStationDataset,\
+from dweather_client.ipfs_queries import AustraliaBomStations, CedaBiomass, CmeStationsDataset, DutchStationsDataset, DwdStationsDataset, DwdHourlyStationsDataset, GlobalHourlyStationsDataset, JapanStations, StationDataset,\
     YieldDatasets, FsaIrrigationDataset, AemoPowerDataset, AemoGasDataset, AesoPowerDataset, ForecastDataset, AfrDataset, DroughtMonitor, CwvStations, SpeedwellStations, TeleconnectionsDataset
 from dweather_client.slice_utils import DateRangeRetriever, has_changed
 from dweather_client.ipfs_errors import *
@@ -333,7 +333,7 @@ def get_station_history(
     if desired_units:
         to_unit = get_to_units(desired_units)
     try:
-        with GzipStationDataset(dataset=dataset, ipfs_timeout=ipfs_timeout) as dataset_obj:
+        with StationDataset(dataset, ipfs_timeout=ipfs_timeout) as dataset_obj:
             csv_text = dataset_obj.get_data(station_id)
     except KeyError:
         raise DatasetError("No such dataset in dClimate")
@@ -380,7 +380,8 @@ def get_station_history(
 
 def get_cme_station_history(station_id, weather_variable, use_imperial_units=True, desired_units=None, ipfs_timeout=None):
     try:
-        with CsvStationDataset(dataset="cme_temperature_stations-daily", ipfs_timeout=ipfs_timeout) as dataset_obj:
+        # original cme set up
+        with CmeStationsDataset(ipfs_timeout=ipfs_timeout) as dataset_obj:
             csv_text = dataset_obj.get_data(station_id)
     except KeyError:
         raise DatasetError("No such dataset in dClimate")
@@ -447,7 +448,7 @@ def get_hourly_station_history(dataset, station_id, weather_variable, use_imperi
             with DwdHourlyStationsDataset(ipfs_timeout=ipfs_timeout) as dataset_obj:
                 csv_text = dataset_obj.get_data(station_id, weather_variable)
         elif dataset == "ghisd-sub_hourly":
-            with GzipStationDataset(dataset='ghisd-sub_hourly', ipfs_timeout=ipfs_timeout) as dataset_obj:
+            with GlobalHourlyStationsDataset(ipfs_timeout=ipfs_timeout) as dataset_obj:
                 csv_text = dataset_obj.get_data(station_id, weather_variable)
         else:
             raise DatasetError("No such dataset in dClimate")
@@ -488,11 +489,9 @@ def get_hourly_station_history(dataset, station_id, weather_variable, use_imperi
 def get_european_station_history(dataset, station_id, weather_variable, use_imperial_units=True, desired_units=None, ipfs_timeout=None):
     try:
         if dataset == "dwd_stations-daily":
-            cm = GzipStationDataset(
-                dataset="dwd_stations-daily", ipfs_timeout=ipfs_timeout)
+            cm = DwdStationsDataset(ipfs_timeout=ipfs_timeout)
         elif dataset == "dutch_stations-daily":
-            cm = CsvStationDataset(
-                dataset="dutch_stations-daily", ipfs_timeout=ipfs_timeout)
+            cm = DutchStationsDataset(ipfs_timeout=ipfs_timeout)
         else:
             raise ValueError("invalid european dataset")
 

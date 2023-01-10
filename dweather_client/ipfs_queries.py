@@ -4,7 +4,14 @@ Queries associated with the ipfs protocol option.
 
 from abc import ABC, abstractmethod
 from collections import deque
-import ipfshttpclient, json, datetime, os, tarfile, gzip, pickle, zipfile
+import ipfshttpclient
+import json
+import datetime
+import os
+import tarfile
+import gzip
+import pickle
+import zipfile
 from dweather_client.ipfs_errors import *
 from dweather_client.grid_utils import conventional_lat_lon_to_cpc, cpc_lat_lon_to_conventional
 from dweather_client.struct_utils import find_closest_lat_lon
@@ -16,6 +23,7 @@ from io import BytesIO
 
 METADATA_FILE = "metadata.json"
 GATEWAY_IPFS_ID = "/ip4/134.122.126.13/tcp/4001/p2p/12D3KooWM8nN6VbUka1NeuKnu9xcKC56D17ApAVRDyfYNytzUsqG"
+
 
 class IpfsDataset(ABC):
     """
@@ -83,7 +91,8 @@ class IpfsDataset(ABC):
         while True:
             metadata = self.get_metadata(release_itr)
             if as_of:
-                date_generated = datetime.datetime.fromisoformat(metadata["time generated"])
+                date_generated = datetime.datetime.fromisoformat(
+                    metadata["time generated"])
                 if date_generated <= as_of:
                     release_ll.appendleft(release_itr)
             else:
@@ -125,8 +134,10 @@ class GriddedDataset(IpfsDataset):
         min_lon = metadata['longitude range'][0]  # end [lat, lon]
 
         # check that the lat lon is in the bounding box
-        snap_lat = round(round((lat - min_lat) / resolution) * resolution + min_lat, 3)
-        snap_lon = round(round((lon - min_lon) / resolution) * resolution + min_lon, 3)
+        snap_lat = round(round((lat - min_lat) / resolution)
+                         * resolution + min_lat, 3)
+        snap_lon = round(round((lon - min_lon) / resolution)
+                         * resolution + min_lon, 3)
         return snap_lat, snap_lon
 
     def get_hashes(self):
@@ -189,6 +200,7 @@ class CopernicusDataset(GriddedDataset):
     """
     Abstract class for copernicus datasets, contains logic for reading binary files
     """
+
     def get_data(self, lat, lon):
         """
         Copernicus datasets' method for getting data. Reads binary files named by long/lat
@@ -200,7 +212,8 @@ class CopernicusDataset(GriddedDataset):
         """
         super().get_data()
         first_metadata = self.get_metadata(self.head)
-        snapped_lat, snapped_lon = self.snap_to_grid(float(lat), float(lon), first_metadata)
+        snapped_lat, snapped_lon = self.snap_to_grid(
+            float(lat), float(lon), first_metadata)
         self.bin_name = f"{snapped_lat:.3f}_{snapped_lon:.3f}"
         self.zip_name = f"{snapped_lat:.3f}.zip"
         ret_dict = {}
@@ -220,19 +233,23 @@ class CopernicusDataset(GriddedDataset):
         return: dictionaey with date keys and weather values
         """
         if is_root:
-            data_bytes = self.get_file_object(f"{ipfs_hash}/{self.bin_name}").read()
+            data_bytes = self.get_file_object(
+                f"{ipfs_hash}/{self.bin_name}").read()
         else:
             with zipfile.ZipFile(self.get_file_object(f"{ipfs_hash}/{self.zip_name}")) as zi:
                 data_bytes = zi.open(self.bin_name).read()
         data_array = list(array("f", data_bytes))
-        index = [d.to_pydatetime().date() for d in pd.date_range(date_range[0], date_range[1])]
+        index = [d.to_pydatetime().date()
+                 for d in pd.date_range(date_range[0], date_range[1])]
         return dict(zip(index, data_array))
+
 
 class PrismGriddedDataset(GriddedDataset):
     """
     Abstract class from which all PRISM datasets inherit. Contains logic for overlapping date ranges
     that is unique to PRISM
-    """ 
+    """
+
     def get_data(self, lat, lon):
         """
         PRISM datasets' method for getting data. Reverses the linked list so as to correctly prioritize displaying
@@ -245,7 +262,8 @@ class PrismGriddedDataset(GriddedDataset):
         """
         super().get_data()
         first_metadata = self.get_metadata(self.head)
-        snapped_lat, snapped_lon = self.snap_to_grid(float(lat), float(lon), first_metadata)
+        snapped_lat, snapped_lon = self.snap_to_grid(
+            float(lat), float(lon), first_metadata)
         self.tar_name = f"{snapped_lat:.3f}.tar"
         self.gzip_name = f"{snapped_lat:.3f}_{snapped_lon:.3f}.gz"
         self.ret_dict = {}
@@ -271,7 +289,7 @@ class PrismGriddedDataset(GriddedDataset):
                             if (day_of_year not in self.ret_dict) and point:
                                 self.ret_dict[day_of_year] = point
                             day_of_year += datetime.timedelta(days=1)
-                        
+
         except ipfshttpclient.exceptions.ErrorResponse:
             zip_file_name = self.tar_name[:-4] + '.zip'
             with zipfile.ZipFile(self.get_file_object(f"{ipfs_hash}/{zip_file_name}")) as zi:
@@ -307,7 +325,8 @@ class RtmaGriddedDataset(GriddedDataset):
         and str values corresponding to weather observations
         """
         super().get_data()
-        (self.x_grid, self.y_grid), (self.snapped_lat, self.snapped_lon) = self.get_grid_x_y(lat, lon)
+        (self.x_grid, self.y_grid), (self.snapped_lat,
+                                     self.snapped_lon) = self.get_grid_x_y(lat, lon)
         str_x, str_y = f'{self.x_grid:04}', f'{self.y_grid:04}'
         index = self.get_file_index()
         self.tar_name = self.find_archive(index)
@@ -317,7 +336,8 @@ class RtmaGriddedDataset(GriddedDataset):
             date_range = self.get_date_range_from_metadata(h)
             rtma_dict = self.get_weather_dict(date_range, h, i == 0)
             ret_dict = {**ret_dict, **rtma_dict}
-        ret_lat, ret_lon = cpc_lat_lon_to_conventional(self.snapped_lat, self.snapped_lon)
+        ret_lat, ret_lon = cpc_lat_lon_to_conventional(
+            self.snapped_lat, self.snapped_lon)
         return (float(ret_lat), float(ret_lon)), pd.Series(ret_dict)
 
     def get_grid_x_y(self, lat, lon):
@@ -332,7 +352,8 @@ class RtmaGriddedDataset(GriddedDataset):
         if ((lat < 20) or (53 < lat)):
             raise FileNotFoundError('RTMA only covers latitudes 20 thru 53')
         if ((lon < 228) or (300 < lon)):
-            raise FileNotFoundError('RTMA only covers longitudes -132 thru -60')
+            raise FileNotFoundError(
+                'RTMA only covers longitudes -132 thru -60')
         lat, lon = str(lat), str(lon)
 
         with gzip.open(self.COORD_BUCKETS) as f:
@@ -411,7 +432,8 @@ class SimpleGriddedDataset(GriddedDataset):
         first_metadata = self.get_metadata(self.head)
         if "cpcc" in self.dataset or "era5" in self.dataset:
             lat, lon = conventional_lat_lon_to_cpc(float(lat), float(lon))
-        self.snapped_lat, self.snapped_lon = self.snap_to_grid(float(lat), float(lon), first_metadata)
+        self.snapped_lat, self.snapped_lon = self.snap_to_grid(
+            float(lat), float(lon), first_metadata)
         self.tar_name = self.get_file_names()["tar"]
         self.gzip_name = self.get_file_names()["gz"]
         ret_dict = {}
@@ -419,7 +441,8 @@ class SimpleGriddedDataset(GriddedDataset):
             date_range = self.get_date_range_from_metadata(h)
             weather_dict = self.get_weather_dict(date_range, h, i == 0)
             ret_dict = {**ret_dict, **weather_dict}
-        ret_lat, ret_lon = cpc_lat_lon_to_conventional(self.snapped_lat, self.snapped_lon)
+        ret_lat, ret_lon = cpc_lat_lon_to_conventional(
+            self.snapped_lat, self.snapped_lon)
         return (float(ret_lat), float(ret_lon)), pd.Series(ret_dict)
 
 
@@ -443,7 +466,8 @@ class Vhi(IpfsDataset):
     def get_data(self, lat, lon):
         super().get_data()
         first_metadata = self.get_metadata(self.head)
-        snapped_lat, snapped_lon = self.snap_to_grid(float(lat), float(lon), first_metadata)
+        snapped_lat, snapped_lon = self.snap_to_grid(
+            float(lat), float(lon), first_metadata)
         self.zip_file_name = f"{snapped_lat:.3f}.zip"
         self.gzip_name = f"{snapped_lat:.3f}_{snapped_lon:.3f}.gz"
         hashes = self.traverse_ll(self.head)
@@ -490,12 +514,16 @@ class Vhi(IpfsDataset):
 
         # metadata measures from center, not left edge
         resolution = metadata['resolution']
-        min_lat = metadata['latitude range'][0] + resolution / 2  # start [lat, lon]
-        min_lon = metadata['longitude range'][0] + resolution / 2  # end [lat, lon]
+        min_lat = metadata['latitude range'][0] + \
+            resolution / 2  # start [lat, lon]
+        min_lon = metadata['longitude range'][0] + \
+            resolution / 2  # end [lat, lon]
 
         # check that the lat lon is in the bounding box
-        snap_lat = round(round((lat - min_lat) / resolution) * resolution + min_lat, 3)
-        snap_lon = round(round((lon - min_lon) / resolution) * resolution + min_lon, 3)
+        snap_lat = round(round((lat - min_lat) / resolution)
+                         * resolution + min_lat, 3)
+        snap_lon = round(round((lon - min_lon) / resolution)
+                         * resolution + min_lon, 3)
         return snap_lat, snap_lon
 
     def get_date_range_from_metadata(self, h):
@@ -532,7 +560,7 @@ class StationDataset(IpfsDataset):
 
 class CmeStationsDataset(IpfsDataset):
     """
-    Instantiable class used for pulling in cme station data
+    Instantiable class used for pulling in cme station data original
     """
     dataset = "cme_temperature_stations-daily"
 
@@ -661,7 +689,6 @@ class PowerDataset(IpfsDataset):
         """
         pass
 
-
     def get_date_range_from_metadata(self, h):
         """
         args:
@@ -672,7 +699,7 @@ class PowerDataset(IpfsDataset):
         try:
             str_dates = (metadata["date_range"][0], metadata["date_range"][1])
         except KeyError:
-             str_dates = (metadata["date range"][0], metadata["date range"][1])
+            str_dates = (metadata["date range"][0], metadata["date range"][1])
         return [datetime.datetime.fromisoformat(dt) for dt in str_dates]
 
     def get_data(self):
@@ -708,7 +735,8 @@ class AemoPowerDataset(PowerDataset):
                 if not half_hour_data:
                     demand, price = None, None
                 else:
-                    demand, price = [float(d) for d in half_hour_data.split("_")]
+                    demand, price = [float(d)
+                                     for d in half_hour_data.split("_")]
                 data_dict[time_itr] = {"demand": demand, "price": price}
                 time_itr = time_itr + datetime.timedelta(minutes=30)
         return data_dict
@@ -760,8 +788,10 @@ class AesoPowerDataset(PowerDataset):
                 if not hour_data:
                     price, ravg, demand = None, None, None
                 else:
-                    price, ravg, demand = [float(d) for d in hour_data.split("_")]
-                data_dict[time_itr] = {"price": price, "ravg": ravg, "demand": demand}
+                    price, ravg, demand = [float(d)
+                                           for d in hour_data.split("_")]
+                data_dict[time_itr] = {"price": price,
+                                       "ravg": ravg, "demand": demand}
                 time_itr = time_itr + datetime.timedelta(hours=1)
         return data_dict
 
@@ -792,12 +822,14 @@ class JapanStations(GriddedDataset):
         ret_dict = {}
         for h in hashes:
             date_range = self.get_date_range_from_metadata(h)
-            new_dict = self.extract_data_from_text(date_range, h, block_number, station_name)
+            new_dict = self.extract_data_from_text(
+                date_range, h, block_number, station_name)
             ret_dict = {**ret_dict, **new_dict}
         return pd.Series(ret_dict)
 
     def extract_data_from_text(self, date_range, ipfs_hash, block_number, station_name):
-        byte_obj = self.get_file_object(f"{ipfs_hash}/{self.data_file_format.format(block_number, station_name)}")
+        byte_obj = self.get_file_object(
+            f"{ipfs_hash}/{self.data_file_format.format(block_number, station_name)}")
         data = byte_obj.read().decode("utf-8").split(",")
         day_itr = date_range[0].date()
         data_dict = {}
@@ -833,7 +865,8 @@ class CwvStations(GriddedDataset):
         return pd.Series(ret_dict)
 
     def extract_data_from_text(self, date_range, ipfs_hash, station_name):
-        byte_obj = self.get_file_object(f"{ipfs_hash}/{self.data_file_format.format(station_name)}")
+        byte_obj = self.get_file_object(
+            f"{ipfs_hash}/{self.data_file_format.format(station_name)}")
         data = byte_obj.read().decode("utf-8").split(",")
         day_itr = date_range[0].date()
         data_dict = {}
@@ -858,7 +891,8 @@ class AustraliaBomStations(GriddedDataset):
     def get_file_name(self, station_name, h):
         metadata = self.get_metadata(h)
         try:
-            station_id = metadata["station_metadata"][station_name.replace(" ", "_")]
+            station_id = metadata["station_metadata"][station_name.replace(
+                " ", "_")]
         except KeyError:
             raise StationNotFoundError("Invalid station name")
         return self.DATA_FILE_FORMAT.format(station_id)
@@ -881,9 +915,11 @@ class AustraliaBomStations(GriddedDataset):
         ret_list = []
         for point in data:
             if point:
-                ret_list.append({"date": day_itr, **dict(zip(self.FIELDS, point.split("_")))})
+                ret_list.append(
+                    {"date": day_itr, **dict(zip(self.FIELDS, point.split("_")))})
             else:
-                ret_list.append({"date": day_itr, **{k: "" for k in self.FIELDS}})
+                ret_list.append(
+                    {"date": day_itr, **{k: "" for k in self.FIELDS}})
             day_itr += datetime.timedelta(days=1)
         return ret_list
 
@@ -908,7 +944,8 @@ class SpeedwellStations(GriddedDataset):
             raise ValueError("Invalid station name")
 
     def extract_data_from_text(self, ipfs_hash, WMO):
-        byte_obj = self.get_file_object(f"{ipfs_hash}/{self.data_file_format.format(WMO)}")
+        byte_obj = self.get_file_object(
+            f"{ipfs_hash}/{self.data_file_format.format(WMO)}")
         data = byte_obj.read().decode("utf-8")
         return data
 
@@ -941,17 +978,18 @@ class DroughtMonitor(IpfsDataset):
         metadata = self.get_metadata(h)
         str_dates = (metadata["date range"][0], metadata["date range"][1])
         return [datetime.datetime.fromisoformat(dt) for dt in str_dates]
-    
+
     def get_data(self, state, county):
         super().get_data()
         hashes = self.traverse_ll(self.head)
         ret_dict = {}
         for h in hashes:
             date_range = self.get_date_range_from_metadata(h)
-            new_dict = self.extract_data_from_text(date_range, h, state, county)
+            new_dict = self.extract_data_from_text(
+                date_range, h, state, county)
             ret_dict = {**ret_dict, **new_dict}
         return ret_dict
-    
+
     def extract_data_from_text(self, date_range, ipfs_hash, state, county):
         time_itr = date_range[0].date()
         data_dict = {}
@@ -1025,7 +1063,7 @@ class ForecastDataset(GriddedDataset):
         super().__init__(ipfs_timeout=ipfs_timeout)
         self._dataset = dataset
         self._interval = interval
-        self._con_to_cpc = con_to_cpc  
+        self._con_to_cpc = con_to_cpc
 
     def get_relevant_hash(self, forecast_date):
         """
@@ -1033,23 +1071,28 @@ class ForecastDataset(GriddedDataset):
         """
         cur_hash = self.head
         cur_metadata = self.get_metadata(cur_hash)
-        cur_date_range = [datetime.date.fromisoformat(d) for d in cur_metadata["date range"]]
+        cur_date_range = [datetime.date.fromisoformat(
+            d) for d in cur_metadata["date range"]]
         if forecast_date > cur_date_range[1]:
-            raise DateOutOfRangeError("Forecast date is later than available data")
+            raise DateOutOfRangeError(
+                "Forecast date is later than available data")
 
         while forecast_date < cur_date_range[0]:
             prev_hash = cur_metadata['previous hash']
             if prev_hash is None:
-                raise DateOutOfRangeError("Forecast date is earlier than available data")
+                raise DateOutOfRangeError(
+                    "Forecast date is earlier than available data")
             else:
                 cur_hash = prev_hash
                 cur_metadata = self.get_metadata(cur_hash)
-                cur_date_range = [datetime.date.fromisoformat(d) for d in cur_metadata["date range"]]
+                cur_date_range = [datetime.date.fromisoformat(
+                    d) for d in cur_metadata["date range"]]
 
         if forecast_date <= cur_date_range[1]:
             return cur_hash
         else:
-            raise DateOutOfRangeError("Forecast date not available due to gaps in data")
+            raise DateOutOfRangeError(
+                "Forecast date not available due to gaps in data")
 
     def get_weather_dict(self, forecast_date, ipfs_hash, lat, lon):
         """
@@ -1061,9 +1104,11 @@ class ForecastDataset(GriddedDataset):
             file_name = f"{forecast_date.strftime('%Y%m%d')}_{lat:.2f}_{lon:.2f}"
             with zi.open(file_name) as f:
                 vals = f.read().decode("utf-8").split(',')
-                start_datetime = datetime.datetime(forecast_date.year, forecast_date.month, forecast_date.day)
+                start_datetime = datetime.datetime(
+                    forecast_date.year, forecast_date.month, forecast_date.day)
                 for i, val in enumerate(vals):
-                    ret[start_datetime + datetime.timedelta(hours=i*self._interval)] = val
+                    ret[start_datetime +
+                        datetime.timedelta(hours=i*self._interval)] = val
         return ret
 
     def get_data(self, lat, lon, forecast_date):
@@ -1074,15 +1119,20 @@ class ForecastDataset(GriddedDataset):
         first_metadata = self.get_metadata(self.head)
         if self._con_to_cpc:
             lat, lon = conventional_lat_lon_to_cpc(float(lat), float(lon))
-            snapped_lat, snapped_lon = self.snap_to_grid(float(lat), float(lon), first_metadata)
+            snapped_lat, snapped_lon = self.snap_to_grid(
+                float(lat), float(lon), first_metadata)
             relevant_hash = self.get_relevant_hash(forecast_date)
-            weather_dict = self.get_weather_dict(forecast_date, relevant_hash, snapped_lat, snapped_lon)
-            ret_lat, ret_lon = cpc_lat_lon_to_conventional(snapped_lat, snapped_lon)
+            weather_dict = self.get_weather_dict(
+                forecast_date, relevant_hash, snapped_lat, snapped_lon)
+            ret_lat, ret_lon = cpc_lat_lon_to_conventional(
+                snapped_lat, snapped_lon)
         else:
             lat, lon = float(lat), float(lon)
-            snapped_lat, snapped_lon = self.snap_to_grid(float(lat), float(lon), first_metadata)
+            snapped_lat, snapped_lon = self.snap_to_grid(
+                float(lat), float(lon), first_metadata)
             relevant_hash = self.get_relevant_hash(forecast_date)
-            weather_dict = self.get_weather_dict(forecast_date, relevant_hash, snapped_lat, snapped_lon)
+            weather_dict = self.get_weather_dict(
+                forecast_date, relevant_hash, snapped_lat, snapped_lon)
             ret_lat, ret_lon = snapped_lat, snapped_lon
 
         return (float(ret_lat), float(ret_lon)), pd.Series(weather_dict)
@@ -1097,7 +1147,7 @@ class TeleconnectionsDataset(IpfsDataset):
     def __init__(self, ipfs_timeout=None):
         super().__init__(ipfs_timeout=ipfs_timeout)
 
-    def get_data(self): 
+    def get_data(self):
         super().get_data()
         metadata = self.get_metadata(self.head)
         year_month = metadata["time generated"][:7]

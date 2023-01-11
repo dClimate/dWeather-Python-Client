@@ -636,6 +636,35 @@ class GlobalHourlyStationsDataset(IpfsDataset):
             return gz.read().decode("utf-8")
 
 
+class CsvStationDataset(IpfsDataset):
+    """
+    Instantiable class used for stations in .csv format
+    Class assumes files stored like hash/station.csv
+    Should be extended to also accept hash/weather_variable/station.csv as well
+
+    This is almost an exact copy of DutchStationsDataset
+
+    Over time, more and more stations will be fed through this function
+    instead of the others here in ipfs_queries. That list currently stands at:
+
+    -  inmet_stations-hourly
+    """
+    @property
+    def dataset(self):
+        return self._dataset
+
+    def __init__(self, dataset, ipfs_timeout=None):
+        super().__init__(ipfs_timeout=ipfs_timeout)
+        self._dataset = dataset
+
+    def get_data(self, station, weather_variable=None):
+        # only some stations need weather variable
+        # so this is an optional arg
+        super().get_data()
+        file_name = f"{self.head}/{station}.csv"
+        return self.get_file_object(file_name).read().decode("utf-8")
+
+
 class YieldDatasets(IpfsDataset):
     """
     Instantiable class used for pulling in sco and rma transitional yield data

@@ -3,9 +3,9 @@ Use these functions to get historical climate data.
 """
 from curses import meta
 from astropy.units import equivalencies
-from dweather_client.http_queries import get_metadata, get_heads
+from dweather_client.http_queries import get_metadata, get_heads, get_stations_metadata
 from dweather_client.aliases_and_units import \
-    get_to_units, lookup_station_alias, STATION_UNITS_LOOKUP as SUL, get_unit_converter, get_unit_converter_no_aliases, rounding_formula, rounding_formula_temperature, BOM_UNITS
+    get_to_units, lookup_station_alias, STATION_UNITS_LOOKUP as SUL, get_unit_converter, get_unit_converter_no_aliases, rounding_formula, rounding_formula_temperature, BOM_UNITS, UNIT_ALIASES
 from dweather_client.struct_utils import tupleify, convert_nans_to_none
 import datetime
 import pytz
@@ -18,7 +18,7 @@ from timezonefinder import TimezoneFinder
 from dweather_client import gridded_datasets
 from dweather_client.storms_datasets import IbtracsDataset, AtcfDataset, SimulatedStormsDataset
 from dweather_client.ipfs_queries import AustraliaBomStations, CedaBiomass, CmeStationsDataset, DutchStationsDataset, DwdStationsDataset, DwdHourlyStationsDataset, GlobalHourlyStationsDataset, JapanStations, StationDataset,\
-    YieldDatasets, FsaIrrigationDataset, AemoPowerDataset, AemoGasDataset, AesoPowerDataset, ForecastDataset, AfrDataset, DroughtMonitor, CwvStations, SpeedwellStations, TeleconnectionsDataset
+    YieldDatasets, FsaIrrigationDataset, AemoPowerDataset, AemoGasDataset, AesoPowerDataset, ForecastDataset, AfrDataset, DroughtMonitor, CwvStations, SpeedwellStations, TeleconnectionsDataset, CsvStationDataset
 from dweather_client.slice_utils import DateRangeRetriever, has_changed
 from dweather_client.ipfs_errors import *
 from io import StringIO
@@ -459,6 +459,93 @@ def get_hourly_station_history(dataset, station_id, weather_variable, use_imperi
     df = df.set_index("DATE")
     if "STATION" in df:
         del df["STATION"]
+    if desired_units:
+        converter, dweather_unit = get_unit_converter_no_aliases(
+            original_units, desired_units)
+    else:
+        converter, dweather_unit = get_unit_converter(
+            original_units, use_imperial_units)
+    if converter:
+        try:
+            converted_resp_series = pd.Series(
+                converter(df[weather_variable].values*dweather_unit), index=df.index)
+        except ValueError:
+            raise UnitError("Specified unit is incompatible with original")
+        if desired_units is not None:
+            rounded_resp_array = np.vectorize(rounding_formula_temperature)(
+                str_resp_series, converted_resp_series)
+            final_resp_series = pd.Series(
+                rounded_resp_array * converted_resp_series.values.unit, index=df.index)
+        else:
+            final_resp_series = converted_resp_series
+    else:
+        final_resp_series = pd.Series(
+            df[weather_variable].values*dweather_unit, index=df.index)
+    result = {datetime.datetime.fromisoformat(k): convert_nans_to_none(
+        v) for k, v in final_resp_series.to_dict().items()}
+    return result
+
+
+def get_csv_station_history(dataset, station_id, weather_variable, use_imperial_units=True, desired_units=None, ipfs_timeout=None):
+    """
+    This is almost an exact copy of get_hourly_station_history
+
+    Over time, more and more stations will be fed through this function
+    instead of the others here in client. That list currently stands at:
+
+    -  inmet_stations-hourly
+    """
+    # Get original units from metadata
+    original_units = None
+    metadata = get_metadata(get_heads()[dataset])
+    # This is a list of possible variables with units
+    # iterate through to see if the required variable is
+    # available from the dataset queried
+    data_dictionary = metadata["data dictionary"]
+    for variable_key, variable_dict in data_dictionary.items():
+        if variable_dict["column name"] == weather_variable:
+            original_key = variable_key
+            original_units = variable_dict["unit of measurement"]
+            # certain units don't convert properly eg mbar -> millibar
+            # so we use UNIT_ALIASES to alias them
+            try:
+                original_units = UNIT_ALIASES[original_units]
+            except KeyError:
+                pass
+
+    # if at this point we have no original units, the requested var
+    # doesn't exist at all for this dataset
+    if original_units == None:
+        raise WeatherVariableNotFoundError(
+            "Invalid weather variable for this dataset, none of the stations contain it")
+
+    # this is a list of stations with the variables they include
+    # if there is no list of variables, assume the station contains all variables
+    station_metadata = get_stations_metadata(
+        get_heads()[dataset])[station_id]
+    if "variables" in station_metadata:
+        variable_keys = station_metadata["variables"]
+    else:
+        # station contains all vars
+        variable_keys = [x for x in data_dictionary]
+
+    # make sure requested variable is available for requested station
+    # before continuing with retrieval
+    if original_key not in variable_keys:
+        raise WeatherVariableNotFoundError(
+            "Invalid weather variable for this station")
+
+    try:
+        if dataset == "inmet_brazil-hourly":
+            with CsvStationDataset(dataset=dataset, ipfs_timeout=ipfs_timeout) as dataset_obj:
+                csv_text = dataset_obj.get_data(station_id, weather_variable)
+        else:
+            raise DatasetError("No such dataset in dClimate")
+    except ipfshttpclient.exceptions.ErrorResponse:
+        raise StationNotFoundError("Invalid station ID for dataset")
+    df = pd.read_csv(StringIO(csv_text))
+    str_resp_series = df[weather_variable].astype(str)
+    df = df.set_index("dt")
     if desired_units:
         converter, dweather_unit = get_unit_converter_no_aliases(
             original_units, desired_units)

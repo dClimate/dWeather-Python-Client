@@ -24,8 +24,11 @@ UNIT_ALIASES = {
     "m of water equivalent": u.m,
     "vegetative health score": u.dimensionless_unscaled,
     "fraction": u.dimensionless_unscaled,
-    "percentage": u.pct
-
+    "percentage": u.pct,
+    "mb": u.bar / 1000,
+    "degc": "deg_C",
+    "degrees": "deg",
+    "kj/m^2": "kJ/m^2"
 }
 
 METRIC_TO_IMPERIAL = {
@@ -91,6 +94,7 @@ BOM_UNITS = {
     "GUSTDIR": None
 }
 
+
 def rounding_formula(str_val, original_val, converted_val, forced_precision=None):
     """
     Formula for determining how to round after a unit conversion. Can be vectorized to handle series/ndarrays
@@ -124,6 +128,7 @@ def rounding_formula(str_val, original_val, converted_val, forced_precision=None
 
     return round(converted_val, rounding_value)
 
+
 def rounding_formula_temperature(str_val, converted_val, forced_precision=None):
     """
     Similar to `rounding_formula`, but use original precision instead of calculating
@@ -140,6 +145,7 @@ def rounding_formula_temperature(str_val, converted_val, forced_precision=None):
 
     return round(converted_val, precision)
 
+
 def get_unit_converter_no_aliases(original_units, desired_units):
     """
     Get an astropy Unit corresponding to `original_units` (str) and a converter (function) to convert to
@@ -154,10 +160,12 @@ def get_unit_converter_no_aliases(original_units, desired_units):
         except ValueError:
             raise UnitError("Specified unit not recognized")
         if to_unit.physical_type == "temperature":
-            converter = lambda q: q.to(to_unit, equivalencies=u.temperature())
+            def converter(q): return q.to(
+                to_unit, equivalencies=u.temperature())
         else:
-            converter = lambda q: q.to(to_unit)
+            def converter(q): return q.to(to_unit)
     return converter, dweather_unit
+
 
 def get_to_units(desired_units):
     """
@@ -171,9 +179,11 @@ def get_to_units(desired_units):
             raise UnitError("Specified unit not recognized")
     return to_unit
 
+
 def get_unit_converter(str_u, use_imperial_units):
     with u.imperial.enable():
-        dweather_unit = UNIT_ALIASES[str_u] if str_u in UNIT_ALIASES else u.Unit(str_u)
+        dweather_unit = UNIT_ALIASES[str_u] if str_u in UNIT_ALIASES else u.Unit(
+            str_u)
     converter = None
     # if imperial is desired and dweather_unit is metric
     if use_imperial_units and (dweather_unit in METRIC_TO_IMPERIAL):
@@ -190,23 +200,24 @@ def lookup_station_alias(alias):
             return STATION_ALIASES_TO_COLUMNS[aliases]
     raise AliasNotFoundError("Invalid weather variable")
 
+
 # see ghcnd readme ftp://ftp.ncdc.noaa.gov/pub/data/ghcn/daily/readme.txt
 STATION_UNITS_LOOKUP = {
-    'PRCP': {'vectorize': lambda m: (m/10.0) * u.mm, 
+    'PRCP': {'vectorize': lambda m: (m/10.0) * u.mm,
              'imperialize': lambda m: m.to(imperial.inch)},
-    'SNWD': {'vectorize': lambda m: m * u.mm, 
+    'SNWD': {'vectorize': lambda m: m * u.mm,
              'imperialize': lambda m: m.to(imperial.inch)},
-    'SNOW': {'vectorize': lambda m: m * u.mm, 
+    'SNOW': {'vectorize': lambda m: m * u.mm,
              'imperialize': lambda m: m.to(imperial.inch)},
-    'WESD': {'vectorize': lambda m: (m/10.0) * u.mm, 
+    'WESD': {'vectorize': lambda m: (m/10.0) * u.mm,
              'imperialize': lambda m: m.to(imperial.inch)},
-    'TMAX': {'vectorize': lambda m: (m/10.0) * u.deg_C, 
+    'TMAX': {'vectorize': lambda m: (m/10.0) * u.deg_C,
              'imperialize': lambda m: m.to(imperial.deg_F, equivalencies=u.temperature())},
-    'TMIN': {'vectorize': lambda m: (m/10.0) * u.deg_C, 
+    'TMIN': {'vectorize': lambda m: (m/10.0) * u.deg_C,
              'imperialize': lambda m: m.to(imperial.deg_F, equivalencies=u.temperature())},
-    'WSF5': {'vectorize': lambda q: (q/10.0)* u.m/u.s, 
+    'WSF5': {'vectorize': lambda q: (q/10.0) * u.m/u.s,
              'imperialize': lambda q: q.to(imperial.mile/u.hour)},
-} 
+}
 
 parent_dir = os.path.dirname(os.path.abspath(__file__))
 CPC_LOOKUP_PATH = os.path.join(parent_dir, '/etc/cpc-grid-ids.csv')
@@ -228,7 +239,8 @@ def icao_to_ghcn(icao_code):
     args:
         icao = "xxxx" for example try "KLGA"
     """
-    icao_codes = pd.read_csv(os.path.join(ICAO_LOOKUP_PATH)).set_index('ICAO')  # get lookup table
+    icao_codes = pd.read_csv(os.path.join(ICAO_LOOKUP_PATH)).set_index(
+        'ICAO')  # get lookup table
     return icao_codes.loc[icao_code]["GHCN"]
 
 
@@ -254,10 +266,12 @@ def cpc_grid_to_lat_lon(grid_id):
         grid_id = "1100" example
 
     """
-    cpc_grids = pd.read_csv(os.path.join(CPC_LOOKUP_PATH)).set_index('Grid ID')  # dataframe of cpc grid to lat/lon lookup table
+    cpc_grids = pd.read_csv(os.path.join(CPC_LOOKUP_PATH)).set_index(
+        'Grid ID')  # dataframe of cpc grid to lat/lon lookup table
     myGrid = cpc_grids.iloc[grid_id]
     coords = [myGrid["Latitude"], myGrid["Longitude"]]
-    coords = [coord+360 if coord < 0 else coord for coord in coords]  # converts negative coordinates to positive values
+    # converts negative coordinates to positive values
+    coords = [coord+360 if coord < 0 else coord for coord in coords]
 
     return coords[0], coords[1]
 
@@ -267,7 +281,8 @@ def lat_lon_to_rtma_grid(lat, lon, grid_history):
     response = {}
     for timestamp in grid_dict:
         try:
-            response[timestamp] = (grid_dict[timestamp]['lat'][lat], grid_dict[timestamp]['lon'][lon])
+            response[timestamp] = (
+                grid_dict[timestamp]['lat'][lat], grid_dict[timestamp]['lon'][lon])
         except KeyError:
             response[timestamp] = (None, None)
             continue
@@ -293,7 +308,8 @@ def snotel_to_ghcnd(snotel_id, state_fips):
     GHCNDi. snotel_id is a 3 or 4 digit integer, and the state_fips is 
     a two character abbrevation for the state -- for example CO.
     """
-    client = zeep.Client('https://wcc.sc.egov.usda.gov/awdbWebService/services?WSDL')
+    client = zeep.Client(
+        'https://wcc.sc.egov.usda.gov/awdbWebService/services?WSDL')
     result = client.service.getStationMetadata(
         '%s:%s:SNTL' % (str(snotel_id), str(state_fips)))
     ghcn_id = 'USS00%s' % result['actonId']

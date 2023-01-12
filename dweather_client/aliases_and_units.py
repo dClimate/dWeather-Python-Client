@@ -25,8 +25,8 @@ UNIT_ALIASES = {
     "vegetative health score": u.dimensionless_unscaled,
     "fraction": u.dimensionless_unscaled,
     "percentage": u.pct,
-    "mb": u.bar / 1000,
-    "mbar": u.bar / 1000,
+    "mb": u.def_unit('mbar', u.bar / 1000),
+    "mbar": u.def_unit('mbar', u.bar / 1000),
     "degc": "deg_C",
     "degrees": "deg",
     "kj/m^2": "kJ/m^2"

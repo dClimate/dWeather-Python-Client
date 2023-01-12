@@ -493,7 +493,7 @@ def get_csv_station_history(dataset, station_id, weather_variable, use_imperial_
     Over time, more and more stations will be fed through this function
     instead of the others here in client. That list currently stands at:
 
-    -  inmet_stations-hourly
+    -  inmet_brazil-hourly
     """
     # Get original units from metadata
     original_units = None
@@ -521,8 +521,12 @@ def get_csv_station_history(dataset, station_id, weather_variable, use_imperial_
 
     # this is a list of stations with the variables they include
     # if there is no list of variables, assume the station contains all variables
-    station_metadata = get_stations_metadata(
-        get_heads()[dataset])[station_id]
+    try:
+        station_metadata = get_stations_metadata(
+            get_heads()[dataset])[station_id]
+    except KeyError:
+        raise StationNotFoundError("This is not a valid station name")
+
     if "variables" in station_metadata:
         variable_keys = station_metadata["variables"]
     else:

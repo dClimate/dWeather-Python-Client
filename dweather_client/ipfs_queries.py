@@ -647,7 +647,7 @@ class CsvStationDataset(IpfsDataset):
     Over time, more and more stations will be fed through this function
     instead of the others here in ipfs_queries. That list currently stands at:
 
-    -  inmet_stations-hourly
+    -  inmet_brazil-hourly  
     """
     @property
     def dataset(self):

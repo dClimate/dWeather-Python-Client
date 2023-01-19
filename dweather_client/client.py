@@ -503,15 +503,19 @@ def get_csv_station_history(dataset, station_id, weather_variable, use_imperial_
     # available from the dataset queried
     data_dictionary = metadata["data dictionary"]
     for variable_key, variable_dict in data_dictionary.items():
-        if variable_dict["column name"] == weather_variable:
-            original_key = variable_key
-            original_units = variable_dict["unit of measurement"]
-            # certain units don't convert properly eg mbar -> millibar
-            # so we use UNIT_ALIASES to alias them
-            try:
-                original_units = UNIT_ALIASES[original_units]
-            except KeyError:
-                pass
+        # This if will skip variables that aren't available to query
+        # usually just dt
+        if "api name" in variable_dict:
+            if variable_dict["api name"] == weather_variable:
+                original_key = variable_key
+                original_units = variable_dict["unit of measurement"]
+                column_name = variable_dict["column name"]
+                # certain units don't convert properly eg mbar -> millibar
+                # so we use UNIT_ALIASES to alias them
+                try:
+                    original_units = UNIT_ALIASES[original_units]
+                except KeyError:
+                    pass
 
     # if at this point we have no original units, the requested var
     # doesn't exist at all for this dataset
@@ -519,19 +523,19 @@ def get_csv_station_history(dataset, station_id, weather_variable, use_imperial_
         raise WeatherVariableNotFoundError(
             "Invalid weather variable for this dataset, none of the stations contain it")
 
-    # this is a list of stations with the variables they include
-    # if there is no list of variables, assume the station contains all variables
-    try:
-        station_metadata = get_stations_metadata(
-            get_heads()[dataset])[station_id]
-    except KeyError:
+    # Check each station to see if it has the same station name
+    # if none do, then the station is invalid
+    station_metadata = None
+    stations_metadata = get_stations_metadata(
+        get_heads()[dataset])["features"]
+    for station in stations_metadata:
+        if station["properties"]["file name"] == f"{station_id}.csv":
+            station_metadata = station
+    if station_metadata == None:
         raise StationNotFoundError("This is not a valid station name")
 
-    if "variables" in station_metadata:
-        variable_keys = station_metadata["variables"]
-    else:
-        # station contains all vars
-        variable_keys = [x for x in data_dictionary]
+    # get full list of available variables from station metadata
+    variable_keys = station_metadata["properties"]["variables"]
 
     # make sure requested variable is available for requested station
     # before continuing with retrieval
@@ -548,7 +552,7 @@ def get_csv_station_history(dataset, station_id, weather_variable, use_imperial_
     except ipfshttpclient.exceptions.ErrorResponse:
         raise StationNotFoundError("Invalid station ID for dataset")
     df = pd.read_csv(StringIO(csv_text))
-    str_resp_series = df[weather_variable].astype(str)
+    str_resp_series = df[column_name].astype(str)
     df = df.set_index("dt")
     if desired_units:
         converter, dweather_unit = get_unit_converter_no_aliases(
@@ -559,7 +563,7 @@ def get_csv_station_history(dataset, station_id, weather_variable, use_imperial_
     if converter:
         try:
             converted_resp_series = pd.Series(
-                converter(df[weather_variable].values*dweather_unit), index=df.index)
+                converter(df[column_name].values*dweather_unit), index=df.index)
         except ValueError:
             raise UnitError("Specified unit is incompatible with original")
         if desired_units is not None:
@@ -571,7 +575,7 @@ def get_csv_station_history(dataset, station_id, weather_variable, use_imperial_
             final_resp_series = converted_resp_series
     else:
         final_resp_series = pd.Series(
-            df[weather_variable].values*dweather_unit, index=df.index)
+            df[column_name].values*dweather_unit, index=df.index)
     result = {datetime.datetime.fromisoformat(k): convert_nans_to_none(
         v) for k, v in final_resp_series.to_dict().items()}
     return result

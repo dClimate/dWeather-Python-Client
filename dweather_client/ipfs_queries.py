@@ -1102,10 +1102,19 @@ class ForecastDataset(GriddedDataset):
         cur_metadata = self.get_metadata(cur_hash)
         cur_date_range = [datetime.date.fromisoformat(
             d) for d in cur_metadata["date range"]]
-        if forecast_date > cur_date_range[1]:
+        # BACKFILL
+        # If forecast date is within either of our two backfill periods, then return specific hash
+        if datetime.date(2021, 4, 1) <= forecast_date <= datetime.date(2021, 8, 10):
+            return 'backfill_2021_hash' # TODO manually specify relevant hash here
+        elif datetime.date(2022, 12, 21) <= forecast_date <= datetime.date(2022, 12, 30):
+            return 'backfill_2022_hash' # TODO manually specify relevant hash here
+        # EXISTING CODE
+        elif forecast_date > cur_date_range[1]:
             raise DateOutOfRangeError(
                 "Forecast date is later than available data")
-
+        # Starting from the forecast date, iterate over hashes, moving forward in time 1 day at a time, 
+        # until the date range corresponding to that hash includes the desired forecast date
+        # then return the hash for that day
         while forecast_date < cur_date_range[0]:
             prev_hash = cur_metadata['previous hash']
             if prev_hash is None:
@@ -1116,12 +1125,14 @@ class ForecastDataset(GriddedDataset):
                 cur_metadata = self.get_metadata(cur_hash)
                 cur_date_range = [datetime.date.fromisoformat(
                     d) for d in cur_metadata["date range"]]
-
+        # At this stage in the code, forecast_date is now implicitly >= cur_date_range[0]
+        # check that it falls within the cur_date_range and return the current hash if so, as that will provide the needed data
         if forecast_date <= cur_date_range[1]:
             return cur_hash
         else:
             raise DateOutOfRangeError(
                 "Forecast date not available due to gaps in data")
+
 
     def get_weather_dict(self, forecast_date, ipfs_hash, lat, lon):
         """

@@ -1121,12 +1121,8 @@ class ForecastDataset(GriddedDataset):
                 print(f"User requested {forecast_date}, returning data for date range {prev_date_range} from hash {prev_hash}") # NOTE for testing, TODO remove afterwards
                 return prev_hash
             prev_hash = prev_metadata['previous hash'] # iterate backwards in the link list one step
-        # no previous hash means we're at the beginning of the dataset and therefore the forecast date isn't covered by any of the available data
-        if prev_hash is None:
-            raise DateOutOfRangeError(
-                "Forecast date is earlier than available data")
 
-        # TODO run this against ECMWF to see if it passes or if there's an error and a therefore a hole in the data
+        # TODO run this against ECMWF to see if it passes or if there's an error and therefore a hole in the data
         # TODO check that it's in the date range if you have stopped
         # TODO fine tuning to get the full date range populating correctly
 

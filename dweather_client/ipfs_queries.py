@@ -1098,13 +1098,20 @@ class ForecastDataset(GriddedDataset):
         """
         return the ipfs hash required to pull in data for a forecast date
         """
-        # First confirm the user is not requesting a forecast date later than any we have
-        cur_metadata = self.get_metadata(self.head)
+        cur_hash = self.head
+        cur_metadata = self.get_metadata(cur_hash)
+        # First confirm the user is not requesting a forecast date outside the available data
         if forecast_date > cur_metadata["full date range"][1]:
             raise DateOutOfRangeError(
                 "Forecast date is later than available data")
-        # Iterate backwards through the link list, returning the current hash if the forecast date falls w/in data available for it.
-        # This routine is agnostic to the order of data contained in the hashes (at a cost of efficiency) -- if the data contains the forecast date, it WILL be found, eventually
+        elif forecast_date < cur_metadata["full date range"][0]:
+            raise DateOutOfRangeError(
+                "Forecast date is earlier than available data")
+        # If the forecast date is within the current hash, return it...
+        if cur_metadata["date range"][0] <= forecast_date <= cur_metadata["date range"][1]:
+            return cur_hash
+        # ...Otherwise, iterate backwards through the link list, returning the current hash if the forecast date falls w/in data available for it.
+        # This routine is agnostic to the order of data contained in the hashes (at a cost of inefficiency) -- if the data contains the forecast date, it WILL be found, eventually
         prev_hash = cur_metadata['previous hash']
         while prev_hash is not None:
             prev_metadata = self.get_metadata(prev_hash)

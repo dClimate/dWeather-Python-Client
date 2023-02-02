@@ -9,7 +9,7 @@ from dweather_client.aliases_and_units import \
 from dweather_client.struct_utils import tupleify, convert_nans_to_none
 import datetime
 import pytz
-import csv
+import csv, json
 import inspect
 import numpy as np
 import pandas as pd
@@ -485,7 +485,6 @@ def get_hourly_station_history(dataset, station_id, weather_variable, use_imperi
         v) for k, v in final_resp_series.to_dict().items()}
     return result
 
-
 def get_csv_station_history(dataset, station_id, weather_variable, use_imperial_units=True, desired_units=None, ipfs_timeout=None):
     """
     This is almost an exact copy of get_hourly_station_history
@@ -608,7 +607,7 @@ def get_station_forecast_history(dataset, station_id, forecast_date, desired_uni
 def get_station_forecast_stations(dataset, forecast_date, desired_units=None, ipfs_timeout=None):
     with StationForecastDataset(dataset, ipfs_timeout=ipfs_timeout) as dataset_obj:
         csv_text = dataset_obj.get_stations(forecast_date)
-        return csv_text
+        return json.loads(csv_text)
 
 
 def get_european_station_history(dataset, station_id, weather_variable, use_imperial_units=True, desired_units=None, ipfs_timeout=None):

@@ -10,7 +10,7 @@ from io import StringIO
 import datetime
 from astropy import units as u
 from astropy.units import imperial
-import pytest
+import pytest, json
 
 
 DAILY_DATASETS = [ds for ds in GRIDDED_DATASETS if "daily" in ds]
@@ -497,4 +497,5 @@ def test_forecast_station_history():
 
 def test_forecast_station_stations():
     stations = get_station_forecast_stations("cme_futures-daily", datetime.date(2023, 1, 31))
-    assert stations["features"][0]["properties"]["station name"] == "D2"
+    stations_json = json.loads(stations)
+    assert stations_json["features"][0]["properties"]["station name"] == "D2"

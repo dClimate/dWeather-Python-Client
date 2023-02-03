@@ -1166,6 +1166,26 @@ class ForecastDataset(GriddedDataset):
 
         return (float(ret_lat), float(ret_lon)), pd.Series(weather_dict)
 
+class StationForecastDataset(ForecastDataset):
+    """
+    Instantiable class for pulling in station data that is also forecast data. 
+    Currently the datasets that meet this style are: cme_futures
+    """
+    @property
+    def dataset(self):
+        return self._dataset
+    
+    def __init__(self, dataset, **kwargs):
+        super().__init__(dataset, 1)
+        self.head = get_heads()[self.dataset]
+    
+    def get_data(self, station, forecast_date):
+        relevant_hash = self.get_relevant_hash(forecast_date)
+        return self.get_file_object(f"{relevant_hash}/{station}.csv").read().decode("utf-8")
+
+    def get_stations(self, forecast_date):
+        relevant_hash = self.get_relevant_hash(forecast_date)
+        return self.get_file_object(f"{relevant_hash}/stations.json").read().decode("utf-8")
 
 class TeleconnectionsDataset(IpfsDataset):
     """

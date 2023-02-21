@@ -9,7 +9,7 @@ from dweather_client.aliases_and_units import \
 from dweather_client.struct_utils import tupleify, convert_nans_to_none
 import datetime
 import pytz
-import csv
+import csv, json
 import inspect
 import numpy as np
 import pandas as pd
@@ -18,7 +18,7 @@ from timezonefinder import TimezoneFinder
 from dweather_client import gridded_datasets
 from dweather_client.storms_datasets import IbtracsDataset, AtcfDataset, SimulatedStormsDataset
 from dweather_client.ipfs_queries import AustraliaBomStations, CedaBiomass, CmeStationsDataset, DutchStationsDataset, DwdStationsDataset, DwdHourlyStationsDataset, GlobalHourlyStationsDataset, JapanStations, StationDataset,\
-    YieldDatasets, FsaIrrigationDataset, AemoPowerDataset, AemoGasDataset, AesoPowerDataset, ForecastDataset, AfrDataset, DroughtMonitor, CwvStations, SpeedwellStations, TeleconnectionsDataset, CsvStationDataset
+    YieldDatasets, FsaIrrigationDataset, AemoPowerDataset, AemoGasDataset, AesoPowerDataset, ForecastDataset, AfrDataset, DroughtMonitor, CwvStations, SpeedwellStations, TeleconnectionsDataset, CsvStationDataset, StationForecastDataset
 from dweather_client.slice_utils import DateRangeRetriever, has_changed
 from dweather_client.ipfs_errors import *
 from io import StringIO
@@ -485,7 +485,6 @@ def get_hourly_station_history(dataset, station_id, weather_variable, use_imperi
         v) for k, v in final_resp_series.to_dict().items()}
     return result
 
-
 def get_csv_station_history(dataset, station_id, weather_variable, use_imperial_units=True, desired_units=None, ipfs_timeout=None):
     """
     This is almost an exact copy of get_hourly_station_history
@@ -579,6 +578,36 @@ def get_csv_station_history(dataset, station_id, weather_variable, use_imperial_
     result = {datetime.datetime.fromisoformat(k): convert_nans_to_none(
         v) for k, v in final_resp_series.to_dict().items()}
     return result
+
+def get_station_forecast_history(dataset, station_id, forecast_date, desired_units=None, ipfs_timeout=None):
+    try: 
+        with StationForecastDataset(dataset, ipfs_timeout=ipfs_timeout) as dataset_obj:
+            csv_text = dataset_obj.get_data(station_id, forecast_date)
+            history = {}
+            reader = csv.reader(csv_text.split('\n'))
+            headers = next(reader)
+            date_col = headers.index('DATE')
+            try:  # Make sure weather variable is correct.
+                data_col = headers.index("SETT") #at the moment the only variable is "SETT"
+            except ValueError:
+                raise WeatherVariableNotFoundError("Invalid weather variable for this station")
+            for row in reader:
+                try:
+                    if not row:
+                        continue
+                    history[datetime.datetime.strptime(
+                        row[date_col], "%Y-%m-%d").date()] = float(row[data_col])
+                except ValueError:
+                    history[datetime.datetime.strptime(
+                        row[date_col], "%Y-%m-%d").date()] = row[data_col]        
+            return history
+    except ipfshttpclient.exceptions.ErrorResponse:
+        raise StationNotFoundError("Invalid station ID for dataset")
+
+def get_station_forecast_stations(dataset, forecast_date, desired_units=None, ipfs_timeout=None):
+    with StationForecastDataset(dataset, ipfs_timeout=ipfs_timeout) as dataset_obj:
+        csv_text = dataset_obj.get_stations(forecast_date)
+        return json.loads(csv_text)
 
 
 def get_european_station_history(dataset, station_id, weather_variable, use_imperial_units=True, desired_units=None, ipfs_timeout=None):
@@ -751,15 +780,6 @@ def get_australia_station_history(station_name, weather_variable, desired_units=
         return final_resp_series.to_dict()
     else:
         return (resp_series * u.Unit(unit)).to_dict()
-
-
-def get_speedwell_station_history(station_name, ipfs_timeout=None):
-    """
-    return:
-        list of dataframes encrypted as strings
-    """
-    with SpeedwellStations(ipfs_timeout=ipfs_timeout) as dataset_obj:
-        return dataset_obj.get_data(station_name)
 
 
 def get_power_history(ipfs_timeout=None):

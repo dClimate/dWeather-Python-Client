@@ -1094,27 +1094,53 @@ class ForecastDataset(GriddedDataset):
         self._interval = interval
         self._con_to_cpc = con_to_cpc
 
+    def get_date_range_from_metadata(self, h):
+        """
+        args:
+        :h: hash for ipfs directory containing metadata
+        return: list of [start_time, end_time]
+        """
+        metadata = self.get_metadata(h)
+        str_dates = (metadata["date range"][0], metadata["date range"][1])
+        return [datetime.date.fromisoformat(dt) for dt in str_dates]
+
+    def get_full_date_range_from_metadata(self, h):
+        """
+        args:
+        :h: hash for ipfs directory containing metadata
+        return: list of [start_time, end_time]
+        """
+        metadata = self.get_metadata(h)
+        str_dates = (metadata["api documentation"]["full date range"][0], metadata["api documentation"]["full date range"][1])
+        return [datetime.datetime.fromisoformat(dt).date() for dt in str_dates]
+
     def get_relevant_hash(self, forecast_date):
         """
         return the ipfs hash required to pull in data for a forecast date
         """
         cur_hash = self.head
         cur_metadata = self.get_metadata(cur_hash)
-        # First confirm the user is not requesting a forecast date outside the available data
-        if forecast_date > cur_metadata["full date range"][1]:
-            raise DateOutOfRangeError(
-                "Forecast date is later than available data")
-        elif forecast_date < cur_metadata["full date range"][0]:
-            raise DateOutOfRangeError(
-                "Forecast date is earlier than available data")
-        # If the forecast date is within the current hash, return it...
-        if cur_metadata["date range"][0] <= forecast_date <= cur_metadata["date range"][1]:
-            return cur_hash
+        cur_date_range = self.get_date_range_from_metadata(cur_hash)
+        try:
+            cur_full_date_range = self.get_full_date_range_from_metadata(cur_hash)
+            # First confirm the user is not requesting a forecast date outside the available data
+            if forecast_date > cur_full_date_range[1]:
+                raise DateOutOfRangeError(
+                    "Forecast date is later than available data")
+            elif forecast_date < cur_full_date_range[0]:
+                raise DateOutOfRangeError(
+                    "Forecast date is earlier than available data")
+            # If the forecast date is within the current hash, return it...
+            if cur_date_range[0] <= forecast_date <= cur_date_range[1]:
+                return cur_hash
+        except KeyError:
+            print("Metadata lacks full date range, skipping check")
         # ...Otherwise, iterate backwards through the link list, returning the current hash if the forecast date falls w/in data available for it.
         # This routine is agnostic to the order of data contained in the hashes (at a cost of inefficiency) -- if the data contains the forecast date, it WILL be found, eventually
         prev_hash = cur_metadata['previous hash']
         while prev_hash is not None:
             prev_metadata = self.get_metadata(prev_hash)
+            prev_date_range = self.get_date_range_from_metadata(prev_hash)
             prev_date_range = [datetime.date.fromisoformat(
                 d) for d in prev_metadata["date range"]]
             if prev_date_range[0] <= forecast_date <= prev_date_range[1]:

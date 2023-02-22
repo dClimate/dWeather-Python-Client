@@ -1145,8 +1145,6 @@ class ForecastDataset(GriddedDataset):
                 return prev_hash
             prev_hash = prev_metadata['previous hash'] # iterate backwards in the link list one step
 
-        # TODO check that it's in the date range if you have stopped
-
         # If this script runs to the end without returning anything or an error, the forecast date must fall in a hole in the data
         raise DateOutOfRangeError("forecast date unavailable due to holes in data") # NOTE only returns if there are holes in the data
 

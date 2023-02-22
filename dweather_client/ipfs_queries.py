@@ -1094,34 +1094,59 @@ class ForecastDataset(GriddedDataset):
         self._interval = interval
         self._con_to_cpc = con_to_cpc
 
+    def get_date_range_from_metadata(self, h):
+        """
+        args:
+        :h: hash for ipfs directory containing metadata
+        return: list of [start_time, end_time]
+        """
+        metadata = self.get_metadata(h)
+        str_dates = (metadata["date range"][0], metadata["date range"][1])
+        return [datetime.date.fromisoformat(dt) for dt in str_dates]
+
+    def get_full_date_range_from_metadata(self, h):
+        """
+        args:
+        :h: hash for ipfs directory containing metadata
+        return: list of [start_time, end_time]
+        """
+        metadata = self.get_metadata(h)
+        str_dates = (metadata["api documentation"]["full date range"][0], metadata["api documentation"]["full date range"][1])
+        return [datetime.datetime.fromisoformat(dt).date() for dt in str_dates]
+
     def get_relevant_hash(self, forecast_date):
         """
         return the ipfs hash required to pull in data for a forecast date
         """
         cur_hash = self.head
         cur_metadata = self.get_metadata(cur_hash)
-        cur_date_range = [datetime.date.fromisoformat(
-            d) for d in cur_metadata["date range"]]
-        if forecast_date > cur_date_range[1]:
+        cur_date_range = self.get_date_range_from_metadata(cur_hash)
+        cur_full_date_range = self.get_full_date_range_from_metadata(cur_hash)
+        # First confirm the user is not requesting a forecast date outside the available data
+        if forecast_date > cur_full_date_range[1]:
             raise DateOutOfRangeError(
                 "Forecast date is later than available data")
-
-        while forecast_date < cur_date_range[0]:
-            prev_hash = cur_metadata['previous hash']
-            if prev_hash is None:
-                raise DateOutOfRangeError(
-                    "Forecast date is earlier than available data")
-            else:
-                cur_hash = prev_hash
-                cur_metadata = self.get_metadata(cur_hash)
-                cur_date_range = [datetime.date.fromisoformat(
-                    d) for d in cur_metadata["date range"]]
-
-        if forecast_date <= cur_date_range[1]:
-            return cur_hash
-        else:
+        elif forecast_date < cur_full_date_range[0]:
             raise DateOutOfRangeError(
-                "Forecast date not available due to gaps in data")
+                "Forecast date is earlier than available data")
+        # If the forecast date is within the current hash, return it...
+        if cur_date_range[0] <= forecast_date <= cur_date_range[1]:
+            return cur_hash
+        # ...Otherwise, iterate backwards through the link list, returning the current hash if the forecast date falls w/in data available for it.
+        # This routine is agnostic to the order of data contained in the hashes (at a cost of inefficiency) -- if the data contains the forecast date, it WILL be found, eventually
+        prev_hash = cur_metadata['previous hash']
+        while prev_hash is not None:
+            prev_metadata = self.get_metadata(prev_hash)
+            prev_date_range = self.get_date_range_from_metadata(prev_hash)
+            prev_date_range = [datetime.date.fromisoformat(
+                d) for d in prev_metadata["date range"]]
+            if prev_date_range[0] <= forecast_date <= prev_date_range[1]:
+                print(f"User requested {forecast_date}, returning data for date range {prev_date_range} from hash {prev_hash}") # NOTE for testing, TODO remove afterwards
+                return prev_hash
+            prev_hash = prev_metadata['previous hash'] # iterate backwards in the link list one step
+
+        # If this script runs to the end without returning anything or an error, the forecast date must fall in a hole in the data
+        raise DateOutOfRangeError("forecast date unavailable due to holes in data") # NOTE only returns if there are holes in the data
 
     def get_weather_dict(self, forecast_date, ipfs_hash, lat, lon):
         """

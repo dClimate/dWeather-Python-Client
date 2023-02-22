@@ -782,15 +782,6 @@ def get_australia_station_history(station_name, weather_variable, desired_units=
         return (resp_series * u.Unit(unit)).to_dict()
 
 
-def get_speedwell_station_history(station_name, ipfs_timeout=None):
-    """
-    return:
-        list of dataframes encrypted as strings
-    """
-    with SpeedwellStations(ipfs_timeout=ipfs_timeout) as dataset_obj:
-        return dataset_obj.get_data(station_name)
-
-
 def get_power_history(ipfs_timeout=None):
     """
     return:

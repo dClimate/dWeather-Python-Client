@@ -892,7 +892,7 @@ def get_eaufrance_history(station, weather_variable, use_imperial_units=False, d
                     converted_resp_series = pd.Series(
                         converter(df[weather_variable].values*dweather_unit), index=df.index)
                 except ValueError:
-                    raise UnitError("Specified unit is incompatible with original")
+                    raise UnitError(f"Specified unit is incompatible with original, original units are {original_units} and requested units are {desired_units}")
                 if desired_units is not None:
                     rounded_resp_array = np.vectorize(rounding_formula_temperature)(
                         str_resp_series, converted_resp_series)

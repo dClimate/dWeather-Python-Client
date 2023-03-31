@@ -26,6 +26,8 @@ UNIT_ALIASES = {
     "fraction": u.dimensionless_unscaled,
     "percentage": u.pct,
     "mbar": u.def_unit('mbar', u.bar / 1000),
+    "m**3/s": u.m**3 / u.s,
+    "m^3/s": u.m**3 / u.s,
 }
 
 METRIC_TO_IMPERIAL = {
@@ -34,14 +36,17 @@ METRIC_TO_IMPERIAL = {
     u.deg_C: lambda q: q.to(imperial.deg_F, equivalencies=u.temperature()),
     u.K: lambda q: q.to(imperial.deg_F, equivalencies=u.temperature()),
     u.kg / u.m**2: lambda q: q.to(imperial.pound / imperial.ft ** 2),
-    u.m / u.s: lambda q: q.to(imperial.mile / u.hour)
+    u.m / u.s: lambda q: q.to(imperial.mile / u.hour),
+    u.m**3 / u.s: lambda q: q.to(imperial.yard**3 / u.s)
+
 }
 
 IMPERIAL_TO_METRIC = {
     imperial.inch: lambda q: q.to(u.mm),
     imperial.deg_F: lambda q: q.to(u.deg_C, equivalencies=u.temperature()),
     imperial.pound / imperial.ft ** 2: lambda q: q.to(u.kg / u.m**2),
-    imperial.mile / u.hour: lambda q: q.to(u.m / u.s)
+    imperial.mile / u.hour: lambda q: q.to(u.m / u.s),
+    imperial.yard**3 / u.s: lambda q: q.to(u.m**3 / u.s)
 }
 
 STATION_ALIASES_TO_COLUMNS = {
@@ -214,6 +219,8 @@ STATION_UNITS_LOOKUP = {
              'imperialize': lambda m: m.to(imperial.deg_F, equivalencies=u.temperature())},
     'WSF5': {'vectorize': lambda q: (q/10.0) * u.m/u.s,
              'imperialize': lambda q: q.to(imperial.mile/u.hour)},
+    'FLOWRATE': {'vectorize': lambda q: u.m**3/u.s,
+             'imperialize': lambda q: q.to(imperial.yard**3/u.s)},
 }
 
 parent_dir = os.path.dirname(os.path.abspath(__file__))

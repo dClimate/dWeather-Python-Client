@@ -874,7 +874,7 @@ def get_teleconnections_history(weather_variable, ipfs_timeout=None):
                     row[date_col], "%Y-%m-%d").date()] = row[data_col]
         return history
 
-def get_eaufrance_history(station, use_imperial_units=False, desired_units=None, ipfs_timeout=None):
+def get_eaufrance_history(station, weather_variable, use_imperial_units=False, desired_units=None, ipfs_timeout=None):
     try:
         with EauFranceDataset(ipfs_timeout=ipfs_timeout) as dataset_obj:
             csv_text = dataset_obj.get_data(station)
@@ -890,7 +890,7 @@ def get_eaufrance_history(station, use_imperial_units=False, desired_units=None,
             if converter:
                 try:
                     converted_resp_series = pd.Series(
-                        converter(df["FLOWRATE"].values*dweather_unit), index=df.index)
+                        converter(df[weather_variable].values*dweather_unit), index=df.index)
                 except ValueError:
                     raise UnitError("Specified unit is incompatible with original")
                 if desired_units is not None:
@@ -902,7 +902,7 @@ def get_eaufrance_history(station, use_imperial_units=False, desired_units=None,
                     final_resp_series = converted_resp_series
             else:
                 final_resp_series = pd.Series(
-                    df["FLOWRATE"].values*dweather_unit, index=df.index)
+                    df[weather_variable].values*dweather_unit, index=df.index)
             result = {datetime.date.fromisoformat(k): convert_nans_to_none(
                 v) for k, v in final_resp_series.to_dict().items()}
         return result

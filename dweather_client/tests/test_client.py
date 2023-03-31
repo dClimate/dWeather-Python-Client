@@ -492,5 +492,5 @@ def test_forecast_station_stations():
     assert stations["features"][0]["properties"]["station name"] == "D2"
 
 def test_eaufrance_station():
-    history = get_eaufrance_history("V720001002")
+    history = get_eaufrance_history("V720001002", "FLOWRATE")
     assert history[datetime.date(2022,4,2)].value == 749

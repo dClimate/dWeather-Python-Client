@@ -1141,7 +1141,6 @@ class ForecastDataset(GriddedDataset):
             prev_date_range = [datetime.date.fromisoformat(
                 d) for d in prev_metadata["date range"]]
             if prev_date_range[0] <= forecast_date <= prev_date_range[1]:
-                print(f"User requested {forecast_date}, returning data for date range {prev_date_range} from hash {prev_hash}") # NOTE for testing, TODO remove afterwards
                 return prev_hash
             prev_hash = prev_metadata['previous hash'] # iterate backwards in the link list one step
 
@@ -1226,4 +1225,19 @@ class TeleconnectionsDataset(IpfsDataset):
         metadata = self.get_metadata(self.head)
         year_month = metadata["time generated"][:7]
         file_name = f"{self.head}/teleconnections_{year_month}.csv"
+        return self.get_file_object(file_name).read().decode("utf-8")
+
+class EauFranceDataset(IpfsDataset):
+    """
+    Instantiable class used for pulling in el nino teleconnections data 
+    """
+    dataset = "EauFrance-daily"
+
+    def __init__(self, ipfs_timeout=None):
+        super().__init__(ipfs_timeout=ipfs_timeout)
+
+    def get_data(self, station):
+        super().get_data()
+        metadata = self.get_metadata(self.head)
+        file_name = f"{self.head}/{station}.csv"
         return self.get_file_object(file_name).read().decode("utf-8")

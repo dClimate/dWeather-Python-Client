@@ -3,7 +3,7 @@ from dweather_client.tests.mock_fixtures import get_patched_datasets
 from dweather_client.client import get_australia_station_history, get_station_history, get_gridcell_history, get_tropical_storms,\
     get_yield_history, get_irrigation_data, get_power_history, get_gas_history, get_alberta_power_history, GRIDDED_DATASETS, has_dataset_updated,\
     get_forecast_datasets, get_forecast, get_cme_station_history, get_european_station_history, get_hourly_station_history, get_drought_monitor_history, get_japan_station_history,\
-    get_afr_history, get_cwv_station_history, get_teleconnections_history, get_station_forecast_history, get_station_forecast_stations
+    get_afr_history, get_cwv_station_history, get_teleconnections_history, get_station_forecast_history, get_station_forecast_stations, get_eaufrance_history
 from dweather_client.aliases_and_units import snotel_to_ghcnd
 import pandas as pd
 from io import StringIO
@@ -490,3 +490,7 @@ def test_forecast_station_history():
 def test_forecast_station_stations():
     stations = get_station_forecast_stations("cme_futures-daily", datetime.date(2023, 1, 31))
     assert stations["features"][0]["properties"]["station name"] == "D2"
+
+def test_eaufrance_station():
+    history = get_eaufrance_history("V720001002", "FLOWRATE")
+    assert history[datetime.date(2022,4,2)].value == 749

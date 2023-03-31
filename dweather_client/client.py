@@ -17,7 +17,7 @@ from astropy import units as u
 from timezonefinder import TimezoneFinder
 from dweather_client import gridded_datasets
 from dweather_client.storms_datasets import IbtracsDataset, AtcfDataset, SimulatedStormsDataset
-from dweather_client.ipfs_queries import AustraliaBomStations, CedaBiomass, CmeStationsDataset, DutchStationsDataset, DwdStationsDataset, DwdHourlyStationsDataset, GlobalHourlyStationsDataset, JapanStations, StationDataset,\
+from dweather_client.ipfs_queries import AustraliaBomStations, CedaBiomass, CmeStationsDataset, DutchStationsDataset, DwdStationsDataset, DwdHourlyStationsDataset, GlobalHourlyStationsDataset, JapanStations, StationDataset, EauFranceDataset,\
     YieldDatasets, FsaIrrigationDataset, AemoPowerDataset, AemoGasDataset, AesoPowerDataset, ForecastDataset, AfrDataset, DroughtMonitor, CwvStations, SpeedwellStations, TeleconnectionsDataset, CsvStationDataset, StationForecastDataset
 from dweather_client.slice_utils import DateRangeRetriever, has_changed
 from dweather_client.ipfs_errors import *
@@ -847,7 +847,6 @@ def has_dataset_updated(dataset, slices, as_of, ipfs_timeout=None):
         ranges = dataset_obj.get_data(as_of)
     return has_changed(slices, ranges)
 
-
 def get_teleconnections_history(weather_variable, ipfs_timeout=None):
     with TeleconnectionsDataset(ipfs_timeout=ipfs_timeout) as dataset_obj:
         csv_text = dataset_obj.get_data()
@@ -874,3 +873,39 @@ def get_teleconnections_history(weather_variable, ipfs_timeout=None):
                 history[datetime.datetime.strptime(
                     row[date_col], "%Y-%m-%d").date()] = row[data_col]
         return history
+
+def get_eaufrance_history(station, weather_variable, use_imperial_units=False, desired_units=None, ipfs_timeout=None):
+    try:
+        with EauFranceDataset(ipfs_timeout=ipfs_timeout) as dataset_obj:
+            csv_text = dataset_obj.get_data(station)
+            df = pd.read_csv(StringIO(csv_text))
+            df = df.set_index("DATE")
+            original_units = "m^3/s"
+            if desired_units:
+                converter, dweather_unit = get_unit_converter_no_aliases(
+                    original_units, desired_units)
+            else:
+                converter, dweather_unit = get_unit_converter(
+                    original_units, use_imperial_units)
+            if converter:
+                try:
+                    converted_resp_series = pd.Series(
+                        converter(df[weather_variable].values*dweather_unit), index=df.index)
+                except ValueError:
+                    raise UnitError(f"Specified unit is incompatible with original, original units are {original_units} and requested units are {desired_units}")
+                if desired_units is not None:
+                    rounded_resp_array = np.vectorize(rounding_formula_temperature)(
+                        str_resp_series, converted_resp_series)
+                    final_resp_series = pd.Series(
+                        rounded_resp_array * converted_resp_series.values.unit, index=df.index)
+                else:
+                    final_resp_series = converted_resp_series
+            else:
+                final_resp_series = pd.Series(
+                    df[weather_variable].values*dweather_unit, index=df.index)
+            result = {datetime.date.fromisoformat(k): convert_nans_to_none(
+                v) for k, v in final_resp_series.to_dict().items()}
+        return result
+    except ipfshttpclient.exceptions.ErrorResponse:
+        raise StationNotFoundError("Invalid station ID for dataset")
+    

@@ -545,10 +545,14 @@ def get_csv_station_history(dataset, station_id, weather_variable, use_imperial_
             "Invalid weather variable for this station")
 
     try:
-        if dataset == "inmet_brazil-hourly":
+        if dataset in ["inmet_brazil-hourly"]:
             with CsvStationDataset(dataset=dataset, ipfs_timeout=ipfs_timeout) as dataset_obj:
                 csv_text_list = [dataset_obj.get_data(
                     station_id, weather_variable)]
+        if dataset in ["ne_iso-hourly"]:
+            with CsvStationDataset(dataset=dataset, ipfs_timeout=ipfs_timeout) as dataset_obj:
+                csv_text_list = dataset_obj.get_data_recursive(
+                    station_id, weather_variable)
         else:
             raise DatasetError("No such dataset in dClimate")
     except ipfshttpclient.exceptions.ErrorResponse:

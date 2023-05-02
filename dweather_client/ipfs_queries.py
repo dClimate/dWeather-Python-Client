@@ -657,12 +657,31 @@ class CsvStationDataset(IpfsDataset):
         super().__init__(ipfs_timeout=ipfs_timeout)
         self._dataset = dataset
 
+    def get_hashes(self):
+        """
+        return: list of all hashes in dataset
+        """
+        hashes = self.traverse_ll(self.head, self.as_of)
+        return list(hashes)
+
     def get_data(self, station, weather_variable=None):
         # only some stations need weather variable
         # so this is an optional arg
         super().get_data()
         file_name = f"{self.head}/{station}.csv"
         return self.get_file_object(file_name).read().decode("utf-8")
+
+    def get_data_recursive(self, station, weather_variable=None):
+        # only some stations need weather variable
+        # so this is an optional arg
+        super().get_data()
+        hashes = self.get_hashes()
+        csv_text_list = []
+        for hash_ in hashes:
+            file_name = f"{hash_}/{station}.csv"
+            csv_text_list.append(self.get_file_object(
+                file_name).read().decode("utf-8"))
+        return csv_text_list
 
 
 class YieldDatasets(IpfsDataset):

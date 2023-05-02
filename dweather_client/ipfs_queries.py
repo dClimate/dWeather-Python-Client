@@ -665,7 +665,7 @@ class CsvStationDataset(IpfsDataset):
         return [self.get_file_object(file_name).read().decode("utf-8")]
 
     def get_data_recursive(self, station, weather_variable=None):
-        hashes = self.traverse_ll(self.head)
+        hashes = super().traverse_ll(self.head)
         ret_list = []
         for h in hashes:
             file_name = f"{h}/{station}.csv"

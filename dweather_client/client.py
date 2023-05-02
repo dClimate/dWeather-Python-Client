@@ -495,6 +495,7 @@ def get_csv_station_history(dataset, station_id, weather_variable, use_imperial_
     instead of the others here in client. That list currently stands at:
 
     -  inmet_brazil-hourly
+    -  ne_iso-hourly
     """
     # Get original units from metadata
     original_units = None
@@ -522,7 +523,7 @@ def get_csv_station_history(dataset, station_id, weather_variable, use_imperial_
     # doesn't exist at all for this dataset
     if original_units == None:
         raise WeatherVariableNotFoundError(
-            "Invalid weather variable for this dataset, none of the stations contain it")
+            f"Invalid weather variable for this dataset {weather_variable}, none of the stations contain it")
 
     # Check each station to see if it has the same station name
     # if none do, then the station is invalid

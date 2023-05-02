@@ -547,12 +547,18 @@ def get_csv_station_history(dataset, station_id, weather_variable, use_imperial_
     try:
         if dataset == "inmet_brazil-hourly":
             with CsvStationDataset(dataset=dataset, ipfs_timeout=ipfs_timeout) as dataset_obj:
-                csv_text = dataset_obj.get_data(station_id, weather_variable)
+                csv_text_list = [dataset_obj.get_data(
+                    station_id, weather_variable)]
         else:
             raise DatasetError("No such dataset in dClimate")
     except ipfshttpclient.exceptions.ErrorResponse:
         raise StationNotFoundError("Invalid station ID for dataset")
-    df = pd.read_csv(StringIO(csv_text))
+
+    # concat together all retrieved station csv texts
+    dfs = []
+    for csv_text in csv_text_list:
+        dfs.append(pd.read_csv(StringIO(csv_text)))
+    df = pd.concat(dfs, ignore_index=True)
     str_resp_series = df[column_name].astype(str)
     df = df.set_index("dt")
     if desired_units:

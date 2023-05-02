@@ -662,16 +662,7 @@ class CsvStationDataset(IpfsDataset):
         # so this is an optional arg
         super().get_data()
         file_name = f"{self.head}/{station}.csv"
-        return [self.get_file_object(file_name).read().decode("utf-8")]
-
-    def get_data_recursive(self, station, weather_variable=None):
-        hashes = super().traverse_ll(self.head)
-        ret_list = []
-        for h in hashes:
-            file_name = f"{h}/{station}.csv"
-            ret_list.append(self.get_file_object(
-                file_name).read().decode("utf-8"))
-        return ret_list
+        return self.get_file_object(file_name).read().decode("utf-8")
 
 
 class YieldDatasets(IpfsDataset):

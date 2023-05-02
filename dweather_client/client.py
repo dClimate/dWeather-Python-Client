@@ -495,7 +495,6 @@ def get_csv_station_history(dataset, station_id, weather_variable, use_imperial_
     instead of the others here in client. That list currently stands at:
 
     -  inmet_brazil-hourly
-    -  ne_iso-hourly
     """
     # Get original units from metadata
     original_units = None
@@ -523,7 +522,7 @@ def get_csv_station_history(dataset, station_id, weather_variable, use_imperial_
     # doesn't exist at all for this dataset
     if original_units == None:
         raise WeatherVariableNotFoundError(
-            f"Invalid weather variable for this dataset {weather_variable}, none of the stations contain it")
+            "Invalid weather variable for this dataset, none of the stations contain it")
 
     # Check each station to see if it has the same station name
     # if none do, then the station is invalid
@@ -546,24 +545,14 @@ def get_csv_station_history(dataset, station_id, weather_variable, use_imperial_
             "Invalid weather variable for this station")
 
     try:
-        if dataset in ["inmet_brazil-hourly"]:
+        if dataset == "inmet_brazil-hourly":
             with CsvStationDataset(dataset=dataset, ipfs_timeout=ipfs_timeout) as dataset_obj:
-                csv_text_list = dataset_obj.get_data(
-                    station_id, weather_variable)
-        if dataset in ["ne_iso-hourly"]:
-            with CsvStationDataset(dataset=dataset, ipfs_timeout=ipfs_timeout) as dataset_obj:
-                csv_text_list = dataset_obj.get_data_recursive(station_id)
+                csv_text = dataset_obj.get_data(station_id, weather_variable)
         else:
             raise DatasetError("No such dataset in dClimate")
     except ipfshttpclient.exceptions.ErrorResponse:
         raise StationNotFoundError("Invalid station ID for dataset")
-
-    # Create df from all individual files
-    dfs = []
-    for csv_text in csv_text_list:
-        dfs.append(pd.read_csv(StringIO(csv_text)))
-
-    df = pd.concat(dfs, ignore_index=True)
+    df = pd.read_csv(StringIO(csv_text))
     str_resp_series = df[column_name].astype(str)
     df = df.set_index("dt")
     if desired_units:

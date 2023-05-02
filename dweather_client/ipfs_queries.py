@@ -675,6 +675,8 @@ class CsvStationDataset(IpfsDataset):
         # only some stations need weather variable
         # so this is an optional arg
         super().get_data()
+        # get all hashes and then effectively just use get_data
+        # recursively to get a full list of csvs
         hashes = self.get_hashes()
         csv_text_list = []
         for hash_ in hashes:

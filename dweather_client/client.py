@@ -545,10 +545,12 @@ def get_csv_station_history(dataset, station_id, weather_variable, use_imperial_
             "Invalid weather variable for this station")
 
     try:
+        # RawSet style where we only want the most recent file
         if dataset in ["inmet_brazil-hourly"]:
             with CsvStationDataset(dataset=dataset, ipfs_timeout=ipfs_timeout) as dataset_obj:
                 csv_text_list = [dataset_obj.get_data(
                     station_id, weather_variable)]
+        # ClimateSet style where we need the entire linked list history
         elif dataset in ["ne_iso-hourly"]:
             with CsvStationDataset(dataset=dataset, ipfs_timeout=ipfs_timeout) as dataset_obj:
                 csv_text_list = dataset_obj.get_data_recursive(

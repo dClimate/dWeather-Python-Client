@@ -657,12 +657,33 @@ class CsvStationDataset(IpfsDataset):
         super().__init__(ipfs_timeout=ipfs_timeout)
         self._dataset = dataset
 
+    def get_hashes(self):
+        """
+        return: list of all hashes in dataset
+        """
+        hashes = self.traverse_ll(self.head, self.as_of)
+        return list(hashes)
+
     def get_data(self, station, weather_variable=None):
         # only some stations need weather variable
         # so this is an optional arg
         super().get_data()
         file_name = f"{self.head}/{station}.csv"
         return self.get_file_object(file_name).read().decode("utf-8")
+
+    def get_data_recursive(self, station, weather_variable=None):
+        # only some stations need weather variable
+        # so this is an optional arg
+        super().get_data()
+        # get all hashes and then effectively just use get_data
+        # recursively to get a full list of csvs
+        hashes = self.get_hashes()
+        csv_text_list = []
+        for hash_ in hashes:
+            file_name = f"{hash_}/{station}.csv"
+            csv_text_list.append(self.get_file_object(
+                file_name).read().decode("utf-8"))
+        return csv_text_list
 
 
 class YieldDatasets(IpfsDataset):
@@ -1111,7 +1132,8 @@ class ForecastDataset(GriddedDataset):
         return: list of [start_time, end_time]
         """
         metadata = self.get_metadata(h)
-        str_dates = (metadata["api documentation"]["full date range"][0], metadata["api documentation"]["full date range"][1])
+        str_dates = (metadata["api documentation"]["full date range"]
+                     [0], metadata["api documentation"]["full date range"][1])
         return [datetime.datetime.fromisoformat(dt).date() for dt in str_dates]
 
     def get_relevant_hash(self, forecast_date):
@@ -1142,10 +1164,13 @@ class ForecastDataset(GriddedDataset):
                 d) for d in prev_metadata["date range"]]
             if prev_date_range[0] <= forecast_date <= prev_date_range[1]:
                 return prev_hash
-            prev_hash = prev_metadata['previous hash'] # iterate backwards in the link list one step
+            # iterate backwards in the link list one step
+            prev_hash = prev_metadata['previous hash']
 
         # If this script runs to the end without returning anything or an error, the forecast date must fall in a hole in the data
-        raise DateOutOfRangeError("forecast date unavailable due to holes in data") # NOTE only returns if there are holes in the data
+        # NOTE only returns if there are holes in the data
+        raise DateOutOfRangeError(
+            "forecast date unavailable due to holes in data")
 
     def get_weather_dict(self, forecast_date, ipfs_hash, lat, lon):
         """
@@ -1190,6 +1215,7 @@ class ForecastDataset(GriddedDataset):
 
         return (float(ret_lat), float(ret_lon)), pd.Series(weather_dict)
 
+
 class StationForecastDataset(ForecastDataset):
     """
     Instantiable class for pulling in station data that is also forecast data. 
@@ -1198,11 +1224,11 @@ class StationForecastDataset(ForecastDataset):
     @property
     def dataset(self):
         return self._dataset
-    
+
     def __init__(self, dataset, **kwargs):
         super().__init__(dataset, 1)
         self.head = get_heads()[self.dataset]
-    
+
     def get_data(self, station, forecast_date):
         relevant_hash = self.get_relevant_hash(forecast_date)
         return self.get_file_object(f"{relevant_hash}/{station}.csv").read().decode("utf-8")
@@ -1210,6 +1236,7 @@ class StationForecastDataset(ForecastDataset):
     def get_stations(self, forecast_date):
         relevant_hash = self.get_relevant_hash(forecast_date)
         return self.get_file_object(f"{relevant_hash}/stations.json").read().decode("utf-8")
+
 
 class TeleconnectionsDataset(IpfsDataset):
     """
@@ -1226,6 +1253,7 @@ class TeleconnectionsDataset(IpfsDataset):
         year_month = metadata["time generated"][:7]
         file_name = f"{self.head}/teleconnections_{year_month}.csv"
         return self.get_file_object(file_name).read().decode("utf-8")
+
 
 class EauFranceDataset(IpfsDataset):
     """

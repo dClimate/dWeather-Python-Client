@@ -1247,11 +1247,11 @@ class TeleconnectionsDataset(IpfsDataset):
     def __init__(self, ipfs_timeout=None):
         super().__init__(ipfs_timeout=ipfs_timeout)
 
-    def get_data(self):
+    def get_data(self, station):
         super().get_data()
         metadata = self.get_metadata(self.head)
-        year_month = metadata["time generated"][:7]
-        file_name = f"{self.head}/teleconnections_{year_month}.csv"
+        
+        file_name = f"{self.head}/{station}.csv"
         return self.get_file_object(file_name).read().decode("utf-8")
 
 

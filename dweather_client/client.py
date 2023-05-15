@@ -868,15 +868,16 @@ def has_dataset_updated(dataset, slices, as_of, ipfs_timeout=None):
 
 def get_teleconnections_history(weather_variable, ipfs_timeout=None):
     with TeleconnectionsDataset(ipfs_timeout=ipfs_timeout) as dataset_obj:
-        try:
-            csv_text = dataset_obj.get_data(weather_variable)
-        except ValueError:
-            raise WeatherVariableNotFoundError(
-                "Invalid weather variable for this station")
+        csv_text = dataset_obj.get_data(weather_variable)
         history = {}
         reader = csv.reader(csv_text.split('\n'))
         headers = next(reader)
         date_col = headers.index('DATE')
+        try:
+            data_col=headers.index(weather_variable)
+        except ValueError:
+            raise WeatherVariableNotFoundError(
+                "Invalid weather variable for this station")
         for row in reader:
             try:
                 if row[data_col] == '':

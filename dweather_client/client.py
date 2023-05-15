@@ -874,7 +874,7 @@ def get_teleconnections_history(weather_variable, ipfs_timeout=None):
         headers = next(reader)
         date_col = headers.index('DATE')
         try:
-            data_col=headers.index(weather_variable)
+            data_col=headers.index("value")
         except ValueError:
             raise WeatherVariableNotFoundError(
                 "Invalid weather variable for this station")

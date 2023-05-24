@@ -7,6 +7,8 @@ import pandas as pd
 
 from dweather_client.df_utils import boxed_storms, nearby_storms
 from dweather_client.ipfs_queries import IpfsDataset
+from dweather_client.ipfs_errors import *
+
 
 def process_df(input_df, **kwargs):
     if {'radius', 'lat', 'lon'}.issubset(kwargs.keys()):

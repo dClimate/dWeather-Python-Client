@@ -1,5 +1,6 @@
 import gzip
 import json
+import datetime
 from abc import abstractmethod
 
 import pandas as pd
@@ -23,7 +24,8 @@ class IbtracsDataset(IpfsDataset):
         if basin not in {'NI', 'SI', 'NA', 'EP', 'WP', 'SP', 'SA'}:
             raise ValueError("Invalid basin ID")
         super().get_data()
-        file_obj = self.get_file_object(f"{self.head}/ibtracs-{basin}.csv.gz")
+        ipfs_hash = self.get_relevant_hash(kwargs["as_of"])
+        file_obj = self.get_file_object(f"{ipfs_hash}/ibtracs-{basin}.csv.gz")
         df = pd.read_csv(
             file_obj, na_values=["", " "], keep_default_na=False, low_memory=False, compression="gzip"
         )
@@ -39,6 +41,34 @@ class IbtracsDataset(IpfsDataset):
         del processed_df["ISO_TIME"]
 
         return processed_df
+
+    def get_relevant_hash(self, as_of_date):
+        """
+        return the ipfs hash required to pull in data for a forecast date
+        """
+        cur_hash = self.head
+        if as_of_date == None:
+            return cur_hash
+        cur_metadata = self.get_metadata(cur_hash)
+        # This routine is agnostic to the order of data contained in the hashes (at a cost of inefficiency) -- if the data contains the forecast date, it WILL be found, eventually
+        most_recent_date = datetime.datetime.fromisoformat(cur_metadata["time generated"]).date()
+        if as_of_date >= most_recent_date:
+            return cur_hash
+        prev_hash = cur_metadata['previous hash']
+        while prev_hash is not None:
+            prev_metadata = self.get_metadata(prev_hash)
+            prev_date = datetime.datetime.fromisoformat(prev_metadata["time generated"]).date()
+            if prev_date <= as_of_date <= most_recent_date:
+                return prev_hash
+            # iterate backwards in the link list one step
+            try:
+                prev_hash = prev_metadata['previous hash']
+                most_recent_date = prev_date
+            except KeyError:
+                # Because we added the as_of after a while to this ETL prev_hash won't be 'None' we'll just run into an exception
+                raise DateOutOfRangeError(
+                    "as_of data is earlier than earliest available hash")
+
 
 class AtcfDataset(IpfsDataset):
     dataset = "atcf_btk-seasonal"

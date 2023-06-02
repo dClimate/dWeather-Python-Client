@@ -360,6 +360,11 @@ def test_historical_storms():
     assert len(df_subset_box_na) < len(df_all_na)
 
 
+def test_hist_storm_as_of():
+    df_all_na = get_tropical_storms(
+        'historical', 'NA', as_of=datetime.date(2023, 5, 20), ipfs_timeout=IPFS_TIMEOUT) # This will throw an exception if there's ever a break in the chain
+
+
 def test_yields():
     df = pd.read_csv(StringIO(get_yield_history(
         "0041", "12", "073", ipfs_timeout=IPFS_TIMEOUT)))

@@ -247,6 +247,7 @@ def get_tropical_storms(
         min_lon=None,
         max_lat=None,
         max_lon=None,
+        as_of=None,
         ipfs_timeout=None):
     """
     return:
@@ -289,11 +290,11 @@ def get_tropical_storms(
 
     with cm as storm_getter:
         if radius:
-            return storm_getter.get_data(basin, radius=radius, lat=lat, lon=lon)
+            return storm_getter.get_data(basin, radius=radius, lat=lat, lon=lon, as_of=as_of)
         elif min_lat:
-            return storm_getter.get_data(basin, min_lat=min_lat, min_lon=min_lon, max_lat=max_lat, max_lon=max_lon)
+            return storm_getter.get_data(basin, min_lat=min_lat, min_lon=min_lon, max_lat=max_lat, max_lon=max_lon, as_of=as_of)
         else:
-            return storm_getter.get_data(basin)
+            return storm_getter.get_data(basin, as_of=as_of)
 
 
 def get_station_history(

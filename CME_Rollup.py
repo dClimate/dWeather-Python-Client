@@ -12,7 +12,9 @@ import datetime
 from astropy import units as u
 from astropy.units import imperial
 import pytest
+import os
 import csv
+data_directory = os.getcwd()
 
 if __name__ == '__main__':
     #cme_futures_obj = StationForecastDataset("cme_futures-daily", ipfs_timeout=ipfs_timeout)
@@ -58,11 +60,11 @@ if __name__ == '__main__':
         data["hashes"] = data["hashes"][:-1]
 
     # Print the station data dictionary in the desired format
-    filename = 'station_table.csv'
-    with open(filename, 'w', newline='') as file:
-        writer = csv.writer(file)
-        writer.writerow(["DATE", "SETT", "forecast_date"])
-        for station_key, data in station_data_dictionary.items():
+    for station_key, data in station_data_dictionary.items():
+        station_filename = f"{station_key}_table.csv"  # Generate a filename based on the station name
+        with open(station_filename, 'w', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerow(["DATE", "SETT", "forecast_date"])
             for hash_value, previous_hash, forecast_date in zip(data["hashes"], data["previous_hashes"], data["forecast_dates"]):
                 df = dataframes[station_key][hash_value]
                 for _, row in df.iterrows():
@@ -70,10 +72,13 @@ if __name__ == '__main__':
                     sett = str(row['SETT'])
                     forecast_date = str(forecast_date)
                     writer.writerow([date, sett, forecast_date])
-    
-    data = pd.read_csv(filename)
-    data.to_csv('station_table_new.csv',index=False, columns=["DATE", "SETT", "forecast_date"])
-    data_modified = pd.read_csv('station_table_new.csv')
+    station_data = {}
+    for file_station_key, data in station_data_dictionary.items():
+        station_filename = f"{file_station_key}_table.csv"  # Generate the filename of the CSV file
+        file_path = os.path.join(data_directory, station_filename)  # Create the full file path
+        station_data[file_station_key] = pd.read_csv(file_path)
+
+
     import ipdb;ipdb.set_trace()
 
     

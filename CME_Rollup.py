@@ -33,7 +33,7 @@ if __name__ == '__main__':
             
             csv_text = cme_futures_obj.get_data(station_name, (current_datetime))
             df = pd.read_csv(StringIO(csv_text))
-            df['forecast_date'] = current_datetime
+            df['forecasted_dt'] = current_datetime.strftime("%Y-%m")
             if station_name not in station_data_dictionary:
                 station_data_dictionary[station_name] = {
                     "hashes": [current_head],
@@ -64,19 +64,24 @@ if __name__ == '__main__':
         station_filename = f"{station_key}_table.csv"  # Generate a filename based on the station name
         with open(station_filename, 'w', newline='') as file:
             writer = csv.writer(file)
-            writer.writerow(["DATE", "SETT", "forecast_date"])
+            writer.writerow(["forecasted_dt", "SETT", "dt"])
             for hash_value, previous_hash, forecast_date in zip(data["hashes"], data["previous_hashes"], data["forecast_dates"]):
                 df = dataframes[station_key][hash_value]
                 for _, row in df.iterrows():
-                    date = str(row['DATE'])
+                    forecasted_dt = str(row['forecasted_dt'])
                     sett = str(row['SETT'])
-                    forecast_date = str(forecast_date)
-                    writer.writerow([date, sett, forecast_date])
+                    dt = str(forecast_date)
+                    writer.writerow([forecasted_dt, sett, dt])
     station_data = {}
     for file_station_key, data in station_data_dictionary.items():
         station_filename = f"{file_station_key}_table.csv"  # Generate the filename of the CSV file
         file_path = os.path.join(data_directory, station_filename)  # Create the full file path
         station_data[file_station_key] = pd.read_csv(file_path)
+
+    file_station_name = "D2X"
+    station_df = station_data[file_station_name]
+    station_df['dt'] = pd.to_datetime(station_df['dt']).dt.strftime("%Y-%m-%d")
+    print(station_df)
 
 
     import ipdb;ipdb.set_trace()

@@ -19,7 +19,7 @@ from timezonefinder import TimezoneFinder
 from dweather_client import gridded_datasets
 from dweather_client.storms_datasets import IbtracsDataset, AtcfDataset, SimulatedStormsDataset
 from dweather_client.ipfs_queries import AustraliaBomStations, CedaBiomass, CmeStationsDataset, DutchStationsDataset, DwdStationsDataset, DwdHourlyStationsDataset, GlobalHourlyStationsDataset, JapanStations, StationDataset, EauFranceDataset,\
-    YieldDatasets, FsaIrrigationDataset, AemoPowerDataset, AemoGasDataset, AesoPowerDataset, ForecastDataset, AfrDataset, DroughtMonitor, CwvStations, SpeedwellStations, TeleconnectionsDataset, CsvStationDataset, StationForecastDataset
+    YieldDatasets, FsaIrrigationDataset, AemoPowerDataset, AemoGasDataset, AesoPowerDataset, ForecastDataset, AfrDataset, DroughtMonitor, CwvStations, SpeedwellStations, TeleconnectionsDataset, CsvStationDataset, StationForecastDataset, SapStations
 from dweather_client.slice_utils import DateRangeRetriever, has_changed
 from dweather_client.ipfs_errors import *
 from io import StringIO
@@ -771,6 +771,19 @@ def get_cwv_station_history(station_name, as_of=None, ipfs_timeout=None):
     return (resp_series * u.dimensionless_unscaled).to_dict()
 
 
+def get_sap_station_history(as_of=None, ipfs_timeout=None):
+    """
+    return:
+        dict with datetime keys and sap Quantities as values
+    """
+    metadata = get_metadata(get_heads()["sap-daily"])
+    with SapStations(ipfs_timeout=ipfs_timeout, as_of=as_of) as dataset_obj:
+        str_resp_series = dataset_obj.get_data()
+    resp_series = str_resp_series.astype(float)
+    # SAP uses financial units, best to return unscaled
+    return (resp_series * u.dimensionless_unscaled).to_dict()
+
+
 def get_australia_station_history(station_name, weather_variable, desired_units=None, as_of=None, ipfs_timeout=None):
     """
     return:
@@ -875,7 +888,7 @@ def get_teleconnections_history(weather_variable, ipfs_timeout=None):
         headers = next(reader)
         date_col = headers.index('DATE')
         try:
-            data_col=headers.index("value")
+            data_col = headers.index("value")
         except ValueError:
             raise WeatherVariableNotFoundError(
                 "Invalid weather variable for this station")

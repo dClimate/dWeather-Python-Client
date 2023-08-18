@@ -156,3 +156,4 @@ with zipfile.ZipFile(output_zip_file, 'w', zipfile.ZIP_DEFLATED) as output_zip_f
 
 			# write the file to the zip file
 			output_zip_file_ref.write(data_csv_file, os.path.relpath(data_csv_file, output_folder))
+			

@@ -1219,8 +1219,9 @@ class ForecastDataset(GriddedDataset):
             file_name = f"{forecast_date.strftime('%Y%m%d')}_{lat:.2f}_{lon:.2f}"
             with zi.open(file_name) as f:
                 vals = f.read().decode("utf-8").split(',')
+                start_hour = 1 if "gfs" in self._dataset else 0
                 start_datetime = datetime.datetime(
-                    forecast_date.year, forecast_date.month, forecast_date.day)
+                    forecast_date.year, forecast_date.month, forecast_date.day, hour=start_hour)
                 for i, val in enumerate(vals):
                     ret[start_datetime +
                         datetime.timedelta(hours=i*self._interval)] = val

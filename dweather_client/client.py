@@ -18,8 +18,8 @@ from astropy import units as u
 from timezonefinder import TimezoneFinder
 from dweather_client import gridded_datasets
 from dweather_client.storms_datasets import IbtracsDataset, AtcfDataset, SimulatedStormsDataset
-from dweather_client.ipfs_queries import AustraliaBomStations, CedaBiomass, CmeStationsDataset, DutchStationsDataset, DwdStationsDataset, DwdHourlyStationsDataset, GlobalHourlyStationsDataset, JapanStations, StationDataset, EauFranceDataset,\
-    YieldDatasets, FsaIrrigationDataset, AemoPowerDataset, AemoGasDataset, AesoPowerDataset, ForecastDataset, AfrDataset, DroughtMonitor, CwvStations, SpeedwellStations, TeleconnectionsDataset, CsvStationDataset, StationForecastDataset, SapStations
+from dweather_client.ipfs_queries import AustraliaBomStations, CedaBiomass, CmeStationsDataset, DutchStationsDataset, DwdStationsDataset, DwdHourlyStationsDataset, GlobalHourlyStationsDataset, JapanStations, StationDataset, EauFranceDataset, \
+    YieldDatasets, FsaIrrigationDataset, AemoPowerDataset, AemoGasDataset, AesoPowerDataset, ForecastDataset, AfrDataset, DroughtMonitor, CwvStations, SpeedwellStations, TeleconnectionsDataset, CsvStationDataset, StationForecastDataset, SapStations, NQH2ODataset
 from dweather_client.slice_utils import DateRangeRetriever, has_changed
 from dweather_client.ipfs_errors import *
 from io import StringIO
@@ -868,6 +868,11 @@ def get_ceda_biomass(year, lat, lon, unit, ipfs_timeout=None):
 
 def get_afr_history(ipfs_timeout=None):
     with AfrDataset(ipfs_timeout=ipfs_timeout) as dataset_obj:
+        return dataset_obj.get_data()
+
+
+def get_nqh2o_history(ipfs_timeout=None):
+    with NQH2ODataset(ipfs_timeout=ipfs_timeout) as dataset_obj:
         return dataset_obj.get_data()
 
 

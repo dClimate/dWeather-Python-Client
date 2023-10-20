@@ -1105,6 +1105,21 @@ class AfrDataset(IpfsDataset):
         return ret_dict
 
 
+class NQH2ODataset(IpfsDataset):
+    @property
+    def dataset(self):
+        return "NQH2O-weekly"
+
+    def get_data(self):
+        super().get_data()
+        hashes = self.traverse_ll(self.head)
+        ret_dict = {}
+        for h in hashes:
+            f = self.get_file_object(f"{h}/NQH2O.json")
+            ret_dict = {**ret_dict, **json.load(f)}
+        return ret_dict
+
+
 class CedaBiomass(IpfsDataset):
     """
     Instantiable class to pull CEDA biomass data

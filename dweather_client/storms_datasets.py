@@ -31,14 +31,20 @@ class IbtracsDataset(IpfsDataset):
         df = pd.read_csv(
             file_obj, na_values=["", " "], keep_default_na=False, low_memory=False, compression="gzip"
         )
+        direction_row = df[0:1] # We remove the direction row when doing manipulations of the data
         df = df[1:]
+        direction_row["lat"] = direction_row["LAT"]
+        direction_row["lon"] = direction_row["LON"]
+        del direction_row["LAT"]
+        del direction_row["LON"]
+
         df["lat"] = df.LAT.astype(float)
         df["lon"] = df.LON.astype(float)
         del df["LAT"]
         del df["LON"]
-
+        
         processed_df = process_df(df, **kwargs)
-
+        processed_df = pd.concat([direction_row, processed_df]).reset_index(drop = True)
         processed_df["HOUR"] = pd.to_datetime(processed_df["ISO_TIME"])
         del processed_df["ISO_TIME"]
 

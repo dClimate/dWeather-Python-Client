@@ -1,11 +1,13 @@
 """
 Queries associated with the https protocol option.
 """
-import os, pickle, math, requests, datetime, io, gzip, json, logging, csv, tarfile
+import os, pickle, math, requests, datetime, io, gzip, json, logging, csv, tarfile, pathlib
 from collections import Counter, deque
+import ipfshttpclient
 from dweather_client.ipfs_errors import *
 
 GATEWAY_URL = 'https://gateway.arbolmarket.com'
+PATH_TO_HEADS = (pathlib.Path().home() / "heads.json").resolve()
 
 def get_heads(url=GATEWAY_URL):
     """
@@ -22,10 +24,12 @@ def get_heads(url=GATEWAY_URL):
             'cpc_us-monthly': 'Qm...'
         }
     """
-    hashes_url = url + "/climate/hashes/heads.json"
-    r = requests.get(hashes_url)
-    r.raise_for_status()
-    return r.json()
+    # hashes_url = url + "/climate/hashes/heads.json"
+    # r = requests.get(hashes_url)
+    # r.raise_for_status()
+    # return r.json()
+    with open(PATH_TO_HEADS) as f:
+        return json.load(f)
 
 def get_metadata(hash_str, url=GATEWAY_URL):
     """
@@ -55,10 +59,12 @@ def get_metadata(hash_str, url=GATEWAY_URL):
             'year delimiter': '\n'
         }
     """
-    metadata_url = "%s/ipfs/%s/metadata.json" % (url, hash_str)
-    r = requests.get(metadata_url)
-    r.raise_for_status()
-    return r.json()
+    # metadata_url = "%s/ipfs/%s/metadata.json" % (url, hash_str)
+    # r = requests.get(metadata_url)
+    # r.raise_for_status()
+    # return r.json()
+    metadata = ipfshttpclient.connect().cat(f"{hash_str}/metadata.json").decode('utf-8')
+    return json.loads(metadata)
 
 def get_stations_metadata(hash_str, url=GATEWAY_URL):
     """
@@ -67,10 +73,12 @@ def get_stations_metadata(hash_str, url=GATEWAY_URL):
         url (str): the url of the IPFS server
         hash_str (str): the hash of the ipfs dataset
     """
-    stations_url = "%s/ipfs/%s/stations.json" % (url, hash_str)
-    r = requests.get(stations_url)
-    r.raise_for_status()
-    return r.json()
+    # stations_url = "%s/ipfs/%s/stations.json" % (url, hash_str)
+    # r = requests.get(stations_url)
+    # r.raise_for_status()
+    # return r.json()
+    metadata = ipfshttpclient.connect().cat(f"{hash_str}/stations.json").decode('utf-8')
+    return json.loads(metadata)
 
 def get_hash_cell(hash_str, coord_str, url=GATEWAY_URL):
     """
